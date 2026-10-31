@@ -371,6 +371,29 @@ def main():
         assert audio(other)['paused']
         playing(other)
         report['checks']['repairedBrowserCreatesFreshAudioGraph']=True
+        # Exhaust the usable master list with an actual newly-prepared broken
+        # asset. Terminal acknowledgement must not stop silent lease heartbeats.
+        for entry in snap(admin)['master']:
+            cmd(admin, 'master.remove', {'entryId': entry['id']})
+        idle_master = cmd(admin, 'master.add', {'url': 'fixture:request'})['entryId']
+        until(lambda: next(x for x in snap(admin)['master'] if x['id']==idle_master)['status']=='ready', 60)
+        asset = [a for a in http(worker_url+'/api/status')['assets'] if a['source']=='fixture:request'][-1]
+        broken = work/'worker'/'assets'/asset['id']/asset['file']
+        held = broken.with_suffix('.held')
+        broken.rename(held)
+        try:
+            cmd(admin, 'playback.play')
+            until(lambda: next(x for x in snap(admin)['master'] if x['id']==idle_master)['status']=='unusable', 25)
+            idle_generation = audio(other)['generation']
+            assert idle_generation and audio(other)['paused']
+            time.sleep(16)
+            assert audio(other)['generation']==idle_generation and audio(other)['paused']
+            assert snap()['playback']['observed']['status']=='paused'
+            events = admin.execute_async_script("fetch('/api/v1/events?after=0').then(r=>r.json()).then(arguments[0])")['events']
+            assert len([e for e in events if e['type']=='player.error' and e['data'].get('entryId')==idle_master])==2
+        finally:
+            held.rename(broken)
+        report['checks']['exhaustedMasterStaysSilentAndRenewsWithoutRepeatedErrors']=True
         report['events'] = admin.execute_async_script("fetch('/api/v1/events?after=0').then(r=>r.json()).then(arguments[0])")['events']
         report['result']='passed'
     except Exception as error:

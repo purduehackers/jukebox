@@ -149,7 +149,11 @@ export class PlayerController {
     }
     if (snapshot.desired && this.desired && snapshot.desired.epoch < this.desired.epoch) return;
     this.desired = snapshot.desired ?? null;
-    if (!this.desired) { this.audio.pause(); publishAnalyser(null); }
+    if (!this.desired) {
+      this.audio.pause();
+      publishAnalyser(null);
+      this.update({ status: this.state.activated ? 'paused' : 'needs_activation' });
+    }
     void this.reconcile();
   }
 
@@ -223,6 +227,7 @@ export class PlayerController {
         await this.mediaEvent('loadedmetadata', () => { this.audio.src = desired.asset.url; this.audio.load(); });
       }
       if (seek) {
+        this.terminalSent = false;
         const target = Math.min(desired.startPositionSec, Math.max(0, this.audio.duration - .01));
         if (Math.abs(position(this.audio) - target) > .001) await this.mediaEvent('seeked', () => { this.audio.currentTime = target; });
         if (Math.abs(position(this.audio) - target) > .35) throw new Error('Seek exceeded 350ms tolerance');
@@ -259,12 +264,14 @@ export class PlayerController {
   }
 
   private async report() {
-    if (!this.live() || this.terminalSent) return;
+    if (!this.live()) return;
     if (this.reporting) { this.reportAgain = true; return; }
     this.reporting = true;
     const generation = this.state.generation!;
     const previous = this.previous;
-    const status = !this.busy && this.state.activated && !['error', 'needs_activation'].includes(this.state.status)
+    // Keep renewing a silent player's lease after a terminal acknowledgement,
+    // without replaying ended/error into the scheduler on every heartbeat.
+    const status = this.terminalSent ? this.state.activated ? 'paused' : 'needs_activation' : !this.busy && this.state.activated && !['error', 'needs_activation'].includes(this.state.status)
       ? this.audio.ended ? 'ended' : this.audio.paused ? 'paused' : this.audio.readyState < 3 ? 'buffering' : 'playing'
       : this.state.status;
     const payload: PlayerReport = {
@@ -283,7 +290,7 @@ export class PlayerController {
       if (!this.live()) { this.halt('Report arrived after local lease expiry. Claim again.'); return; }
       this.renew(start, wall);
       if (this.previous === previous) this.previous = undefined;
-      if (this.applied?.loadId === payload.loadId && this.state.epoch === payload.epoch && ['ended', 'error'].includes(status)) this.terminalSent = true;
+      if (this.state.loadId === payload.loadId && this.applied?.loadId === payload.loadId && this.state.epoch === payload.epoch && ['ended', 'error'].includes(status)) this.terminalSent = true;
       // Position-only reports do not emit SSE revisions; refresh the current desired
       // state after every acknowledgement, including terminal transitions.
       await this.refresh();
