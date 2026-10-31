@@ -1,0 +1,67 @@
+/* Phone-first attendee page. Dashboard tokens come from shared/tokens.css; sharp panels,
+   thin purple borders, black surfaces. Touch targets are at least 44px. */
+.q-page {
+  box-sizing: border-box;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 1rem 1rem 3rem;
+  display: grid;
+  gap: 1rem;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+.q-head h1 { margin: 0; font-size: 2rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--jb-yellow); }
+.q-sub, .q-dim, .q-foot { color: color-mix(in srgb, var(--jb-foreground) 70%, transparent); }
+.q-page p { margin: 0.35rem 0; }
+.q-page h2 { margin: 0 0 0.5rem; font-size: 1.1rem; color: var(--jb-pink); }
+.q-panel { border: 1px solid var(--jb-purple); background: var(--jb-canvas); padding: 1rem; }
+.q-success { border-color: var(--jb-yellow); }
+.q-account { margin: 0; font-size: 0.9rem; }
+.q-link { background: none; border: 0; padding: 0.5rem 0; color: var(--jb-yellow); font: inherit; text-decoration: underline; cursor: pointer; min-height: 44px; }
+label { display: block; margin-bottom: 0.4rem; font-size: 0.9rem; }
+input[type='url'] {
+  box-sizing: border-box; width: 100%; min-height: 48px; padding: 0.6rem; margin-bottom: 0.6rem;
+  background: var(--jb-background); color: var(--jb-foreground); border: 1px solid var(--jb-purple); border-radius: 0;
+  font: inherit; font-size: 1rem; /* 16px+ stops iOS from zooming on focus */
+}
+input[type='url']:focus-visible, .q-button:focus-visible, .q-link:focus-visible { outline: 2px solid var(--jb-yellow); outline-offset: 2px; }
+.q-button {
+  display: inline-block; box-sizing: border-box; min-height: 48px; padding: 0.6rem 1rem; border: 1px solid var(--jb-purple);
+  background: var(--jb-background); color: var(--jb-foreground); font: inherit; text-decoration: none; text-align: center; cursor: pointer; border-radius: 0;
+}
+.q-button:hover:not(:disabled) { border-color: var(--jb-yellow); }
+.q-button:disabled { opacity: 0.5; cursor: not-allowed; }
+.q-primary { background: var(--jb-yellow); color: #000; border-color: var(--jb-yellow); width: 100%; margin-top: 0.75rem; font-weight: 700; }
+.q-small { min-height: 44px; padding: 0.4rem 0.7rem; white-space: nowrap; }
+.q-note { border: 1px solid var(--jb-purple); padding: 0.75rem; margin-top: 0.75rem; }
+.q-note p { margin: 0.25rem 0 0; }
+.q-warn { border-color: var(--jb-amber); }
+.q-error { border-color: #ff6b6b; }
+.q-info { border-color: var(--jb-pink); }
+.q-allowance { display: flex; align-items: center; gap: 0.75rem; border: 1px solid var(--jb-purple); padding: 0.75rem 1rem; background: var(--jb-canvas); }
+.q-allowance p { margin: 0; }
+.q-pips { display: flex; gap: 0.35rem; }
+.q-pip { width: 1rem; height: 1rem; border: 1px solid var(--jb-purple); }
+.q-pip-on { background: var(--jb-yellow); border-color: var(--jb-yellow); }
+.q-preview { margin-top: 1rem; border-top: 1px solid var(--jb-purple); padding-top: 0.75rem; }
+.q-eyebrow { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--jb-amber); }
+.q-title { font-weight: 700; overflow-wrap: anywhere; }
+.q-artist { margin: 0; overflow-wrap: anywhere; }
+.q-match { margin-top: 0.75rem; padding: 0.6rem; border: 1px dashed var(--jb-purple); }
+.q-match ul { margin: 0.25rem 0; padding-left: 1.1rem; }
+.q-candidates { list-style: none; margin: 0.5rem 0; padding: 0; display: grid; gap: 0.5rem; }
+.q-candidates li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; border: 1px solid var(--jb-purple); padding: 0.5rem; overflow-wrap: anywhere; }
+.q-list, .q-lineup { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+.q-lineup { list-style: decimal inside; }
+.q-lineup li { overflow-wrap: anywhere; }
+.q-mine .q-title { color: var(--jb-yellow); }
+.q-entry { border: 1px solid var(--jb-purple); padding: 0.75rem; }
+.q-entry.q-live { border-color: var(--jb-yellow); }
+.q-entry.q-problem { border-color: var(--jb-amber); }
+.q-row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.q-badge { flex-shrink: 0; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; border: 1px solid currentColor; padding: 0.1rem 0.4rem; color: var(--jb-pink); }
+.q-live .q-badge { color: var(--jb-yellow); }
+.q-problem .q-badge { color: var(--jb-amber); }
+.q-foot { font-size: 0.8rem; }
+@media (prefers-reduced-motion: no-preference) { .q-button { transition: border-color 0.15s; } }
+.q-panel > .q-button { margin-top: 0.5rem; }

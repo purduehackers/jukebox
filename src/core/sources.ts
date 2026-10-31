@@ -49,7 +49,9 @@ export function canonicalizeUrl(input: unknown): SourceRef {
   }
   if (host === 'music.apple.com' && only(['i'])) {
     // Album URL with ?i=<trackId> or /song/<slug>/<id>.
-    const song = /^\/[a-z]{2}\/song\/[^/]+\/(\d{1,15})$/.exec(url.pathname);
+    // The service stores `canonicalUrl` and re-parses it for preparation, so the canonical
+    // form `/song/<id>` must canonicalize to itself.
+    const song = /^\/(?:[a-z]{2}\/song\/[^/]+|song)\/(\d{1,15})$/.exec(url.pathname);
     const album = /^\/[a-z]{2}\/album\/[^/]+\/\d{1,15}$/.test(url.pathname) ? url.searchParams.get('i') : null;
     const id = song?.[1] ?? album;
     if (id && /^\d{1,15}$/.test(id)) {
