@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { FakeIdentity, FakeMedia, FakeSource, systemClock } from '../adapters/fakes.ts';
+import { fixtureMatchingSource } from '../adapters/matching-fixtures.ts';
 import { phidFromEnv } from '../adapters/phid.ts';
 import { WorkerAdapter, proxyMedia } from '../adapters/worker.ts';
 import type { IdentityPort, MediaPort, SourcePort } from '../core/ports.ts';
@@ -16,6 +17,7 @@ const { values } = parseArgs({
     data: { type: 'string', default: '.local/service' },
     worker: { type: 'string' },
     'dev-auth': { type: 'boolean', default: false },
+    'fixture-matching': { type: 'boolean', default: false },
     'admin-key': { type: 'string', multiple: true, default: [] },
   },
 });
@@ -35,6 +37,10 @@ if (values.worker) {
   source = worker;
   media = worker;
   mediaProxy = (assetId, req, res) => proxyMedia(values.worker!, assetId, req, res);
+} else if (values['fixture-matching']) {
+  // Offline attendee-page demo: fixture YouTube items and fixture Spotify/Apple catalog matching.
+  source = fixtureMatchingSource();
+  media = new FakeMedia();
 } else {
   // Fully offline: deterministic fixture metadata and instantly "prepared" fake assets (no audio bytes).
   const fake = new FakeSource();

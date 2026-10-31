@@ -35,3 +35,10 @@ was ever admitted (reachable only once matching exists) would have failed prepar
 refunded. The regex now also accepts `/song/<id>`; `tests/preview.test.ts` asserts idempotent
 canonicalization for every provider. No accepted input changes meaning; one previously rejected
 form (the canonical one) is now accepted.
+
+## P3. `--fixture-matching` dev flag (`src/server/main.ts`)
+
+Wires `fixtureMatchingSource()` (offline FakeSource plus fixture Spotify/Apple catalog matching, no
+network) into the local service so the attendee page can be exercised by hand and in Firefox:
+`node src/server/main.ts --dev-auth --fixture-matching`. Off by default; ignored when `--worker` is
+given. It never contacts Spotify, Apple, or YouTube and is not a live matcher.
