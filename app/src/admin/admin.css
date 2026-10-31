@@ -22,7 +22,7 @@
 .adm-warning { color: var(--jb-amber); }
 .adm-bad-text { color: var(--jb-pink); }
 
-.adm-badge { display: inline-block; border: 1px solid currentColor; padding: 0.05rem 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.adm-badge { display: inline-block; border: 1px solid currentColor; padding: 0.05rem 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; max-width: 100%; overflow-wrap: anywhere; }
 .adm-ok { color: var(--jb-yellow); }
 .adm-info { color: var(--jb-pink); }
 .adm-warn { color: var(--jb-amber); }
