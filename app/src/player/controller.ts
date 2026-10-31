@@ -25,6 +25,7 @@ export class PlayerController {
   private context: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private desired: DesiredPlayback | null = null;
+  private latestRevision = -1;
   private applied: DesiredPlayback | null = null;
   private previous: PlayerReport['previous'];
   private deadline = 0;
@@ -115,6 +116,7 @@ export class PlayerController {
     } finally { this.claiming = false; }
     if (this.disposed) return;
     if (!response.ok) { this.update({ message: response.error.message }); return; }
+    this.latestRevision = response.revision;
     this.renew(start, wall);
     // A revoked/fenced tab may be disconnected. Even an ordinary claim can
     // follow revocation, so wait out a full old lease for EVERY new claim.
@@ -139,7 +141,8 @@ export class PlayerController {
   }
 
   private snapshot(snapshot: Snapshot) {
-    if (this.state.generation === null || this.disposed) return;
+    if (this.state.generation === null || this.disposed || snapshot.revision < this.latestRevision) return;
+    this.latestRevision = snapshot.revision;
     if (!snapshot.lease || snapshot.lease.deviceId !== this.device.deviceId || snapshot.lease.generation !== this.state.generation || snapshot.lease.expiresAt <= snapshot.serverTime) {
       this.halt('Playback authority moved or expired. This tab is silent.');
       return;

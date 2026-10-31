@@ -334,6 +334,21 @@ def main():
         assert delay>=15000
         report['measurements'].append({'explicitTakeoverToPlayingMs':round(delay,2)})
         report['checks']['sameDeviceTakeoverWaitsOldLeaseAndFencesOldTab']=True
+        # A delayed pre-claim snapshot from a separate fetch must not override
+        # the claim's revision or the newer SSE generation.
+        other.execute_script("""window.originalFetch=window.fetch;window.oldSnapshotDelivered=false;
+          window.fetch=(url,init)=>{
+            if(url==='/api/v1/snapshot' && !window.oldSnapshotDelivered){
+              window.oldSnapshotDelivered=true;
+              return Promise.resolve(new Response(JSON.stringify({revision:0,lease:null,desired:null})));
+            }
+            return window.originalFetch(url,init);
+          };""")
+        until(lambda: other.execute_script('return window.oldSnapshotDelivered'), 8)
+        time.sleep(.2)
+        assert audio(other)['generation'] and not audio(other)['paused']
+        other.execute_script('window.fetch=window.originalFetch')
+        report['checks']['delayedPreclaimSnapshotIgnored']=True
         # Declared synthetic transport response tests the STALE_LEASE path itself,
         # independently of the real SSE generation fencing above.
         other.execute_script("""window.originalFetch=window.fetch;window.fetch=(url,init)=>{
