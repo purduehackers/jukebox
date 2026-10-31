@@ -1,0 +1,63 @@
+// Pure server-side URL allowlist. Never fetches; never builds shell commands.
+import type { SourceRef } from '../contract/types.ts';
+import { PortError } from './ports.ts';
+
+const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
+const SHARE_TOKEN = /^[A-Za-z0-9_-]{1,128}$/;
+const SPOTIFY_ID = /^[A-Za-z0-9]{22}$/;
+export const FIXTURE_SOURCES = ['fixture:master', 'fixture:request', 'fixture:song', 'fixture:aac'] as const;
+
+export function canonicalizeUrl(input: unknown): SourceRef {
+  if (typeof input !== 'string' || input.length === 0 || input.length > 300) {
+    throw new PortError('INVALID_SOURCE', 'Paste a single YouTube, Spotify, or Apple Music track link');
+  }
+  const raw = input.trim();
+  if ((FIXTURE_SOURCES as readonly string[]).includes(raw)) {
+    return { provider: 'fixture', itemId: raw.slice('fixture:'.length), canonicalUrl: raw };
+  }
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new PortError('INVALID_SOURCE', 'That is not a valid link');
+  }
+  if (url.protocol !== 'https:' || url.username || url.password || url.port || url.hash) {
+    throw new PortError('INVALID_SOURCE', 'Only plain HTTPS track links are supported');
+  }
+  const params = [...url.searchParams.entries()];
+  const only = (allowed: string[]) => params.every(([k]) => allowed.includes(k)) &&
+    new Set(params.map(([k]) => k)).size === params.length;
+  const share = url.searchParams.get('si');
+  if (share !== null && !SHARE_TOKEN.test(share)) throw new PortError('INVALID_SOURCE', 'Invalid sharing parameter');
+  const host = url.hostname.toLowerCase();
+
+  let youtube: string | null = null;
+  if ((host === 'www.youtube.com' || host === 'youtube.com' || host === 'music.youtube.com') && url.pathname === '/watch' && only(['v', 'si'])) {
+    youtube = url.searchParams.get('v');
+  } else if (host === 'youtu.be' && only(['si'])) {
+    youtube = url.pathname.slice(1);
+  }
+  if (youtube !== null) {
+    if (!YOUTUBE_ID.test(youtube)) throw new PortError('INVALID_SOURCE', 'Invalid YouTube video ID');
+    return { provider: 'youtube', itemId: youtube, canonicalUrl: `https://www.youtube.com/watch?v=${youtube}` };
+  }
+  const spotify = /^\/(?:intl-[a-z]{2}\/)?track\/([^/]+)$/.exec(url.pathname);
+  if (host === 'open.spotify.com' && spotify && only(['si'])) {
+    const id = spotify[1]!;
+    if (!SPOTIFY_ID.test(id)) throw new PortError('INVALID_SOURCE', 'Invalid Spotify track ID');
+    return { provider: 'spotify', itemId: id, canonicalUrl: `https://open.spotify.com/track/${id}` };
+  }
+  if (host === 'music.apple.com' && only(['i'])) {
+    // Album URL with ?i=<trackId> or /song/<slug>/<id>.
+    const song = /^\/[a-z]{2}\/song\/[^/]+\/(\d{1,15})$/.exec(url.pathname);
+    const album = /^\/[a-z]{2}\/album\/[^/]+\/\d{1,15}$/.test(url.pathname) ? url.searchParams.get('i') : null;
+    const id = song?.[1] ?? album;
+    if (id && /^\d{1,15}$/.test(id)) {
+      return { provider: 'apple_music', itemId: id, canonicalUrl: `https://music.apple.com/song/${id}` };
+    }
+  }
+  if (url.searchParams.has('list') || /playlist|album/.test(url.pathname)) {
+    throw new PortError('SOURCE_UNSUPPORTED', 'Playlists and albums cannot be requested; send a single track link');
+  }
+  throw new PortError('SOURCE_UNSUPPORTED', 'Unsupported link; use a YouTube, Spotify, or Apple Music track');
+}

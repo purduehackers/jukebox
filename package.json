@@ -4,5 +4,9 @@
   "type": "module",
   "scripts": {
     "test:policy": "node --test tests/turn.test.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
   }
 }
