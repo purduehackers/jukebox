@@ -343,6 +343,19 @@ def main():
         until(lambda: audio(other)['paused'] and not audio(other)['generation'])
         other.execute_script('window.fetch=window.originalFetch')
         report['checks']['syntheticStaleLeaseReportSilencesLocalAudio']=True
+        # Re-pairing must replace the audio element: Firefox permits only one
+        # MediaElementAudioSourceNode binding per element, even after close().
+        cmd(admin, 'device.revoke', {'deviceId': next(d['id'] for d in snap(admin)['devices'] if d['holdsLease'])})
+        other.find_element(By.XPATH, "//button[contains(., 'Forget this browser')]").click()
+        code3 = cmd(admin, 'device.pairing.create', {'name': 'Re-paired browser'})['code']
+        other.find_element(By.ID, 'player-code').send_keys(code3)
+        click(other, 'player-pair')
+        click(other, 'player-claim')
+        until(lambda: audio(other)['generation'])
+        click(other, 'player-activate')
+        assert audio(other)['paused']
+        playing(other)
+        report['checks']['repairedBrowserCreatesFreshAudioGraph']=True
         report['events'] = admin.execute_async_script("fetch('/api/v1/events?after=0').then(r=>r.json()).then(arguments[0])")['events']
         report['result']='passed'
     except Exception as error:

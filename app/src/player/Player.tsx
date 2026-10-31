@@ -41,7 +41,7 @@ export function Player() {
   }
   return (
     <section aria-label="Playback device" data-testid="player" data-status={state?.status ?? 'needs_activation'} data-generation={state?.generation ?? ''} data-load-id={state?.loadId ?? ''} data-epoch={state?.epoch ?? 0}>
-      <audio id="jukebox-audio" ref={audio} preload="auto" />
+      <audio key={device?.deviceId ?? 'unpaired'} id="jukebox-audio" ref={audio} preload="auto" />
       <h2>Playback device</h2>
       {!device ? <form onSubmit={(e) => { e.preventDefault(); void pair(); }}>
         <label>Admin pairing code <input id="player-code" autoComplete="off" value={code} onChange={(e) => setCode(e.target.value)} required /></label>
