@@ -165,6 +165,9 @@ export function NowPlayingPanel({ snapshot, serverNow, actions, pendingVolume }:
   const volume = pendingVolume ?? snapshot.playback.volume;
   const tone: Record<string, 'ok' | 'warn' | 'bad' | 'dim'> = { playing: 'ok', paused: 'dim', buffering: 'warn', loading: 'warn', needs_activation: 'warn', offline: 'bad', error: 'bad', no_display: 'bad', ended: 'dim' };
   const confTone = { none: 'dim', requested: 'warn', confirmed: 'ok', unconfirmed: 'bad' } as const;
+  // A confirmation from a display that has since gone silent describes the past, not the present.
+  const lapsed = confirmation === 'confirmed' && (state === 'offline' || state === 'no_display');
+  const confText = lapsed ? 'Last change was confirmed; display now silent' : CONFIRMATION_LABEL[confirmation].label;
   return (
     <Panel title="Now playing" id="adm-now" aside={now ? <Badge tone={now.kind === 'master' ? 'info' : 'warn'}>{now.kind === 'master' ? 'Master' : 'Request'}</Badge> : null}>
       {now ? (
@@ -177,10 +180,10 @@ export function NowPlayingPanel({ snapshot, serverNow, actions, pendingVolume }:
 
       <div className="adm-status-row">
         <Badge tone={tone[state] ?? 'dim'}><span data-testid="player-state">{PLAYER_LABEL[state]}</span></Badge>
-        <Badge tone={confTone[confirmation]}><span data-testid="confirmation">{CONFIRMATION_LABEL[confirmation].label}</span></Badge>
+        <Badge tone={lapsed ? 'warn' : confTone[confirmation]}><span data-testid="confirmation">{confText}</span></Badge>
         <Badge tone={playing ? 'ok' : 'dim'}>{playing ? 'Intent: playing' : 'Intent: paused'}</Badge>
       </div>
-      {confirmation !== 'confirmed' && confirmation !== 'none' ? <p className="adm-note">{CONFIRMATION_LABEL[confirmation].detail}</p> : null}
+      {lapsed ? null : confirmation === 'confirmed' ? <p className="adm-dim adm-small">{CONFIRMATION_LABEL[confirmation].detail}</p> : confirmation !== 'none' ? <p className="adm-note">{CONFIRMATION_LABEL[confirmation].detail}</p> : null}
       {state === 'needs_activation' ? <p className="adm-note">Firefox blocked autoplay. Someone at the display must press Activate; nothing can fix this remotely.</p> : null}
       {state === 'error' && snapshot.playback.observed?.error ? <p className="adm-note adm-bad-text">Display error: {snapshot.playback.observed.error}</p> : null}
       {state === 'offline' || state === 'no_display' ? <p className="adm-note">{state === 'offline' ? 'The display stopped reporting. Position below is the last report, not live.' : 'No paired display holds playback. Pair one below and open /display on it.'}</p> : null}
@@ -220,7 +223,7 @@ export function NowPlayingPanel({ snapshot, serverNow, actions, pendingVolume }:
 
       <div className="adm-volume">
         <label htmlFor="adm-volume">Volume <span data-testid="volume">{Math.round(volume * 100)}%</span>
-          <span className="adm-dim"> · {pendingVolume !== null ? 'sending…' : confirmation === 'confirmed' ? 'confirmed by display' : confirmation === 'none' ? 'saved' : confirmation === 'requested' ? 'requested, awaiting display' : 'unconfirmed by display'}</span>
+          <span className="adm-dim"> · {pendingVolume !== null ? 'sending…' : confirmation === 'confirmed' ? (lapsed ? 'last confirmed before the display went silent' : 'confirmed by display') : confirmation === 'none' ? 'saved' : confirmation === 'requested' ? 'requested, awaiting display' : 'unconfirmed by display'}</span>
         </label>
         <input id="adm-volume" type="range" min={0} max={100} step={1} value={Math.round(volume * 100)} onChange={(e) => actions.setVolume(Number(e.target.value) / 100)} />
         <p className="adm-dim adm-small">This is the player volume in the browser, not the laptop’s HDMI/system volume.</p>

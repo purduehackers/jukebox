@@ -44,8 +44,12 @@ export function useLive(): Live {
   const best = useRef<{ revision: number; serverTime: number } | null>(null);
   const signature = useRef<string | null>(null);
   const selfChangeUntil = useRef(0);
+  /** Role from the last poll. Only a poll re-evaluates the session cookie, so it outranks SSE frames. */
+  const polledRole = useRef<Snapshot['role'] | null>(null);
 
-  function accept(next: Snapshot) {
+  function accept(next: Snapshot, source: 'poll' | 'sse') {
+    if (source === 'poll') polledRole.current = next.role;
+    else if (polledRole.current !== null && polledRole.current !== 'admin') return; // stale-identity stream frame
     const seen = best.current;
     if (seen && (next.revision < seen.revision || (next.revision === seen.revision && next.serverTime < seen.serverTime))) return;
     best.current = { revision: next.revision, serverTime: next.serverTime };
@@ -73,7 +77,7 @@ export function useLive(): Live {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const next = (await res.json()) as Snapshot;
       if (next.role !== 'admin') best.current = null; // a role change is not "older" than the previous frame
-      accept(next);
+      accept(next, 'poll');
       if (next.role !== 'public') {
         const me = (await (await fetch('/auth/me', { credentials: 'same-origin', cache: 'no-store' })).json()) as { identity: { displayName: string } | null };
         const name = me.identity?.displayName ?? 'organizer';
@@ -92,7 +96,7 @@ export function useLive(): Live {
 
   useEffect(() => {
     void pollRef.current();
-    const stop = subscribeSnapshots(accept, (message) => {
+    const stop = subscribeSnapshots((next) => accept(next, 'sse'), (message) => {
       if (message) {
         setLink('reconnecting');
         setLinkError(message);
