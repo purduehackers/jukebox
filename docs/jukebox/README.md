@@ -49,6 +49,9 @@ superseded by the intended jukebox hostname.
 
 - [Phase-2 contract and service](PHASE-2-CONTRACT.md): behavior table, typed
   commands/snapshots, authority/lease semantics, PH ID status, evidence, limitations.
+- [Phase-4B attendee queue](PHASE-4B-QUEUE.md): `/queue` page, preview-before-submit,
+  Spotify/Apple matcher design, QR origin rule, evidence, limitations; contract
+  [proposals](proposals/phase-4b.md) for the integration owner.
 - [Phase-1 measured findings](PHASE-1-FINDINGS.md): implemented local runtime,
   Firefox/source evidence, boundaries, interface proposals, and pending gates.
 
