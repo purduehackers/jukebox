@@ -7,10 +7,11 @@ This is `purduehackers/jukebox`, a separate app from the Hack Night dashboard.
 There is currently only documentation: no app stack, scripts, database, or
 deployment has been implemented. Do not assume dashboard scripts exist here.
 
-The user requested one finalized summarized plan for approval. Read
-`docs/jukebox/APPROVAL-PLAN.md`. It is ready for review, not approved yet: do not
-start implementation or launch phase chats until the user approves. Proposed
-defaults in it remain proposals until then; do not silently promote them to facts.
+The user approved `docs/jukebox/APPROVAL-PLAN.md` on 2026-10-30, including its
+defaults and subsequent display/server clarifications. Phase 1 is authorized to
+start in its own chat/worktree. Follow the approved dependency order; paid hosting,
+production changes, and later component discussions remain later steps. Do not
+ask for the same product-plan approval again.
 
 ## Confirmed requirements
 
@@ -28,7 +29,7 @@ defaults in it remain proposals until then; do not silently promote them to fact
 - Attendees must sign in with Purdue Hackers ID; the limit is three songs per
   person per admin-managed night session. Valid requests enter automatically;
   admins may remove them. Count accepted submissions; refund technical playback
-  failures. Further removal/skip defaults are in the pending approval plan.
+  failures. Further removal/skip rules are in the approved plan.
 - The designated display browser is Firefox. Test codecs, activation, seeking,
   and any media-origin behavior in Firefox; do not infer support from Chrome.
 - If a request turn is empty, wait for a new 15-minute master interval. Working

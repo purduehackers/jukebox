@@ -2,10 +2,9 @@
 
 Status: discovery and requirements discussion. Updated 2026-10-30.
 
-The user requested a finalized summarized plan to approve. Start with
-[the consolidated approval plan](APPROVAL-PLAN.md). Its proposed defaults replace
-the need to ask every remaining edge-case question separately, but are not
-confirmed until approved. Hold implementation and phase-chat launches for review.
+The user approved [the consolidated plan](APPROVAL-PLAN.md) and its defaults on
+2026-10-30. It is the current scope/behavior authority. Start phase 1 in its own
+chat/worktree; later detailed discussions and dependent phases follow its order.
 
 This is the starting point for planning and later phase chats. No jukebox runtime
 has been implemented. The user has returned and clarified audio-only playback,
@@ -88,7 +87,8 @@ hosting and the media worker's location remain open.
    a seekable asset, and manages temporary storage. The browser plays the audio
    asset; it does not execute `yt-dlp`. Current recommendation: a hosted production
    worker, with the same process running locally during development. This is a
-   proposal pending source/hosting tests, not an accepted hosting decision. Keep
+   approved architectural direction pending source/hosting tests and actual server
+   selection; it does not authorize new paid infrastructure. Keep
    the active/suspended master asset pinned.
 
 Use the existing `purduehackers/id` code when implementing PH ID. The user reports
@@ -121,9 +121,9 @@ should use fake player/source adapters until the real integrations are ready.
 Visualizer design can proceed alongside these once the playing-audio analysis
 path is established; it is a required display component rather than idle decoration.
 
-Do not launch all phase chats yet. The unanswered questions materially affect
-the player, queue service, and worker location. Once answered, update the docs,
-commit the shared baseline, and launch the first ready phase. Independent phase
+Do not launch all phase chats at once. The plan is approved and phase 1 is ready
+to start; its feasibility findings inform the shared foundation. Commit each
+shared baseline before launching dependent work. Independent phase
 implementation should use separate worktrees based on the agreed parent branch.
 
 ## Local-first milestones

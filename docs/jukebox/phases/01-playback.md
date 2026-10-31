@@ -1,13 +1,15 @@
 # Phase 1: prove playback
 
-Status: audio-only, separate repo, and Firefox confirmed; worker/OS details pending.
+Status: approved to start. The consolidated plan and defaults are approved;
+worker feasibility and available development hardware are phase-1 investigation.
 
 ## Goal
 
 Demonstrate the intended listening experience before committing to a provider or
 building the full interface. Use a minimal local page with two manually supplied
-playable items: a long master mix and a short request. Keep source resolution
-and the shared backend out of this first experiment.
+playable items: a long master mix and a short request. Include bounded audio-only
+source preparation for the proof; leave general cross-provider matching, the full
+shared backend, auth, and polished UI for their later phases.
 
 ## Discussion and work
 
@@ -19,7 +21,7 @@ and the shared backend out of this first experiment.
   audible playback: listen to the HDMI output on the real machine when available.
 - Save master mix item and position, switch to a request, let it finish, and resume
   master from the saved position. Measure practical seek accuracy and any gaps.
-- Test an unavailable/embed-disabled item, network loss, and refresh. Record
+- Test an unavailable/no-audio-only source item, network loss, and refresh. Record
   limitations rather than masking them with fake success.
 - Confirm a normal master song finishes before a due request, while a mix longer
   than six minutes is interruptible. After requested music, the next turn follows

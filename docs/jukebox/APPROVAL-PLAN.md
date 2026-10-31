@@ -1,12 +1,13 @@
 # Jukebox: consolidated plan for approval
 
-Status: ready for user review, not yet approved. Prepared 2026-10-30.
+Status: approved by the user on 2026-10-30 (America/Indiana/Indianapolis).
+Approval message: “i approve”.
 
-This is the single summarized approval document. It combines the user's confirmed
-requirements with explicitly proposed defaults for remaining edge cases. Approval
-adopts those defaults and permits starting phase 1. Implementation and new phase
-chats wait for that approval; production deployment and paid infrastructure remain
-later steps. The detailed briefs and research support this plan.
+This is the approved summarized plan, including the display sketch, real audio-driven
+dithering, PH ID source reuse, and existing-server clarifications made before
+approval. The user adopted the defaults and authorized starting phase 1 in a
+separate chat/worktree. Production deployment and paid infrastructure remain later
+steps. The detailed briefs and research support this plan.
 
 ## 1. What we are building — confirmed
 
@@ -48,9 +49,9 @@ belong in the later display component discussion.
 - Night quotas reset through admin-managed sessions, not at midnight.
 - No video media downloaded, streamed, or embedded anywhere in the music path.
 
-## 3. Recommended defaults — included in this approval request
+## 3. Approved defaults
 
-These fill gaps; they are not represented as already-confirmed user answers.
+These defaults were proposed to fill gaps and adopted by the user's plan approval.
 
 - **Paused at a due turn:** keep the elapsed timer running, mark the request due,
   and wait for organizer resume rather than overriding a deliberate pause. The
@@ -144,5 +145,6 @@ The new repository and `feat/jukebox-planning` branch exist. Research, exact vis
 tokens/assets inventory, detailed component briefs, phase prompts, and engineer
 questions are published there. There is no Jukebox application or deployment yet.
 
-Requested approval: this scope, sequence, recommended architecture, and the defaults
-in section 3. Approval starts phase 1, not all implementation chats at once.
+Approved: this scope, sequence, recommended architecture, and section-3 defaults.
+Start phase 1; do not launch dependent implementation phases before its results
+and the subsequent shared contract baseline are ready.

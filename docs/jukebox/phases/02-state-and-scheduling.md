@@ -4,7 +4,7 @@ Status: separate repo, audio-only direction, one request per turn, 15-minute mas
 periods, PH ID, three-song quota, admin-managed nights, and automatic admission
 confirmed. Elapsed time includes pause/buffering; empty-turn reset and accepted
 submission counting with technical failure refunds are confirmed. Remaining defaults
-and worker placement are in the pending approval plan.
+and worker architecture are in the approved plan; concrete hosting is later phase work.
 
 ## Goal
 
@@ -72,8 +72,8 @@ state, transactional ordering, and clear error paths. Meaningful tests cover
 timer boundaries, master resume state, empty queues, stale/duplicate commands,
 simultaneous changes, lease expiry, moderation/quota accounting, and reconnect.
 
-Apply the confirmed scheduler and quota rules above; adopt other defaults only
-after the user approves the consolidated plan.
+Apply the confirmed scheduler/quota rules and the defaults adopted in the
+approved consolidated plan. This phase follows the playback feasibility result.
 The backend's time-based decisions must survive instance restarts; a sleeping
 browser interval must not be their only trigger. A due transition can be reconciled
 atomically when the designated player reconnects if that matches the chosen policy.

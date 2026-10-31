@@ -1,10 +1,10 @@
 # Decisions and question backlog
 
-Review checkpoint: the user requested a finalized summarized plan for approval.
-Use [APPROVAL-PLAN.md](APPROVAL-PLAN.md) for that review. Existing questions below
-are the discovery record; proposed defaults in the approval plan are not answers
-the user has already given. Do not send further general question batches while
-this plan is pending approval.
+Approval recorded: the user said “i approve” on 2026-10-30 after reviewing the
+consolidated plan and adding the display/server/PH ID clarifications. The scope
+and defaults in [APPROVAL-PLAN.md](APPROVAL-PLAN.md) are adopted. Start phase 1;
+do not ask for the same approval again. Questions below are the historical
+discovery record where the approved plan has supplied a default.
 
 Updated 2026-10-30 after the user's return and first answers. Repository ownership,
 audio-only presentation, and song-versus-mix interruption are now substantially
@@ -15,7 +15,7 @@ independent monitors, and dashboard changes are outside scope. The user also cho
 automatic requests, admin-managed night sessions, waiting a new interval after an
 empty turn, and Firefox. Latest answers confirm the empty-turn reset example,
 elapsed time during pause/buffering, accepted-submission quota, and technical
-failure refunds. Remaining defaults are consolidated in the pending approval plan.
+failure refunds. Remaining defaults were adopted through the consolidated plan approval.
 
 ## Confirmed intent
 
@@ -30,7 +30,7 @@ failure refunds. Remaining defaults are consolidated in the pending approval pla
 - Master should pause for requested music and continue afterward at its position.
 - A normal master song should finish before a due request. Tracks longer than six
   minutes count as mixes and may be interrupted. Working interpretation: exactly
-  six minutes is still a song; the strict attendee-submission cutoff remains open.
+  six minutes is still a song. Approved user requests must be strictly under six minutes.
 - Audio only: no video should be downloaded, streamed, or embedded, including a
   hidden video fallback. Research `youtube-dl`/`yt-dlp`-style audio sourcing.
 - Build in its own Purdue Hackers repo, `purduehackers/jukebox`, with all jukebox
@@ -65,27 +65,29 @@ failure refunds. Remaining defaults are consolidated in the pending approval pla
 - Attendees must sign in with Purdue Hackers ID. The quota is three songs per
   person per admin-managed night session. Admins start/end sessions and allowance
   resets for the next session, not at midnight. Count accepted submissions and
-  refund technical playback failures. Further removal/skip defaults and the
-  diagram's strict under-six-minute request limit
-  still needs its exact boundary clarified.
+  refund technical playback failures. Approved defaults also refund preparation
+  failures, do not automatically refund deliberate admin removals/skips, and
+  enforce the strict under-six-minute request limit.
 - Valid requests join automatically, without per-song admin approval. Admins may
   remove requests. Validation failures and source preparation are not approval gates.
 - Work locally first, split the project into discussion/implementation phases,
   then deploy after understanding existing infrastructure.
 
-## Current questions
+## Discovery questions — superseded by approved defaults where applicable
 
-Ask a small batch and use the answers to narrow subsequent questions.
+Do not repeat these as a new general question batch. Refer to the approved plan;
+defer real technical choices to their component phases and report evidence.
 
 1. **Scheduling:** Exactly one request per turn, with the song/mix rule and a new
    15-minute elapsed master period afterward. Empty turns reset the interval;
    pausing/buffering does not stop it. Handling a deliberately paused due turn is
-   proposed in the approval plan.
+   settled by the approved plan: mark due and wait for organizer resume.
    A seek must not silently count skipped media as listening time.
 2. **Worker location:** The user asked for a researched recommendation rather
    than selecting either option. Proposed: hosted media worker in production,
    the same worker locally for development, subject to phase-1 hosting-network
-   source tests and engineer runtime/storage input. Not yet an accepted decision.
+   source tests and engineer runtime/storage input. The hosted architecture is
+   approved; the concrete server/provider and spend remain later decisions.
 3. **Playback source:** Audio-only sourcing is required; a visible/hidden video
    player is ruled out. Which launch link types need metadata matching, and how
    should ambiguous Spotify/Apple matches be resolved?
@@ -118,7 +120,7 @@ Ask a small batch and use the answers to narrow subsequent questions.
 - If an admin skips a user song, does that finish the slot or take the next user
   song? If the admin skips master while it is suspended, what resumes afterward?
 - Technical playback failures refund allowance. The approval plan proposes bounded
-  retries and return to master after failure; that behavior is pending approval.
+  retries and return to master after failure; the plan approval adopted that behavior.
 - Is the resume promise an approximate song position or sample-accurate seamless
   audio? A browser/provider seek should be tested before promising precision.
 - FIFO requests, round-robin by person, votes, or another fairness rule? Can the
@@ -182,15 +184,15 @@ Ask a small batch and use the answers to narrow subsequent questions.
 | D01 | Jukebox name and intended hostname | Confirmed | Use jukebox URLs in new docs |
 | D02 | Display browser emits HDMI music | Intended; hardware test needed | Other clients remain silent |
 | D03 | Master pause/resume around requests | Confirmed intent | Save provider item and position |
-| D04 | Request cadence | One user song, then 15 elapsed minutes in master; pauses/buffering count; empty turns reset interval | Due-while-paused and recovery defaults await plan approval |
+| D04 | Request cadence | One user song, then 15 elapsed minutes in master; pauses/buffering count; empty turns reset interval | Due-while-paused and recovery defaults approved |
 | D05 | Provider and cross-service matching | Audio-only confirmed; implementation under research | No video fallback; resolve links separately |
 | D06 | Repo/service/hosting ownership | Separate org repo confirmed and created | `purduehackers/jukebox`; runtime/hosting still open |
-| D07 | Identity and quota | PH ID; three accepted submissions/person/admin-managed night; technical failures refunded | Removal/skip and session-end defaults await plan approval |
+| D07 | Identity and quota | PH ID; three accepted submissions/person/admin-managed night; technical failures refunded | Removal/skip and session-end defaults approved |
 | D08 | Moderation and failure behavior | Automatic requests; admin removal confirmed | Failures, skips, and quota effects remain open |
 | D09 | Wall/Lunar/visualizer layout | Two monitors, rough sketch, and real audio-reactive dithering confirmed | Detailed listener/shader/layout and Lunar placement deferred |
 | D10 | Existing dashboard integration | Outside scope | Dashboard is a visual reference; no changes or cross-dashboard coordination |
 | D11 | Visual identity | Confirmed | Match exact dashboard tokens/assets and dithering |
-| D12 | Audio worker placement | Hosted worker recommended; user has not selected | Run the same worker locally first; verify intended hosting network |
+| D12 | Audio worker placement | Hosted architecture approved; evaluate existing server first | Run the same worker locally first; verify intended hosting network; no new paid hosting yet |
 | D13 | Display browser | Firefox confirmed | Validate actual target codec, activation, seek, and recovery behavior |
 | D14 | Existing server | User reports capable existing server | Evaluate its actual resources/access before proposing new hosting |
 
@@ -223,8 +225,9 @@ earlier proposed playback-only timer. They also requested a finalized plan to ap
 During review, the user supplied a display sketch, clarified that the dithering
 must visualize real playing audio, noted the existing PH ID repo/code, and said
 the existing server is capable. They explicitly deferred detailed discussion of
-those components to their phases. These additions do not constitute approval of
-the consolidated plan or approval to start implementation.
+those components to their phases. The next user message, “i approve”, approved
+the consolidated plan with those additions and authorized phase 1. Paid hosting
+and production deployment remain later steps.
 
 When a decision is made, record the user's answer, date, rationale, and affected
 phase. Avoid silently resolving open questions through implementation defaults.

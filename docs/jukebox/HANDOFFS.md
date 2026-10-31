@@ -1,15 +1,15 @@
 # Ordered phase chat prompts
 
-Approval checkpoint: read APPROVAL-PLAN.md first. Do not launch these chats until
-the user approves the consolidated plan. Once approved, align the prompts and
-decision log with its accepted defaults; start with playback feasibility only.
+Approval recorded: the user approved APPROVAL-PLAN.md and its defaults on
+2026-10-30. Start with playback feasibility in its own Jukebox project/worktree.
+Do not request the same approval again or start dependent phases prematurely.
 
-These are templates for future chats, not instructions to start implementation
-now. The user has returned and chosen a separate repo, audio-only playback,
+These are ordered implementation-chat templates. The user chose a separate repo, audio-only playback,
 song/mix interruption, one request per turn, a fresh 15-minute master period,
 PH ID, a three-song admin-managed night quota, automatic admission, Firefox,
-two independent monitors, and exact dashboard styling. Settle timer edge cases,
-quota accounting, source/failure behavior, and worker location before dependent work.
+two independent monitors, and exact dashboard styling. Use the approved plan for
+timer/quota/failure defaults; source feasibility and server/runtime selection are
+phase work, not reasons to repeat general product discovery before phase 1.
 
 ## Workspace and sequencing
 
