@@ -171,6 +171,8 @@ def main():
         assert audio(player)['paused']
         report['checks']['remotePlayCannotActivateFreshDocument'] = True
         click(player, 'player-activate')
+        assert audio(player)['paused']
+        report['checks']['ordinaryClaimWaitsPriorLeaseBeforeAudio'] = True
         playing(player)
         # Firefox WebDriver evaluation has its own module realm. Install a normal
         # page module so this observer shares the visualizer's actual singleton.

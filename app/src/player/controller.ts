@@ -116,14 +116,15 @@ export class PlayerController {
     if (this.disposed) return;
     if (!response.ok) { this.update({ message: response.error.message }); return; }
     this.renew(start, wall);
-    // A fenced tab may be disconnected. Let its entire old lease expire before
-    // takeover audio; server-side fencing alone cannot stop a disconnected speaker.
-    this.safeStartAt = takeover ? performance.now() + POLICY.leaseMs : 0;
+    // A revoked/fenced tab may be disconnected. Even an ordinary claim can
+    // follow revocation, so wait out a full old lease for EVERY new claim.
+    // Server-side fencing alone cannot stop a disconnected speaker.
+    this.safeStartAt = performance.now() + POLICY.leaseMs;
     this.applied = null;
     this.desired = null;
     this.previous = undefined;
     this.terminalSent = false;
-    this.update({ generation: response.result.generation, activated: false, status: 'needs_activation', message: takeover ? 'Takeover claimed. Waiting out the previous tab’s lease before audio.' : 'Claimed. Activate audio on this display.' });
+    this.update({ generation: response.result.generation, activated: false, status: 'needs_activation', message: 'Claimed. Activate audio locally; playback waits 15 seconds for any previous lease to expire.' });
     await this.refresh();
   }
 
@@ -163,7 +164,9 @@ export class PlayerController {
     try {
       await this.bounded(this.context.resume());
       if (!this.live()) return;
-      this.update({ activated: true, message: 'Audio activated. Browser volume does not change OS/HDMI volume.' });
+      this.update({ activated: true, message: performance.now() < this.safeStartAt
+        ? 'Audio activated. Waiting for any previous lease to expire (up to 15 seconds).'
+        : 'Audio activated. Browser volume does not change OS/HDMI volume.' });
       await this.reconcile();
     } catch (error) {
       if (this.live()) this.update({ activated: false, status: 'needs_activation', message: String(error) });
@@ -238,7 +241,7 @@ export class PlayerController {
         await this.bounded(this.audio.play());
         if (!this.live() || this.desired?.epoch !== desired.epoch) { this.audio.pause(); return; }
         publishAnalyser(this.analyser);
-        this.update({ status: this.audio.paused ? 'paused' : 'playing' });
+        this.update({ status: this.audio.paused ? 'paused' : 'playing', message: 'Audio active. Browser volume does not change OS/HDMI volume.' });
       }
     } catch (error) {
       this.audio.pause();
