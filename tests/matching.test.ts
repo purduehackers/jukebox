@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import type { MediaPurpose, SourceRef } from '../src/contract/types.ts';
 import { FakeClock, FakeMedia, FakeSource } from '../src/adapters/fakes.ts';
 import { FixtureCandidateSearch, FixtureCatalog, MATCHING_FIXTURE_URLS, UnconfiguredCatalog } from '../src/adapters/matching-fixtures.ts';
-import { baseTitle, detectMarkers, normalizeText } from '../src/adapters/matching-core.ts';
+import { baseTitle, candidateMatchesTitleArtist, detectMarkers, normalizeText } from '../src/adapters/matching-core.ts';
 import { MatchingSource } from '../src/adapters/matching-source.ts';
 import { PortError, type SourcePort } from '../src/core/ports.ts';
 import { canonicalizeUrl } from '../src/core/sources.ts';
@@ -39,7 +39,7 @@ test('version conflicts, absent matches, and different edits return structured d
 
 test('a cover distractor does not win; topic upload is preferred among equivalents', async () => {
   const fake = new FakeSource()
-    .add('https://youtu.be/REALsong001', { title: 'Cover Test Song', durationSec: 180 })
+    .add('https://youtu.be/REALsong001', { title: 'Borrowed Time', durationSec: 180 })
     .add('https://youtu.be/GFOtrack001', { title: 'Playable recording', durationSec: 212 });
   const result = await matching(fake).resolve(canonicalizeUrl(MATCHING_FIXTURE_URLS.cover), 'request');
   assert.match(result.match?.url ?? '', /REALsong001/);
@@ -159,3 +159,37 @@ async function expectMatchError(source: SourcePort, url: string, kind: string): 
 async function run<T extends 'night.open' | 'request.preview' | 'request.submit'>(service: JukeboxService, actor: Parameters<JukeboxService['execute']>[0], type: T, payload: T extends 'night.open' ? Record<string, never> : { url: string }) {
   return service.execute(actor, { commandId: crypto.randomUUID(), type, payload } as never) as Promise<any>;
 }
+
+test('title and artist match whole words: "Love" is not "Lovely Day"; "Video Games" survives noise stripping', async () => {
+  const track = { provider: 'spotify' as const, itemId: 'X'.repeat(22), title: 'Love', artists: ['Eve'], durationMs: 200_000 };
+  const upload = (title: string, channel: string) => ({ url: 'https://www.youtube.com/watch?v=abcdefghijk', title, channel, durationSec: 200 });
+  assert.equal(candidateMatchesTitleArtist(track, upload('Lovely Day', 'Eve')), false, 'title is a substring of another word');
+  assert.equal(candidateMatchesTitleArtist(track, upload('Love', 'Steve')), false, 'artist is a substring of another word');
+  assert.equal(candidateMatchesTitleArtist(track, upload('Love (Official Audio)', 'Eve - Topic')), true);
+  const games = { ...track, title: 'Video Games', artists: ['Lana Del Rey'] };
+  assert.equal(candidateMatchesTitleArtist(games, upload('Video Games (Official Video)', 'Lana Del Rey')), true);
+});
+
+test('admitted Spotify and Apple requests survive preparation (stored URLs are re-parsed) and share one recording', async () => {
+  const clock = new FakeClock();
+  const inner = new FakeSource().add('https://youtu.be/GFOtrack001', { title: 'Playable recording', durationSec: 212, recordingKey: 'same-recording' });
+  const media = new FakeMedia();
+  const svc = new JukeboxService({ dbPath: ':memory:', clock, source: matching(inner), media });
+  const admin = { kind: 'user' as const, identity: { key: 'test#admin', issuer: 'test', subject: 'admin', displayName: 'admin', roles: ['organizer'] } };
+  const bob = { kind: 'user' as const, identity: { key: 'test#bob', issuer: 'test', subject: 'bob', displayName: 'bob', roles: [] } };
+  const alice = { kind: 'user' as const, identity: { key: 'test#alice', issuer: 'test', subject: 'alice', displayName: 'alice', roles: [] } };
+  try {
+    await run(svc, admin, 'night.open', {});
+    assert.ok((await run(svc, alice, 'request.submit', { url: MATCHING_FIXTURE_URLS.apple })).ok);
+    await svc.reconcile();
+    const entry = svc.snapshot(alice).requests[0]!;
+    assert.equal(entry.status, 'ready', entry.error ?? 'not ready');
+    assert.equal(entry.sourceUrl, 'https://music.apple.com/song/1000000000001', 'the requested link is what is kept');
+    assert.equal(entry.title, 'A New Kind Of Love (pt. 1)');
+    const again = await run(svc, bob, 'request.submit', { url: MATCHING_FIXTURE_URLS.spotify });
+    assert.equal(!again.ok && again.error.code, 'DUPLICATE_REQUEST', 'same recording via another service');
+    assert.equal(svc.snapshot(bob).quota?.used, 0);
+  } finally {
+    svc.close();
+  }
+});

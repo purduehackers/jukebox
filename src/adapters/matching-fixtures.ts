@@ -24,7 +24,7 @@ export const FIXTURE_TRACKS: CatalogTrack[] = [
   { provider: 'spotify', itemId: 'AAAAAAAAAAAAAAAAAAAAAA', title: 'Fictional Song (Live)', artists: ['Example Artist'], durationMs: 180_000 },
   { provider: 'spotify', itemId: 'BBBBBBBBBBBBBBBBBBBBBB', title: 'Fictional Song', artists: ['Example Artist'], durationMs: 180_000 },
   { provider: 'spotify', itemId: 'CCCCCCCCCCCCCCCCCCCCCC', title: 'Different Edit Song', artists: ['Edit Artist'], durationMs: 200_000 },
-  { provider: 'spotify', itemId: 'DDDDDDDDDDDDDDDDDDDDDD', title: 'Cover Test Song', artists: ['Cover Artist'], durationMs: 180_000 },
+  { provider: 'spotify', itemId: 'DDDDDDDDDDDDDDDDDDDDDD', title: 'Borrowed Time', artists: ['Cover Artist'], durationMs: 180_000 },
   { provider: 'spotify', itemId: 'EEEEEEEEEEEEEEEEEEEEEE', title: 'Duration Trap Song', artists: ['Trap Artist'], durationMs: 180_000 },
 ];
 
@@ -47,8 +47,8 @@ export const FIXTURE_CANDIDATES: Record<string, Candidate[]> = {
     { url: youtube('EDITlong001'), title: 'Different Edit Song', channel: 'Edit Artist', durationSec: 203 },
   ],
   'spotify:DDDDDDDDDDDDDDDDDDDDDD': [
-    { url: youtube('COVERsong01'), title: 'Cover Test Song (Cover)', channel: 'Other Singer', durationSec: 180 },
-    { url: youtube('REALsong001'), title: 'Cover Test Song (Official Audio)', channel: 'Cover Artist - Topic', durationSec: 180 },
+    { url: youtube('COVERsong01'), title: 'Borrowed Time (Cover)', channel: 'Other Singer', durationSec: 180 },
+    { url: youtube('REALsong001'), title: 'Borrowed Time (Official Audio)', channel: 'Cover Artist - Topic', durationSec: 180 },
   ],
   'spotify:EEEEEEEEEEEEEEEEEEEEEE': [
     { url: youtube('TRAPsong001'), title: 'Duration Trap Song', channel: 'Trap Artist', durationSec: 220 },

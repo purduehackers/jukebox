@@ -1,4 +1,4 @@
-import type { Provider, SourceRef } from '../contract/types.ts';
+import type { SourceRef } from '../contract/types.ts';
 
 export interface CatalogTrack {
   provider: 'spotify' | 'apple_music';
@@ -62,14 +62,20 @@ export function durationMatches(candidateSec: number, catalogMs: number): boolea
   return Math.abs(candidateSec - catalogMs / 1000) <= durationTolerance(catalogMs);
 }
 
+/** Whole-word containment on normalized text, so "love" is not found inside "lovely". */
+export function containsWords(haystack: string, needle: string): boolean {
+  return needle !== '' && ` ${haystack} `.includes(` ${needle} `);
+}
+
 export function candidateMatchesTitleArtist(track: CatalogTrack, candidate: Candidate): boolean {
-  const title = baseTitle(track.title);
+  // Noise words ("audio", "video", ...) are stripped from both sides, so a song that is really
+  // called "Video Games" still matches an upload titled "Video Games (Official Audio)".
+  const title = normalizeCandidateTitle(baseTitle(track.title));
   const candidateTitle = normalizeCandidateTitle(candidate.title);
   const candidateChannel = normalizeChannel(candidate.channel);
-  return Boolean(title && candidateTitle.includes(title) && track.artists.some((artist) => {
-    const normalizedArtist = normalizeText(artist);
-    return normalizedArtist && `${candidateTitle} ${candidateChannel}`.includes(normalizedArtist);
-  }));
+  return containsWords(candidateTitle, title) && track.artists.some((artist) => {
+    return containsWords(`${candidateTitle} ${candidateChannel}`, normalizeText(artist));
+  });
 }
 
 export function normalizeCandidateTitle(value: string): string {
@@ -92,8 +98,4 @@ export function channelTier(candidate: Candidate, track: CatalogTrack): { tier: 
 
 export function isYoutubeRef(ref: SourceRef): boolean {
   return ref.provider === 'youtube' && /^https:\/\/www\.youtube\.com\/watch\?v=[A-Za-z0-9_-]{11}$/.test(ref.canonicalUrl);
-}
-
-export function providerName(provider: Provider): string {
-  return provider;
 }
