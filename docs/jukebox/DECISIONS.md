@@ -2,8 +2,9 @@
 
 Updated 2026-10-30 after the user's return and first answers. Repository ownership,
 audio-only presentation, and song-versus-mix interruption are now substantially
-clearer. Interval reset and the remaining identity/hardware/moderation choices
-are still open.
+clearer. The user subsequently chose another 15 minutes of master playback after
+requested music rather than fixed clock slots. Slot size, identity, hardware,
+moderation, and exact pause/buffering behavior remain open.
 
 ## Confirmed intent
 
@@ -23,7 +24,8 @@ are still open.
   routes under the intended jukebox hostname. No jukebox domain/deploy exists yet.
 - Match the dashboard's exact fonts, colors, borders, and dithering. The dashboard
   is a reference/integration target rather than the jukebox implementation home.
-- Rough request cadence: every 15 minutes; precise meaning is open.
+- After requested music, allow another 15 minutes of master playback before the
+  next request turn. Fixed wall-clock slots are ruled out. Slot size is open.
 - Admin: volume, play/pause, skip/replay, seek; add items/playlists; remove and
   reorder items in both queues.
 - Submission intent includes YouTube, Spotify, Apple Music, and potentially other
@@ -37,13 +39,13 @@ are still open.
 
 Ask a small batch and use the answers to narrow subsequent questions.
 
-1. **Scheduling:** Respect the song/mix interruption rule above. Play one request
-   or drain a block? Does the next 15 minutes start
-   after the request ends, count only master playback time, or follow fixed
-   wall-clock slots? Does manually pausing freeze the timer?
-2. **Worker location:** Is a small audio helper on the venue laptop acceptable,
-   or should extraction/caching live on a hosted media worker? OS/browser and
-   venue network details affect this choice.
+1. **Scheduling:** Respect the song/mix rule and the new 15-minute master period.
+   Play one request or a batch? Confirm pause/buffering accounting and empty-slot
+   behavior. A seek must not silently count skipped media as listening time.
+2. **Worker location:** The user asked for a researched recommendation rather
+   than selecting either option. Proposed: hosted media worker in production,
+   the same worker locally for development, subject to phase-1 hosting-network
+   source tests and engineer runtime/storage input. Not yet an accepted decision.
 3. **Playback source:** Audio-only sourcing is required; a visible/hidden video
    player is ruled out. Which launch link types need metadata matching, and how
    should ambiguous Spotify/Apple matches be resolved?
@@ -62,8 +64,9 @@ Ask a small batch and use the answers to narrow subsequent questions.
   arrives, or does the next slot start a full interval later?
 - If the master queue is empty, play user requests immediately, stay silent, or
   use a fallback? At master exhaustion, repeat the mix, loop the list, or stop?
-- Is the timer a wall-clock interval or accumulated audible master-playing time?
-  How do buffering, disconnection, admin pause, seek, replay, and skip affect it?
+- Confirm which playback states count toward the 15-minute master period:
+  buffering, disconnection, admin pause, seek, replay, and skip. Proposed: count
+  observed master playing time, independent of seeks, and freeze while not playing.
 - If a request takes longer than a slot or loading stalls, can due slots stack?
   Define a bounded catch-up policy; never unleash a backlog of overdue interrupts.
 - If an admin skips a user song, does that finish the slot or take the next user
@@ -130,7 +133,7 @@ Ask a small batch and use the answers to narrow subsequent questions.
 | D01 | Jukebox name and intended hostname | Confirmed | Use jukebox URLs in new docs |
 | D02 | Display browser emits HDMI music | Intended; hardware test needed | Other clients remain silent |
 | D03 | Master pause/resume around requests | Confirmed intent | Save provider item and position |
-| D04 | Exact 15-minute semantics | Partly confirmed: finish songs; interrupt mixes over six minutes | Reset, block size, and empty-slot behavior remain open |
+| D04 | Request cadence | 15 more minutes of master playback confirmed; finish songs, interrupt mixes | Slot size, pause/buffering, and empty-slot behavior remain open |
 | D05 | Provider and cross-service matching | Audio-only confirmed; implementation under research | No video fallback; resolve links separately |
 | D06 | Repo/service/hosting ownership | Separate org repo confirmed and created | `purduehackers/jukebox`; runtime/hosting still open |
 | D07 | Identity, night boundaries, quota accounting | Open | Blocks enforceable request rules |
@@ -138,6 +141,7 @@ Ask a small batch and use the answers to narrow subsequent questions.
 | D09 | Wall/Lunar/visualizer layout | Open | Blocks final display design |
 | D10 | Announcement audio priority | Open | Blocks cross-origin coordination design |
 | D11 | Visual identity | Confirmed | Match exact dashboard tokens/assets and dithering |
+| D12 | Audio worker placement | Hosted worker recommended; user has not selected | Run the same worker locally first; verify intended hosting network |
 
 ## Answer provenance
 
@@ -148,6 +152,10 @@ streaming versus temporary downloads, and deletion after use. They chose a
 separate Purdue Hackers repo and explained that the dashboard was provided as the
 exact UI reference. GitHub subsequently allowed creation of
 <https://github.com/purduehackers/jukebox>, with ADMIN access for this account.
+
+In the next answer, the user selected “Another 15 minutes of master music” and
+asked the agent to recommend a worker location after research. This settles the
+interval reset but does not approve a hosted provider, budget, or laptop helper.
 
 When a decision is made, record the user's answer, date, rationale, and affected
 phase. Avoid silently resolving open questions through implementation defaults.

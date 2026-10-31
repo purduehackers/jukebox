@@ -13,7 +13,8 @@ runtime, production deployment, or configured jukebox domain yet.
 
 The master queue supports ordinary songs and long mixes. Ordinary songs finish
 before a due user request; mixes longer than six minutes may be interrupted and
-resumed at the saved position. Exact interval/reset policy remains under discussion.
+resumed at the saved position. After requested music, the next turn follows another
+15 minutes of master playback; the number of requests per turn is still open.
 No video media should be downloaded, streamed, or embedded.
 
 Start with [the project plan](docs/jukebox/README.md),

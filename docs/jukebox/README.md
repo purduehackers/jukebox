@@ -24,9 +24,10 @@ plays user-requested music, and resumes the master track at its saved position.
 When a request becomes due, a normal song finishes; a mix longer than six minutes
 may be interrupted. Audio must remain audio-only throughout: no embedded video,
 video download, or video stream fallback.
-The diagram suggests a 15-minute interval, user songs shorter than six minutes,
-and possibly three submissions per person per night. Exact scheduling and quota
-rules are still open.
+The next request turn follows another 15 minutes of master playback after the
+previous requested music. The diagram suggests user songs shorter than six minutes
+and possibly three submissions per person per night. Slot size, pause/buffering,
+empty-slot, and quota rules are still open.
 
 The dashboard/now-playing display needs song information, a QR code, and possibly
 a countdown to the next request slot. Visualizer placement, Lunar Lander sharing,
@@ -75,8 +76,10 @@ hosting and the media worker's location remain open.
    not infer that a song is audible just because a play command was accepted.
 6. **Audio worker/cache:** resolves an allowed source to audio-only media, prepares
    a seekable asset, and manages temporary storage. The browser plays the audio
-   asset; it does not execute `yt-dlp`. Placement on the laptop or a hosted worker
-   is still under discussion. Keep the active/suspended master asset pinned.
+   asset; it does not execute `yt-dlp`. Current recommendation: a hosted production
+   worker, with the same process running locally during development. This is a
+   proposal pending source/hosting tests, not an accepted hosting decision. Keep
+   the active/suspended master asset pinned.
 
 A source link and a playable recording are different records. Store the submitted
 URL and requested version separately from the selected playable provider item.

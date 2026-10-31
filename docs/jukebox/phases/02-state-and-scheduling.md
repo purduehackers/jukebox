@@ -17,8 +17,9 @@ version with fake source/player adapters for local development.
 - Queue entry: stable ID, queue kind, ordering, item/version, lifecycle.
 - Playback session: active entry, mode, intended state, observed state, saved
   master item/position, current device generation, last acknowledged command.
-- Schedule: persisted due time or accumulated playback clock according to D04,
-  plus the active request slot and policy revision.
+- Schedule: persist progress through the 15-minute master playback period, plus
+  the active request turn and policy revision. Fixed wall-clock slots are not the
+  selected policy. Confirm non-playing-state accounting before finalizing.
 - Device: pairing/authorization, active lease, expiry and heartbeat information.
 - Prepared media: stable asset ID, audio codec/container, preparation state,
   cache references, lifetime, and failed-job cleanup. Keep a suspended mix pinned.
@@ -33,6 +34,9 @@ defining the acceptable resume tolerance.
    buffering, offline, and reset. Decide the midnight/event-boundary behavior.
    Honor the confirmed normal-song boundary and over-six-minute mix interruption
    rule. Request length validation is a separate policy from master classification.
+   Start another 15-minute master playback period after requested music. Track
+   observed elapsed playback separately from media position so a seek does not
+   incorrectly advance the request timer. Confirm pause/buffering accounting.
 2. Define typed commands, responses, events, public snapshots, errors, and
    authorization. Keep the shared contract in one clearly owned location.
 3. Persist queue and scheduler transitions atomically. Use revision checks or

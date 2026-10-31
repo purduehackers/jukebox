@@ -22,7 +22,8 @@ and the shared backend out of this first experiment.
 - Test an unavailable/embed-disabled item, network loss, and refresh. Record
   limitations rather than masking them with fake success.
 - Confirm a normal master song finishes before a due request, while a mix longer
-  than six minutes is interruptible. Interval reset and slot size remain open.
+  than six minutes is interruptible. After requested music, the next turn follows
+  another 15 minutes of master playback. Slot size remains open.
 - Keep a suspended master mix pinned in cache and clean up unused assets after
   completion. Validate audio-only source selection and final media stream types.
 - Determine whether one audio element swapping items suffices. Do not add simultaneous

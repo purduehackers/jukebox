@@ -100,7 +100,56 @@ It still needs a browser proof; no visualizer is declared working by this resear
 The normal browser cannot run `yt-dlp`/FFmpeg as server processes. Extraction needs
 a worker on the laptop or hosted infrastructure. A cloud frontend and queue do not
 automatically supply a reliable long-running media worker or persistent cache.
-Choose placement after the user answers the helper question and hardware details.
+Placement remains open pending hardware details and hosting validation; the
+current recommendation follows.
+
+### Current recommendation: hosted worker in production, local worker for the spike
+
+The user requested a recommendation after research rather than choosing a helper.
+Recommend a small hosted media worker with a bounded audio cache for production.
+Run the same worker locally during phase 1, with local storage and fixtures, so
+the extraction/playback experiment can proceed before choosing paid infrastructure.
+This is an architecture recommendation; no hosting provider or spend is approved.
+
+Why it fits this project:
+
+- The venue machine keeps the intended browser workflow: open the public
+  `/display`, activate audio, and use HDMI. It does not also need an installed,
+  auto-started audio process maintained on that particular laptop.
+- Admin and attendee activity can prepare upcoming audio while the display is
+  closed. A replacement laptop can pair and use the same prepared media.
+- We can keep media delivery on a normal HTTPS origin. A local helper instead
+  adds a public-site-to-localhost connection to support and test. Chrome's current
+  [local-network access guidance](https://developer.chrome.com/docs/modern-web-guidance/guides/security/local-network-access)
+  describes permission-gated connections to local companion services, in addition
+  to the origin/CORS and pairing work that our application still needs.
+
+Tradeoffs: the hosted worker needs an operator, persistent cache or object storage,
+and network transfer to the venue. A laptop cache can offer better independence
+once audio is fully prepared locally. Neither option can promise new source
+downloads without an internet connection. Browser buffering alone is not a
+guarantee of a complete offline copy.
+
+For the first deployment, evaluate a conventional process/container with bounded
+disk storage and a range-capable HTTPS media endpoint. Do not make object storage
+a requirement before it is useful. If separating storage later, services such as
+R2 offer [presigned object access](https://developers.cloudflare.com/r2/api/s3/presigned-urls/),
+but playback authorization lifetime and CORS still need explicit handling.
+
+Keep extraction jobs and large media delivery out of routine frontend request
+handlers. [Vercel Functions have execution and payload limits](https://vercel.com/docs/functions/limitations);
+the dashboard's frontend deployment does not establish a suitable persistent
+media cache/worker. This is not a claim that Vercel cannot serve streaming
+responses or that a particular compute product is mandatory.
+
+Acceptance gate: test audio-only source access, preparation time, seeking/resume,
+cleanup, and transfer from the intended hosting network. If that environment
+cannot access the source reliably, compare the laptop-worker option using the
+same worker contract. Do not silently switch architecture or promise cloud source
+reliability based only on a successful developer-machine test.
+
+Hardware/OS/browser, source support, expected load, budget, and engineer ownership
+are still needed before this becomes an implementation decision.
 
 - **Laptop helper:** keeps prepared audio at the venue and avoids repeatedly
   relaying it through cloud hosting. Requires installation/startup/update handling.

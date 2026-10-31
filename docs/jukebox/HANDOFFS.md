@@ -2,8 +2,9 @@
 
 These are templates for future chats, not instructions to start implementation
 now. The user has returned and chosen a separate repo, audio-only playback,
-song/mix interruption, and exact dashboard styling. Finish the remaining timer,
-identity, hardware, moderation, and worker-location decisions first.
+song/mix interruption, a fresh 15-minute master period, and exact dashboard styling.
+Finish decisions on slot size, timer edge cases, identity, hardware, moderation,
+and worker location first.
 
 ## Workspace and sequencing
 

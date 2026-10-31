@@ -16,8 +16,9 @@ deployment has been implemented. Do not assume dashboard scripts exist here.
 - One designated laptop browser produces music through HDMI. Admin and attendee
   pages remain silent and communicate through shared authoritative state.
 - Ordinary master songs finish before a due request. Tracks over six minutes are
-  mixes that may be interrupted and must resume at their saved position. Exact
-  timer reset and attendee duration cutoff remain open.
+  mixes that may be interrupted and must resume at their saved position. After
+  requested music, allow another 15 minutes of master playback before the next
+  request turn. Slot size and attendee duration cutoff remain open.
 - Exact Hack Night dashboard visual identity: preserve actual fonts, token color
   values, border treatment, and dithering as documented in DESIGN-REFERENCE.md.
 - Work locally first; verify real audio preparation and seeking before polishing
