@@ -82,3 +82,14 @@ test('structured PortError details reach the API error and are replayed with the
   assert.deepEqual(!second.ok && second.error.details, details);
   assert.equal(first.ok, false);
 });
+
+test('canonical URLs re-canonicalize to themselves for every provider (the service re-parses stored source URLs)', async () => {
+  const { canonicalizeUrl } = await import('../src/core/sources.ts');
+  for (const url of [
+    URLS.r1Alt, URLS.spotify, 'https://music.apple.com/us/song/some-title/1000000000001',
+    'https://music.apple.com/us/album/some-album/123456?i=1000000000002', 'fixture:request',
+  ]) {
+    const first = canonicalizeUrl(url);
+    assert.deepEqual(canonicalizeUrl(first.canonicalUrl), first, url);
+  }
+});

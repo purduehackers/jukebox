@@ -25,3 +25,13 @@ promise; the server re-checks everything at submit and the guard catches changed
 
 **Tests:** `tests/preview.test.ts` (read-only, verdicts, error parity, rate limit,
 guard, details replay).
+
+## P2. Apple Music canonical URL must re-canonicalize (bug fix in `src/core/sources.ts`)
+
+`canonicalizeUrl` returns `https://music.apple.com/song/<id>` for Apple links, but its own
+allowlist rejected that form (only `/<storefront>/song/<slug>/<id>` and `album?i=` parsed). The
+service stores `canonicalUrl` and re-parses it when preparing media, so any Apple request that
+was ever admitted (reachable only once matching exists) would have failed preparation and been
+refunded. The regex now also accepts `/song/<id>`; `tests/preview.test.ts` asserts idempotent
+canonicalization for every provider. No accepted input changes meaning; one previously rejected
+form (the canonical one) is now accepted.
