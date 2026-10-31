@@ -266,3 +266,12 @@ and remain open to user revision (none was asked as a product question):
 
 Not established: live PH ID sign-in (no client registered), Firefox against this
 service (phase 3), real-source resolve through the new endpoint, existing-server fit.
+
+## Phase 4C component discussion (2026-10-30)
+
+Confirmed by the user after the visual proposals: scrolling envelope A; supplied
+PolySans Slim, PolySans Slim Italic and PixelHackers assets; real thumbnails;
+requests plus next master; 1920×1080 monitor; Lunar kept separate. See
+[display implementation and verification](PHASE-4C-DISPLAY.md) for the signal,
+rendering choices and pending venue checks. Shared metadata/assets/SSE additions
+remain integration proposals in `proposals/phase-4c*.md`.

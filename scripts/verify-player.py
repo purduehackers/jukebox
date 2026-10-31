@@ -83,6 +83,9 @@ def main():
         d.set_window_size(1440, 1000)
         d.set_script_timeout(10)
         d.get(app + path)
+        if path == '/display':
+            until(lambda: d.find_elements(By.CSS_SELECTOR, '.display-device summary'))
+            d.find_element(By.CSS_SELECTOR, '.display-device summary').click()
         return d
 
     def click(d, id):
@@ -233,6 +236,8 @@ def main():
         request_position = audio(player)['time']
         quota = snap(attendee)['quota']['used']
         player.refresh()
+        until(lambda: player.find_elements(By.CSS_SELECTOR, '.display-device summary'))
+        player.find_element(By.CSS_SELECTOR, '.display-device summary').click()
         until(lambda: player.find_elements(By.ID,'player-claim'))
         assert audio(player)['paused'] and snap()['nowPlaying']['entryId']==request2
         # pagehide checkpoint/release is best effort; never implicitly take over.
