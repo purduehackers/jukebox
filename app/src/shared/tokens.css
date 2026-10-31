@@ -1,0 +1,25 @@
+/* Exact dashboard tokens from docs/jukebox/DESIGN-REFERENCE.md. Fonts are owned by
+   phase 4C (asset reuse must be confirmed); other pages use these variables. */
+:root {
+  --jb-background: #171717;
+  --jb-canvas: #000000;
+  --jb-foreground: #ffffff;
+  --jb-yellow: #ffee00;
+  --jb-amber: #fdd34a;
+  --jb-purple: #7e3cff;
+  --jb-pink: #efb9ff;
+  --jb-font-body: 'Inconsolata', ui-monospace, monospace;
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+  background: var(--jb-background);
+  color: var(--jb-foreground);
+  font-family: var(--jb-font-body);
+}
+.jb-panel {
+  border: 1px solid var(--jb-purple);
+  background: var(--jb-canvas);
+  padding: 1.5rem;
+}
+a { color: var(--jb-yellow); }

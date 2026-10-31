@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Local app development: queue service on :8980 behind the Vite app on :5173.
+# Extra arguments go to the service, e.g. --worker http://127.0.0.1:8971.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+[[ -x node_modules/.bin/vite ]] || npm ci --no-audit --no-fund
+JUKEBOX_ORIGIN=http://127.0.0.1:5173 node src/server/main.ts --dev-auth "$@" &
+service=$!
+trap 'kill $service 2>/dev/null' EXIT
+node_modules/.bin/vite
