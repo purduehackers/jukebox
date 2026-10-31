@@ -22,6 +22,7 @@ import uuid
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.firefox.service import Service
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -61,6 +62,16 @@ def main():
     report = {'atUTC': datetime.now(timezone.utc).isoformat(), 'checks': {}, 'measurements': [],
               'hardware': 'Headless development Linux; HDMI, wall and audible checks pending',
               'autoplayPreferencesOverridden': False, 'leaseMs': 15000, 'heartbeatMs': 5000}
+    # Headless Firefox still uses the host sound server. Route only these owned
+    # browser processes to a dedicated null sink; never change the user's default.
+    sink_name = f'jukebox_verify_{os.getpid()}'
+    sink_module = subprocess.check_output([
+        'pactl', 'load-module', 'module-null-sink', f'sink_name={sink_name}',
+        'sink_properties=device.description=JukeboxVerification',
+    ], text=True).strip()
+    browser_env = {**os.environ, 'PULSE_SINK': sink_name}
+    report['audioOutput'] = {'routing': 'dedicated PulseAudio null sink', 'sink': sink_name,
+                             'systemDefaultChanged': False}
     drivers, children, logs = [], [], []
     temp = tempfile.TemporaryDirectory(prefix='jukebox-player-')
     work = Path(temp.name)
@@ -78,7 +89,7 @@ def main():
         options = Options()
         options.add_argument('-headless')
         options.binary_location = '/usr/bin/firefox'
-        d = webdriver.Firefox(options=options)
+        d = webdriver.Firefox(options=options, service=Service(env=browser_env))
         drivers.append(d)
         d.set_window_size(1440, 1000)
         d.set_script_timeout(10)
@@ -174,6 +185,15 @@ def main():
         assert audio(player)['paused']
         report['checks']['ordinaryClaimWaitsPriorLeaseBeforeAudio'] = True
         playing(player)
+        # Check the sound server, not just the environment variable. Firefox's
+        # stream identifies its parent process, which Selenium owns.
+        sink_index = next(line.split()[0] for line in subprocess.check_output(
+            ['pactl', 'list', 'short', 'sinks'], text=True).splitlines() if line.split()[1]==sink_name)
+        def routed_stream():
+            streams = json.loads(subprocess.check_output(['pactl', '-f', 'json', 'list', 'sink-inputs'], text=True))
+            return any(str(s['sink'])==sink_index and s.get('properties', {}).get('application.process.id')==str(player.capabilities['moz:processID']) for s in streams)
+        until(routed_stream)
+        report['checks']['ownedFirefoxOutputVerifiedOnNullSink'] = True
         # Firefox WebDriver evaluation has its own module realm. Install a normal
         # page module so this observer shares the visualizer's actual singleton.
         player.execute_script("""const s=document.createElement('script');s.type='module';s.textContent=`
@@ -423,6 +443,7 @@ def main():
                 except subprocess.TimeoutExpired: os.killpg(child.pid,signal.SIGKILL)
         for log in logs: log.close()
         temp.cleanup()
+        subprocess.run(['pactl', 'unload-module', sink_module], check=False)
     print(json.dumps({k:report[k] for k in ['result','browser','checks','measurements']},indent=2))
 
 
