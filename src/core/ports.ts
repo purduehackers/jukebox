@@ -10,10 +10,13 @@ export class PortError extends Error {
   code: 'INVALID_SOURCE' | 'SOURCE_UNSUPPORTED' | 'SOURCE_UNAVAILABLE' | 'DURATION_REJECTED';
   /** Technical failures (network, worker) may be retried; validation failures may not. */
   technical: boolean;
-  constructor(code: PortError['code'], message: string, technical = false) {
+  /** Structured, user-safe context passed through to `ApiError.details`. */
+  details?: Record<string, unknown>;
+  constructor(code: PortError['code'], message: string, technical = false, details?: Record<string, unknown>) {
     super(message);
     this.code = code;
     this.technical = technical;
+    if (details) this.details = details;
   }
 }
 

@@ -61,6 +61,19 @@ export interface ResolvedSource {
   recordingKey: string;
   /** Opaque, worker-specific selection; never a signed media URL. */
   selection: unknown;
+  /** Set when a Spotify/Apple link was matched to a different playable recording. */
+  match?: MatchInfo;
+}
+
+/** The playable recording a catalog link was matched to, shown to the requester before submit. */
+export interface MatchInfo {
+  via: Provider;
+  url: string;
+  title: string;
+  artist: string | null;
+  durationSec: number;
+  /** Short human-readable reasons the match was accepted (e.g. same title, duration within 3 s). */
+  reasons: string[];
 }
 
 export interface AssetDescriptor {
@@ -237,7 +250,9 @@ export interface CommandPayloads {
   'device.pairing.create': { name: string };
   'device.revoke': { deviceId: string };
   // Attendee
-  'request.submit': { url: string };
+  'request.submit': { url: string; /** Reject (GUARD_MISMATCH) if the link now resolves to a different recording than previewed. */ expectRecordingKey?: string };
+  /** Read-only: resolve and judge a link without reserving allowance or touching the queue. */
+  'request.preview': { url: string };
   // Unauthenticated holder of a pairing code
   'device.pair': { code: string };
   // Paired player
@@ -265,8 +280,17 @@ export interface CommandResults {
   'device.pair': { deviceId: string; token: string };
   'player.claim': { generation: number; expiresAt: number };
   'request.submit': { entryId: string; quota: { used: number; limit: number; remaining: number } };
+  'request.preview': PreviewResult;
   'master.add': { entryId: string };
   'night.open': { nightId: string };
+}
+
+export interface PreviewResult {
+  source: { provider: Provider; canonicalUrl: string; title: string; artist: string | null; durationSec: number; recordingKey: string };
+  match: MatchInfo | null;
+  /** What `request.submit` would do right now. Not a reservation: it can change before submit. */
+  verdict: { accepted: true } | { accepted: false; code: ErrorCode; message: string };
+  quota: { used: number; limit: number; remaining: number };
 }
 
 export type CommandResult<T extends CommandType> = T extends keyof CommandResults ? CommandResults[T] : Record<string, never>;
@@ -292,6 +316,7 @@ export type ErrorCode =
   | 'SOURCE_UNSUPPORTED'
   | 'SOURCE_UNAVAILABLE'
   | 'DURATION_REJECTED'
+  | 'RATE_LIMITED'
   | 'LEASE_HELD'
   | 'STALE_LEASE'
   | 'DEVICE_REVOKED'
@@ -304,6 +329,8 @@ export interface ApiError {
   message: string;
   /** True only when retrying the same commandId later may succeed. */
   retryable: boolean;
+  /** Optional structured context, e.g. `{kind:'ambiguous', candidates}` for a link that needs disambiguation. */
+  details?: Record<string, unknown>;
 }
 
 // ---- Durable events (audit log and change feed) ----
