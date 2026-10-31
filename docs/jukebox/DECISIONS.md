@@ -231,3 +231,14 @@ and production deployment remain later steps.
 
 When a decision is made, record the user's answer, date, rationale, and affected
 phase. Avoid silently resolving open questions through implementation defaults.
+
+
+## Phase-1 implementation evidence (2026-10-30)
+
+The [local playback proof and measured findings](PHASE-1-FINDINGS.md) now exist.
+This is technical evidence, not a new user product decision: strict YouTube
+audio-only acquisition succeeded locally for an hour mix and short request;
+Firefox interrupt/resume and playing-media analysis worked. The worker/page use
+a minimal experiment stack, not the later full application. Existing-server
+source reliability, venue HDMI, production source operation, matching, and secure
+shared contracts remain unverified. No dependent phase has started.

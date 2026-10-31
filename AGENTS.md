@@ -4,8 +4,10 @@
 
 Read `docs/jukebox/README.md`, `docs/jukebox/DECISIONS.md`, and the applicable phase brief.
 This is `purduehackers/jukebox`, a separate app from the Hack Night dashboard.
-There is currently only documentation: no app stack, scripts, database, or
-deployment has been implemented. Do not assume dashboard scripts exist here.
+Phase 1 now includes a local Python audio worker/cache, SQLite proof checkpoint,
+and minimal Firefox page. Read `docs/jukebox/PHASE-1-FINDINGS.md` and the root
+README for commands and measured limits. There is no production app/deployment,
+shared queue/auth stack, or final display yet. Do not assume dashboard scripts exist here.
 
 The user approved `docs/jukebox/APPROVAL-PLAN.md` on 2026-10-30, including its
 defaults and subsequent display/server clarifications. Phase 1 is authorized to

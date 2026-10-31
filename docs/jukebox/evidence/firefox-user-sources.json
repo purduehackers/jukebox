@@ -1,0 +1,470 @@
+{
+  "atUTC": "2026-10-31T01:02:42.754037+00:00",
+  "checks": {
+    "masterRms": 0.04978602283420088,
+    "requestRms": 0.02134077670866917,
+    "bothAssetsPinnedDuringInterruption": true,
+    "savedMasterPosition": 1234.5,
+    "resumeSeekErrorSeconds": 0.0,
+    "requestNativeEnded": true,
+    "unpinDeleteAnd404": true,
+    "sourceFailureCleanedWithoutFallback": true
+  },
+  "assets": [
+    {
+      "duration": 2232.761,
+      "codec": "opus",
+      "streams": [
+        {
+          "type": "audio",
+          "codec": "opus"
+        }
+      ],
+      "source": "https://www.youtube.com/watch?v=TqTNaPB-4ow",
+      "kind": "master",
+      "file": "asset.webm",
+      "bytes": 37345898,
+      "mime": "audio/webm",
+      "selection": {
+        "id": "TqTNaPB-4ow",
+        "format_id": "251",
+        "acodec": "opus",
+        "vcodec": "none",
+        "protocol": "https",
+        "duration": 2233
+      },
+      "preparationSeconds": 12.818,
+      "transcoded": false,
+      "mediaTransfers": [
+        {
+          "formatId": "251",
+          "vcodec": "none",
+          "acodec": "opus",
+          "downloadedBytes": 37337788,
+          "totalBytes": 37337788,
+          "status": "finished"
+        }
+      ],
+      "id": "e97c1b75-e3f3-4a9c-bdbf-38e2088e0bcb",
+      "url": "/media/e97c1b75-e3f3-4a9c-bdbf-38e2088e0bcb",
+      "pinned": false
+    },
+    {
+      "duration": 297.061,
+      "codec": "opus",
+      "streams": [
+        {
+          "type": "audio",
+          "codec": "opus"
+        }
+      ],
+      "source": "https://www.youtube.com/watch?v=BXtL6W0RXpg",
+      "kind": "request",
+      "file": "asset.webm",
+      "bytes": 4973312,
+      "mime": "audio/webm",
+      "selection": {
+        "id": "BXtL6W0RXpg",
+        "format_id": "251",
+        "acodec": "opus",
+        "vcodec": "none",
+        "protocol": "https",
+        "duration": 297
+      },
+      "preparationSeconds": 10.104,
+      "transcoded": false,
+      "mediaTransfers": [
+        {
+          "formatId": "251",
+          "vcodec": "none",
+          "acodec": "opus",
+          "downloadedBytes": 4972081,
+          "totalBytes": 4972081,
+          "status": "finished"
+        }
+      ],
+      "id": "946bace9-6511-41d9-91f7-13c957956121",
+      "url": "/media/946bace9-6511-41d9-91f7-13c957956121",
+      "pinned": false
+    }
+  ],
+  "requestEndMethod": "After real playback, seek near request end and wait for native ended event",
+  "hardware": "Headless Firefox on development Linux; HDMI/wall untested",
+  "browser": {
+    "browserName": "firefox",
+    "browserVersion": "158.0.1",
+    "moz:buildID": "20261020162120",
+    "moz:geckodriverVersion": "0.37.1",
+    "moz:headless": true
+  },
+  "measurements": [
+    {
+      "actual": 0,
+      "codec": "opus",
+      "errorSeconds": 0,
+      "loadSeekMs": 24,
+      "mime": "audio/webm",
+      "requested": 0,
+      "role": "master"
+    },
+    {
+      "actual": 0,
+      "codec": "opus",
+      "errorSeconds": 0,
+      "loadSeekMs": 27,
+      "mime": "audio/webm",
+      "requested": 0,
+      "role": "request"
+    },
+    {
+      "actual": 1234.5,
+      "codec": "opus",
+      "errorSeconds": 0,
+      "loadSeekMs": 465,
+      "mime": "audio/webm",
+      "requested": 1234.5,
+      "role": "master"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-10-31T01:03:13.350Z",
+      "commandId": "8cd536f8-29ee-4477-9141-fca0a92bd293",
+      "position": 0,
+      "revision": 1,
+      "role": "master",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:13.374Z",
+      "duration": 2232.761,
+      "position": 0,
+      "type": "loadedmetadata"
+    },
+    {
+      "actual": 0,
+      "at": "2026-10-31T01:03:13.374Z",
+      "codec": "opus",
+      "errorSeconds": 0,
+      "loadSeekMs": 24,
+      "mime": "audio/webm",
+      "requested": 0,
+      "role": "master",
+      "type": "ready-seeked"
+    },
+    {
+      "at": "2026-10-31T01:03:13.393Z",
+      "commandId": "8de67428-c3c2-486d-851b-eef6eb941d45",
+      "position": 0,
+      "revision": 2,
+      "role": "master",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:13.394Z",
+      "duration": 2232.761,
+      "position": 0,
+      "type": "waiting"
+    },
+    {
+      "at": "2026-10-31T01:03:13.437Z",
+      "duration": 2232.761,
+      "position": 0,
+      "type": "playing"
+    },
+    {
+      "at": "2026-10-31T01:03:13.437Z",
+      "paused": false,
+      "position": 0,
+      "type": "play-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:13.451Z",
+      "commandId": "8b094ac7-3654-4c7c-832e-bfe40855509f",
+      "position": 0,
+      "revision": 3,
+      "role": "master",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:13.582Z",
+      "commandId": "2b683a84-d026-4320-9018-9daadf500c28",
+      "position": 0.042666,
+      "revision": 4,
+      "role": "master",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:14.056Z",
+      "duration": 2232.761,
+      "position": 0.565333,
+      "type": "pause"
+    },
+    {
+      "at": "2026-10-31T01:03:14.161Z",
+      "commandId": "2723fe66-07d1-4be2-8243-7e9e6e8f03cd",
+      "position": 0.565333,
+      "revision": 5,
+      "role": "master",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:14.433Z",
+      "commandId": "cabba4ce-9845-4fe7-9147-c6fdc84f747b",
+      "position": 0.565333,
+      "revision": 6,
+      "role": "master",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:14.573Z",
+      "duration": 2232.761,
+      "position": 1234.5,
+      "type": "seeking"
+    },
+    {
+      "at": "2026-10-31T01:03:15.000Z",
+      "duration": 2232.761,
+      "position": 1234.5,
+      "type": "seeked"
+    },
+    {
+      "at": "2026-10-31T01:03:15.037Z",
+      "commandId": "5bb63f51-17d4-41a6-8ecb-afb009a679ee",
+      "position": 1234.5,
+      "revision": 7,
+      "role": "master",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:15.171Z",
+      "commandId": "25488e9c-931e-4969-887f-95e5a942d1ee",
+      "position": 1234.5,
+      "revision": 8,
+      "role": "master",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:15.245Z",
+      "commandId": "cb6c1dd3-669b-4de6-a115-5ef7c75be021",
+      "position": 0,
+      "revision": 9,
+      "role": "request",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:15.271Z",
+      "duration": 297.061,
+      "position": 0,
+      "type": "loadedmetadata"
+    },
+    {
+      "actual": 0,
+      "at": "2026-10-31T01:03:15.271Z",
+      "codec": "opus",
+      "errorSeconds": 0,
+      "loadSeekMs": 27,
+      "mime": "audio/webm",
+      "requested": 0,
+      "role": "request",
+      "type": "ready-seeked"
+    },
+    {
+      "at": "2026-10-31T01:03:15.292Z",
+      "commandId": "b6f798ea-3fb6-451b-8a1c-e6c5b78de27c",
+      "position": 0,
+      "revision": 10,
+      "role": "request",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:15.293Z",
+      "duration": 297.061,
+      "position": 0,
+      "type": "playing"
+    },
+    {
+      "at": "2026-10-31T01:03:15.293Z",
+      "paused": false,
+      "position": 0,
+      "type": "play-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:15.387Z",
+      "commandId": "1c38ec8c-a3af-46bb-ad63-112db8f53d2f",
+      "position": 0,
+      "revision": 11,
+      "role": "request",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:15.442Z",
+      "commandId": "96a0c587-cf86-4a36-b6aa-c7d9bc8ff007",
+      "position": 0,
+      "revision": 12,
+      "role": "request",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:15.499Z",
+      "commandId": "48b8c11b-f79c-4899-bdd9-e7955a873843",
+      "position": 0.042666,
+      "revision": 13,
+      "role": "request",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:16.348Z",
+      "commandId": "e3396e1e-f276-48fc-9a18-297aea21d311",
+      "position": 0.928,
+      "revision": 14,
+      "role": "request",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:16.551Z",
+      "duration": 297.061,
+      "position": 296.061,
+      "type": "seeking"
+    },
+    {
+      "at": "2026-10-31T01:03:16.552Z",
+      "duration": 297.061,
+      "position": 296.061,
+      "type": "waiting"
+    },
+    {
+      "at": "2026-10-31T01:03:16.647Z",
+      "duration": 297.061,
+      "position": 296.061,
+      "type": "seeked"
+    },
+    {
+      "at": "2026-10-31T01:03:16.648Z",
+      "duration": 297.061,
+      "position": 296.061,
+      "type": "playing"
+    },
+    {
+      "at": "2026-10-31T01:03:16.661Z",
+      "commandId": "4d40e292-5891-447c-9774-3a77c6727ddd",
+      "position": 296.061,
+      "revision": 15,
+      "role": "request",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:17.348Z",
+      "commandId": "6b68dfa6-e650-4d81-91b2-ab3dc1f21529",
+      "position": 296.711666,
+      "revision": 16,
+      "role": "request",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:17.653Z",
+      "duration": 297.061,
+      "position": 297.061,
+      "type": "pause"
+    },
+    {
+      "at": "2026-10-31T01:03:17.654Z",
+      "duration": 297.061,
+      "position": 297.061,
+      "type": "ended"
+    },
+    {
+      "at": "2026-10-31T01:03:17.787Z",
+      "savedMasterPosition": 1234.5,
+      "type": "request-ended"
+    },
+    {
+      "at": "2026-10-31T01:03:17.801Z",
+      "commandId": "18273ead-351d-4901-9f23-991cfdedc284",
+      "position": 1234.5,
+      "revision": 17,
+      "role": "master",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:17.819Z",
+      "duration": 2232.761,
+      "position": 0,
+      "type": "loadedmetadata"
+    },
+    {
+      "at": "2026-10-31T01:03:17.821Z",
+      "duration": 2232.761,
+      "position": 1234.5,
+      "type": "seeking"
+    },
+    {
+      "at": "2026-10-31T01:03:18.266Z",
+      "duration": 2232.761,
+      "position": 1234.5,
+      "type": "seeked"
+    },
+    {
+      "actual": 1234.5,
+      "at": "2026-10-31T01:03:18.266Z",
+      "codec": "opus",
+      "errorSeconds": 0,
+      "loadSeekMs": 465,
+      "mime": "audio/webm",
+      "requested": 1234.5,
+      "role": "master",
+      "type": "ready-seeked"
+    },
+    {
+      "at": "2026-10-31T01:03:18.281Z",
+      "commandId": "19e2bf78-6eb3-45d4-b99c-60aa6932a709",
+      "position": 1234.5,
+      "revision": 18,
+      "role": "master",
+      "type": "checkpoint-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:18.281Z",
+      "duration": 2232.761,
+      "position": 1234.5,
+      "type": "playing"
+    },
+    {
+      "at": "2026-10-31T01:03:18.281Z",
+      "paused": false,
+      "position": 1234.5,
+      "type": "play-ack"
+    },
+    {
+      "at": "2026-10-31T01:03:18.334Z",
+      "commandId": "4705c9f4-97dc-408f-9955-0d595989107a",
+      "position": 1234.5,
+      "revision": 19,
+      "role": "master",
+      "type": "checkpoint-ack"
+    },
+    {
+      "actual": 1234.5,
+      "at": "2026-10-31T01:03:18.334Z",
+      "saved": 1234.5,
+      "type": "master-resumed"
+    },
+    {
+      "at": "2026-10-31T01:03:18.348Z",
+      "commandId": "bd6be2ef-51fe-4ac4-9ddb-dada19027149",
+      "position": 1234.5,
+      "revision": 20,
+      "role": "master",
+      "type": "checkpoint-ack"
+    }
+  ],
+  "unavailableSourceAttempt": {
+    "id": "ed165b2c-ecba-4b3c-84d4-1821cccdf151",
+    "source": "https://www.youtube.com/watch?v=BaW_jenozKc",
+    "kind": "request",
+    "status": "failed",
+    "error": "Preparation failed: ERROR: [youtube] BaW_jenozKc: This video is unavailable\nDownloadError: ERROR: [youtube] BaW_jenozKc: This video is unavailable\n",
+    "created": 1793408598.559879
+  },
+  "result": "passed"
+}

@@ -1,38 +1,74 @@
 # Purdue Hackers Jukebox
 
-An audio-only music queue and venue player for Hack Night.
+Audio-only music queue and venue player for Hack Night. Phase 1 now contains a
+runnable local worker/cache and Firefox playback experiment. Production, shared
+queues, PH ID, admin/attendee pages, and the wall display remain later phases.
+Intended production origin: `https://jukebox.purduehackers.com` (not deployed).
 
-Intended origin: `https://jukebox.purduehackers.com`.
+## Run the local proof
 
-This repository currently contains the planning baseline. There is no implemented
-runtime, production deployment, or configured jukebox domain yet.
+Requires Linux, Python 3.11+, FFmpeg/ffprobe, Node 22+, and Firefox. On CachyOS/Arch,
+install missing system dependencies as the normal user with
+`yay -S --needed python ffmpeg nodejs firefox`. This uses official-repository
+packages; no system packages or global configuration were changed for this proof.
 
-**Approved plan:** [the consolidated plan](docs/jukebox/APPROVAL-PLAN.md) records
-the scope, accepted defaults, and phase order. The user approved it on 2026-10-30;
-Phase 1 is authorized to begin in a separate implementation chat/worktree.
+```sh
+./scripts/run-local
+```
 
-- `/display`: designated laptop music player and wall presentation, with HDMI audio.
-- `/admin`: remote organizer controls and queue management.
-- `/queue`: attendee requests reached through a QR code.
+This creates a local Python virtual environment and installs the pinned worker
+dependency on first use. Open **http://127.0.0.1:8971/display in Firefox**.
+Use `--port 8972` if occupied, or `--data .local/another-proof` for separate state.
+The service binds to loopback only. Stop it with Ctrl+C.
 
-The master queue supports ordinary songs and long mixes. Ordinary songs finish
-before a due user request; mixes longer than six minutes may be interrupted and
-resumed at the saved position. After requested music, the next turn follows another
-15 minutes of master playback. Exactly one user song plays per turn. Attendees
-sign in with Purdue Hackers ID and get three songs per person per admin-managed
-night session. Valid requests enter automatically; admins can remove them.
-Empty turns reset the 15-minute interval; pause/buffering does not stop its elapsed
-clock. Count accepted submissions and refund technical playback failures.
-Further rules are in the approved plan. The display uses Firefox.
-No video media should be downloaded, streamed, or embedded.
+1. Prepare `fixture:master` as **Master** (one hour; generation takes about 30–35s
+   on the development machine). Prepare `fixture:request` as **Request** (4s).
+2. Select those assets in the playback section. Click **Activate / Resume this
+   tab**. This is an explicit local proof lease; opening a page stays silent.
+3. Pause, seek to `1234.5`, then advance the test clock by 15 minutes. It stays
+   paused. Click **Resume**: one request plays to its end, then master resumes
+   from the actual saved position. The elapsed-period anchor is independent of seek.
+4. Observe RMS/frequency from actual audio, checkpoint acknowledgements, and pins.
+   Refresh: audio stays silent until activation; checkpoint/asset references persist.
+5. **Clear proof checkpoint** releases the references. Delete unused assets with
+   their Delete buttons. Selected/active/suspended assets reject deletion server-side.
 
-Start with [the project plan](docs/jukebox/README.md),
-[decisions](docs/jukebox/DECISIONS.md),
-[audio pipeline research](docs/jukebox/AUDIO-RESEARCH.md), and
-[exact dashboard design reference](docs/jukebox/DESIGN-REFERENCE.md).
-Ordered implementation prompts and separate phase briefs are included.
+`fixture:song` is exactly 360 seconds of AAC for the normal-song boundary;
+`fixture:aac` is an 8-second AAC request. Fixture generation creates audio only.
+To try the real adapter, enter one HTTPS YouTube `/watch?v=…` or `youtu.be/…`
+link with the correct role. YouTube `si` share parameters are accepted and discarded. No cookies/accounts are used. Source access can fail;
+there is no video or alternate-recording fallback. Requests must be under 360s.
 
-The [Hack Night dashboard](https://github.com/purduehackers/hack-night-dashboard)
-is the visual reference. It runs on a separate independent monitor and is outside
-the implementation scope. Jukebox uses the dashboard's actual fonts, colors,
-borders, and dithering in its own application and display.
+The supplied master `https://youtu.be/TqTNaPB-4ow` and songs
+`https://youtu.be/BXtL6W0RXpg` / `https://youtu.be/lPeJMoms_Ag` passed real-source
+Firefox checks. Spotify remains a metadata/matching example, not playable media.
+
+Preparation finishes before playback; this is a seekable completed-file cache,
+not a growing-file stream. It retains supported audio codecs (Opus/Vorbis, AAC,
+MP3, FLAC); Firefox verification here covers Opus/WebM and AAC/M4A only.
+
+## Verify
+
+```sh
+.venv/bin/python -m pip install -r requirements-dev.lock.txt
+./scripts/check
+.venv/bin/python scripts/verify-firefox.py
+# Opt-in network test; downloads real audio and then deletes the test assets:
+.venv/bin/python scripts/verify-source.py
+```
+
+The Firefox scripts launch `/usr/bin/firefox` using a fresh temporary profile and
+Selenium Manager/geckodriver. The first run may download geckodriver. They do not
+read personal browser profiles or change autoplay preferences. The fixture script
+starts its own isolated server/data directory, generates owned synthetic audio,
+and writes `.local/firefox-evidence.json`. `--headed` runs it visibly. The source
+script writes `.local/source-evidence.json`; it is separate from routine checks.
+Neither script demonstrates audible HDMI output. A Chromium preview is useful
+for reading this lab page, but is not Firefox evidence.
+
+Measured results, source URLs, limits, recovery semantics, interface proposals,
+and remaining venue/server checks: [Phase-1 findings](docs/jukebox/PHASE-1-FINDINGS.md).
+Original authority: [approved plan](docs/jukebox/APPROVAL-PLAN.md),
+[decision log](docs/jukebox/DECISIONS.md), [phase brief](docs/jukebox/phases/01-playback.md).
+The dashboard checkout was not modified. The lab uses diagnostic controls and
+brand color tokens; final fonts/shader/layout belong to the later display phase.

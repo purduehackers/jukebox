@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+.venv/bin/python -m unittest discover -s tests -v
+node --test tests/turn.test.mjs
+node --check web/app.js

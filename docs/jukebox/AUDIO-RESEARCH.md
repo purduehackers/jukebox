@@ -1,6 +1,8 @@
 # Audio-only pipeline research
 
-Researched 2026-10-30. Documentation/source review only: no live extraction or
+Historical research below, 2026-10-30. The later [Phase-1 findings](PHASE-1-FINDINGS.md)
+record actual acquisition, installed tooling, Firefox playback, and analysis evidence.
+The original research was documentation/source review only: no live extraction or
 hour-long media download has been tested. `ffmpeg`/`ffprobe` are available locally;
 `yt-dlp`/`youtube-dl` were not installed during this research.
 

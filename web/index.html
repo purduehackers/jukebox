@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Jukebox · Playback proof</title><link rel="stylesheet" href="/style.css"></head>
+<body><main>
+<h1>Jukebox / playback proof</h1>
+<p>Local Phase 1 lab. Prepare audio, select a master, then activate this tab. Synthetic tones are quiet; check your output volume. Wall design comes later.</p>
+<section><h2>1. Prepare audio-only media</h2>
+<label>Source <input id="source" value="fixture:master" size="55" spellcheck="false"></label>
+<label>Role <select id="kind"><option value="master">Master</option><option value="request">Request (&lt;6 min)</option></select></label>
+<button id="prepare">Prepare</button>
+<p>Fixtures: <code>fixture:master</code> (1 hour Opus), <code>fixture:request</code> (4 seconds Opus), <code>fixture:song</code> (6 minutes), <code>fixture:aac</code> (8 seconds AAC). Or a single HTTPS YouTube watch link; access may fail.</p>
+<pre id="jobs">Loading worker…</pre>
+<div id="assets"></div><button id="cleanup">Clean expired unused assets</button>
+</section>
+<section><h2>2. Playback experiment</h2>
+<label>Master <select id="master"></select></label><label>One request <select id="request"><option value="">Empty turn</option></select></label>
+<button id="activate">Activate / Resume this tab</button><button id="offer">Offer selected request</button>
+<button id="pause">Pause</button><button id="resume">Resume</button><button id="release">Pause &amp; release</button><button id="reset">Clear proof checkpoint</button>
+<p><label>Seek seconds <input id="seek" type="number" min="0" value="1234.5"></label><button id="seekButton">Seek</button>
+<label>Volume <input id="volume" type="range" min="0" max="1" step="0.01" value="0.2"></label></p>
+<button id="advance">Test clock: advance 15 minutes</button><p>Clock advances elapsed policy time only. Seeking does not advance the timer. A deliberate pause stays paused when due.</p>
+<audio id="audio" preload="metadata"></audio>
+<p id="playback" role="status">Not activated. Opening this page never starts audio.</p>
+<label>Actual playing-media RMS <meter id="rms" min="0" max="0.2" value="0"></meter></label><span id="analysis">No audio context</span>
+<pre id="checkpoint"></pre><p id="error" role="alert"></p>
+</section>
+<section><h2>Observed events</h2><pre id="events"></pre></section>
+</main><script type="module" src="/app.js"></script></body></html>

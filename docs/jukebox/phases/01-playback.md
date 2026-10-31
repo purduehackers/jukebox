@@ -1,7 +1,9 @@
 # Phase 1: prove playback
 
-Status: approved to start. The consolidated plan and defaults are approved;
-worker feasibility and available development hardware are phase-1 investigation.
+Status: local proof implemented and verified in development Firefox. Read
+[measured findings and evidence](../PHASE-1-FINDINGS.md) and the root README.
+Venue HDMI/wall and intended server/network validation remain pending.
+The approved plan still governs scope; later phases have not been started.
 
 ## Goal
 

@@ -1,0 +1,10 @@
+:root { color-scheme: dark; background: #171717; color: #ffffff; font: 16px monospace; }
+body { margin: 0; } main { max-width: 1050px; margin: 2rem auto; padding: 0 1rem; }
+h1 { color: #ffee00; } h2 { font-size: 1.2rem; color: #efb9ff; }
+section { background: #000000; border: 1px solid #7e3cff; padding: 1.25rem; margin: 1.5rem 0; }
+button,input,select { font: inherit; margin: .3rem; padding: .4rem; border: 1px solid #7e3cff; border-radius: 0; }
+button { background: #171717; color: #ffffff; cursor: pointer; } button:hover { color: #ffee00; }
+button:focus-visible,input:focus-visible,select:focus-visible { outline: 2px solid #fdd34a; }
+p { line-height: 1.5; } pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .85rem; }
+label { display: inline-block; } input { max-width: 90%; } #error { color: #fdd34a; }
+#assets > div { border-top: 1px solid #7e3cff; padding: .5rem 0; } meter { width: 200px; }

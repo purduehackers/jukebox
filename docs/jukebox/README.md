@@ -1,13 +1,15 @@
 # Jukebox project plan
 
-Status: discovery and requirements discussion. Updated 2026-10-30.
+Status: Phase-1 local playback proof implemented; venue/server gates pending. Updated 2026-10-30.
 
 The user approved [the consolidated plan](APPROVAL-PLAN.md) and its defaults on
 2026-10-30. It is the current scope/behavior authority. Start phase 1 in its own
 chat/worktree; later detailed discussions and dependent phases follow its order.
 
-This is the starting point for planning and later phase chats. No jukebox runtime
-has been implemented. The user has returned and clarified audio-only playback,
+This is the starting point for planning and later phase chats. Phase 1 now has
+a local runnable worker/cache and Firefox proof; see [findings](PHASE-1-FINDINGS.md)
+and the [root startup instructions](../../README.md). No production runtime has
+been deployed. The user has returned and clarified audio-only playback,
 song/mix interruption, a separate repository, and exact dashboard visual reuse.
 The canonical implementation repository is
 <https://github.com/purduehackers/jukebox>. The separate Hack Night dashboard
@@ -44,6 +46,9 @@ target. The canonical project name is Jukebox; old music URLs in the drawing are
 superseded by the intended jukebox hostname.
 
 ## Documents
+
+- [Phase-1 measured findings](PHASE-1-FINDINGS.md): implemented local runtime,
+  Firefox/source evidence, boundaries, interface proposals, and pending gates.
 
 - [Discovery and deployment findings](DISCOVERY.md): evidence from this repo,
   related org repositories, public DNS, and provider documentation.
