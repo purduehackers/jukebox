@@ -33,6 +33,7 @@ export class PlayerController {
   private disposed = false;
   private busy = false;
   private reporting = false;
+  private reportAgain = false;
   private claiming = false;
   private terminalSent = false;
   private unsubscribe: () => void;
@@ -252,7 +253,8 @@ export class PlayerController {
   }
 
   private async report() {
-    if (!this.live() || this.reporting || this.terminalSent) return;
+    if (!this.live() || this.terminalSent) return;
+    if (this.reporting) { this.reportAgain = true; return; }
     this.reporting = true;
     const generation = this.state.generation!;
     const previous = this.previous;
@@ -281,7 +283,10 @@ export class PlayerController {
       await this.refresh();
     } catch {
       if (this.live()) this.update({ message: 'Report not confirmed. Playback stops when the lease expires.' });
-    } finally { this.reporting = false; }
+    } finally {
+      this.reporting = false;
+      if (this.reportAgain) { this.reportAgain = false; void this.report(); }
+    }
   }
 
   dispose() {

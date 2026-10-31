@@ -172,13 +172,17 @@ def main():
         report['checks']['remotePlayCannotActivateFreshDocument'] = True
         click(player, 'player-activate')
         playing(player)
-        player.execute_async_script('''const done=arguments[0];import('/src/shared/audio-tap.ts').then(m=>{
-          m.subscribeAnalyser(a=>window.testAnalyser=a);done(true);
-        });''')
+        # Firefox WebDriver evaluation has its own module realm. Install a normal
+        # page module so this observer shares the visualizer's actual singleton.
+        player.execute_script("""const s=document.createElement('script');s.type='module';s.textContent=`
+          import {subscribeAnalyser} from '/src/shared/audio-tap.ts';
+          let analyser=null;subscribeAnalyser(a=>analyser=a);
+          function sample(){
+            let rms=0;if(analyser){const v=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(v);rms=Math.sqrt(v.reduce((s,x)=>s+x*x,0)/v.length);}
+            window.playerAnalysis={exists:!!analyser,state:analyser?.context.state,rms};requestAnimationFrame(sample);
+          }sample();`;document.head.append(s);""")
         def rms():
-            return player.execute_script('''const a=window.testAnalyser;if(!a)return 0;
-              const v=new Float32Array(a.fftSize);a.getFloatTimeDomainData(v);
-              return Math.sqrt(v.reduce((s,x)=>s+x*x,0)/v.length);''')
+            return player.execute_script('return window.playerAnalysis?.rms||0')
         until(lambda: rms()>.001)
         report['measurements'].append({'masterAnalysisRms':rms()})
         for d in (admin, attendee):
@@ -345,7 +349,7 @@ def main():
         report['failureBrowsers']=[]
         for d in drivers:
             try:
-                report['failureBrowsers'].append({'url':d.current_url,'state':audio(d),'text':d.find_element(By.TAG_NAME,'body').text})
+                report['failureBrowsers'].append({'url':d.current_url,'state':audio(d),'text':d.find_element(By.TAG_NAME,'body').text,'analysis':d.execute_script("return window.playerAnalysis")})
             except Exception:
                 pass
         for i, log in enumerate(logs):
