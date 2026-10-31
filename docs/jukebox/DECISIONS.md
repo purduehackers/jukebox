@@ -266,3 +266,18 @@ and remain open to user revision (none was asked as a product question):
 
 Not established: live PH ID sign-in (no client registered), Firefox against this
 service (phase 3), real-source resolve through the new endpoint, existing-server fit.
+
+## Phase-3 implementation record (2026-10-30)
+
+The [designated Firefox player and measured findings](PHASE-3-FINDINGS.md) implement
+pairing, explicit claims, local activation, desired-state reconciliation, actual
+reports and local lease expiry. Shared contracts and server semantics are unchanged.
+**Implementation choice:** every successful claim waits a full 15-second lease
+before audio, even ordinary claims, to cover a disconnected player after admin
+revocation. Reports renew the new lease while waiting. The frame explains this
+startup delay. This extends the same-device takeover safety wait without granting
+other devices permission to steal a live lease.
+
+Firefox/local-worker recovery evidence is recorded separately from pending audible,
+HDMI, wall and actual laptop sleep/wake checks. Final display design remains phase
+4C; venue/server/production integration remains phase 5.

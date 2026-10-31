@@ -1,0 +1,52 @@
+{
+  "atUTC": "2026-10-31T02:41:06.251454+00:00",
+  "checks": {
+    "publicDisplayOpensSilent": true,
+    "remotePlayCannotActivateFreshDocument": true,
+    "ordinaryClaimWaitsPriorLeaseBeforeAudio": true,
+    "ownedFirefoxOutputVerifiedOnNullSink": true,
+    "separateAdminAttendeeProfilesSilent": true
+  },
+  "measurements": [
+    {
+      "masterAnalysisRms": 0.06361689383981542
+    },
+    {
+      "command": "playback.pause",
+      "commandToServerObservedAckMs": 4700.29
+    },
+    {
+      "command": "playback.seek",
+      "commandToServerObservedAckMs": 455.47
+    },
+    {
+      "command": "playback.volume",
+      "commandToServerObservedAckMs": 96.46
+    },
+    {
+      "command": "playback.play",
+      "commandToServerObservedAckMs": 99.71
+    }
+  ],
+  "hardware": "Headless development Linux; HDMI, wall and audible checks pending",
+  "autoplayPreferencesOverridden": false,
+  "leaseMs": 15000,
+  "heartbeatMs": 5000,
+  "audioOutput": {
+    "routing": "dedicated PulseAudio null sink",
+    "sink": "jukebox_verify_148325",
+    "systemDefaultChanged": false
+  },
+  "runtime": "scripts/run-dev --worker (production service/policies)",
+  "browser": {
+    "browserName": "firefox",
+    "browserVersion": "158.0.1",
+    "moz:buildID": "20261020162120",
+    "moz:geckodriverVersion": "0.37.1",
+    "platformName": "linux",
+    "moz:headless": true
+  },
+  "result": "passed",
+  "finishedUTC": "2026-10-31T02:42:46.810756+00:00",
+  "verifiedImplementationCommit": "649475d835f780afc09899dd32f1dea675a74107"
+}
