@@ -7,6 +7,11 @@ This is `purduehackers/jukebox`, a separate app from the Hack Night dashboard.
 There is currently only documentation: no app stack, scripts, database, or
 deployment has been implemented. Do not assume dashboard scripts exist here.
 
+The user requested one finalized summarized plan for approval. Read
+`docs/jukebox/APPROVAL-PLAN.md`. It is ready for review, not approved yet: do not
+start implementation or launch phase chats until the user approves. Proposed
+defaults in it remain proposals until then; do not silently promote them to facts.
+
 ## Confirmed requirements
 
 - Intended hostname: `jukebox.purduehackers.com`; routes `/display`, `/admin`,

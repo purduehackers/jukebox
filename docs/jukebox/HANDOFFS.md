@@ -1,5 +1,9 @@
 # Ordered phase chat prompts
 
+Approval checkpoint: read APPROVAL-PLAN.md first. Do not launch these chats until
+the user approves the consolidated plan. Once approved, align the prompts and
+decision log with its accepted defaults; start with playback feasibility only.
+
 These are templates for future chats, not instructions to start implementation
 now. The user has returned and chosen a separate repo, audio-only playback,
 song/mix interruption, one request per turn, a fresh 15-minute master period,

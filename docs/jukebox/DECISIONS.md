@@ -1,5 +1,11 @@
 # Decisions and question backlog
 
+Review checkpoint: the user requested a finalized summarized plan for approval.
+Use [APPROVAL-PLAN.md](APPROVAL-PLAN.md) for that review. Existing questions below
+are the discovery record; proposed defaults in the approval plan are not answers
+the user has already given. Do not send further general question batches while
+this plan is pending approval.
+
 Updated 2026-10-30 after the user's return and first answers. Repository ownership,
 audio-only presentation, and song-versus-mix interruption are now substantially
 clearer. The user subsequently chose another 15 minutes of master playback after

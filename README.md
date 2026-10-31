@@ -7,6 +7,10 @@ Intended origin: `https://jukebox.purduehackers.com`.
 This repository currently contains the planning baseline. There is no implemented
 runtime, production deployment, or configured jukebox domain yet.
 
+**For review:** [the consolidated plan for approval](docs/jukebox/APPROVAL-PLAN.md)
+summarizes confirmed requirements, proposed remaining defaults, and phase order.
+Implementation and phase-chat launches wait for the user's approval.
+
 - `/display`: designated laptop music player and wall presentation, with HDMI audio.
 - `/admin`: remote organizer controls and queue management.
 - `/queue`: attendee requests reached through a QR code.

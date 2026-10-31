@@ -2,6 +2,11 @@
 
 Status: discovery and requirements discussion. Updated 2026-10-30.
 
+The user requested a finalized summarized plan to approve. Start with
+[the consolidated approval plan](APPROVAL-PLAN.md). Its proposed defaults replace
+the need to ask every remaining edge-case question separately, but are not
+confirmed until approved. Hold implementation and phase-chat launches for review.
+
 This is the starting point for planning and later phase chats. No jukebox runtime
 has been implemented. The user has returned and clarified audio-only playback,
 song/mix interruption, a separate repository, and exact dashboard visual reuse.
