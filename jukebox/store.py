@@ -40,12 +40,16 @@ class Store:
         self.db.execute('pragma journal_mode=WAL')
         self.db.executescript('''
           create table if not exists assets(id text primary key, receipt text, created real);
-          create table if not exists jobs(id text primary key, source text, kind text, status text, error text, created real);
+          create table if not exists jobs(id text primary key, source text, kind text, status text, error text, created real, retryable integer);
           create table if not exists player(id integer primary key, revision integer, state text, owner text, expires real);
+          create table if not exists retention(id integer primary key check(id=1), revision integer not null, assets text not null);
         ''')
+        if 'retryable' not in {r[1] for r in self.db.execute('pragma table_info(jobs)')}:
+            self.db.execute('alter table jobs add column retryable integer')
+        self.db.execute("insert or ignore into retention values(1,0,'[]')")
         self.db.execute('insert or ignore into player values(1,0,?,null,0)', (json.dumps(EMPTY),))
         # An interrupted preparation is never published. Keep valid checkpoint references.
-        self.db.execute("update jobs set status='failed', error='Service restarted during preparation' where status in ('queued','preparing')")
+        self.db.execute("update jobs set status='failed', error='Service restarted during preparation', retryable=1 where status in ('queued','preparing')")
         self.db.commit()
         shutil.rmtree(self.work)
         self.work.mkdir()
@@ -127,8 +131,43 @@ class Store:
             self.db.commit()
 
     def references(self):
-        state = self.player()['state']
-        return {state[k] for k in ('masterId', 'requestId') if state[k]}
+        with self.lock:
+            state = self.player()['state']
+            pinned = {state[k] for k in ('masterId', 'requestId') if state[k]}
+            row = self.db.execute('select assets from retention where id=1').fetchone()
+            return pinned | set(json.loads(row[0]))
+
+    def retention(self, revision, assets):
+        if not isinstance(revision, int) or isinstance(revision, bool) or revision < 0:
+            raise ValueError('revision must be a nonnegative integer')
+        if not isinstance(assets, list) or len(assets) > 1000:
+            raise ValueError('assets must be an array of at most 1000 UUIDs')
+        unique = []
+        try:
+            for item in assets:
+                if not isinstance(item, str): raise ValueError
+                unique.append(str(uuid.UUID(item)))
+        except (ValueError, AttributeError):
+            raise ValueError('assets must contain UUID strings')
+        unique = sorted(set(unique))
+        with self.lock:
+            current, stored = self.db.execute('select revision,assets from retention where id=1').fetchone()
+            if revision >= current:
+                self.db.execute('update retention set revision=?,assets=? where id=1', (revision,json.dumps(unique)))
+                self.db.commit()
+                return {'revision': revision, 'assets': unique}
+            return {'revision': current, 'assets': json.loads(stored)}
+
+    def job(self, item):
+        with self.lock:
+            row = self.db.execute('select status,error,retryable from jobs where id=?', (item,)).fetchone()
+            if not row: return None
+            status,error,retryable = row
+            result = {'id':item,'status':status,'error':error,'retryable':None if retryable is None else bool(retryable),'asset':None}
+            if status == 'ready':
+                asset = self.asset(item)
+                result['asset'] = {key:asset[key] for key in ('id','url','mime','codec','duration','bytes')}
+            return result
 
     def asset(self, item):
         with self.lock:
@@ -172,7 +211,7 @@ class Store:
             if self.db.execute("select count(*) from jobs where status in ('queued','preparing')").fetchone()[0] >= 4:
                 raise Conflict('Preparation backlog full (one worker, four admitted jobs)')
             item = str(uuid.uuid4())
-            self.db.execute('insert into jobs values(?,?,?,?,?,?)', (item,source,kind,'queued',None,time.time()))
+            self.db.execute('insert into jobs(id,source,kind,status,error,created,retryable) values(?,?,?,?,?,?,?)', (item,source,kind,'queued',None,time.time(),None))
             self.db.execute("delete from jobs where status not in ('queued','preparing') and id not in (select id from jobs order by created desc limit 50)")
             self.db.commit()
             return {'id': item, 'status': 'queued'}
@@ -203,11 +242,14 @@ class Store:
                 with self.lock:
                     directory.rename(self.assets / item)
                     self.db.execute('insert into assets values(?,?,?)', (item,json.dumps(receipt),time.time()))
-                    self.db.execute("update jobs set status='ready' where id=?", (item,))
+                    self.db.execute("update jobs set status='ready',error=null,retryable=null where id=?", (item,))
                     self.db.commit()
             except Exception as exc:
                 with self.lock:
-                    self.db.execute("update jobs set status='failed',error=? where id=?", (str(exc)[:1600],item))
+                    message = str(exc)[:1600]
+                    # Permanent source/policy/probe errors are nonretryable; operational and extractor errors remain retryable.
+                    permanent = any(term in message.lower() for term in ('duration', 'six minutes', 'audio-only', 'combined/video', 'asset rejected', 'exactly one audio', 'unsupported source', 'invalid youtube', 'only canonical', 'kind must', 'completed individual', 'live recording'))
+                    self.db.execute("update jobs set status='failed',error=?,retryable=? where id=?", (message,0 if permanent else 1,item))
                     self.db.commit()
             finally:
                 shutil.rmtree(directory, ignore_errors=True)

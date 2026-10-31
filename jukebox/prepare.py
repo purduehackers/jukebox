@@ -4,7 +4,7 @@ import sys
 import time
 import subprocess
 from pathlib import Path
-from .media import FIXTURES, FORMAT, validate_source, validate_selection, probe, MAX_ASSET_BYTES
+from .media import FIXTURES, FORMAT, validate_source, validate_selection, probe, MAX_ASSET_BYTES, duration_ok
 
 
 def prepare(source, kind, directory):
@@ -15,6 +15,7 @@ def prepare(source, kind, directory):
     transfers = []
     if source in FIXTURES:
         seconds, frequency = FIXTURES[source]
+        duration_ok(seconds, kind)
         ext = 'm4a' if source in ('fixture:aac', 'fixture:song') else 'webm'
         raw = directory / ('input.' + ext)
         subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi', '-i',

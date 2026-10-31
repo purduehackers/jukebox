@@ -1,13 +1,67 @@
 """Loopback-only local proof HTTP API and range-capable media delivery."""
 import argparse
 import json
+import os
 import re
+import signal
+import subprocess
+import sys
+import threading
+import time
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 from .store import Store, Conflict
 
 WEB = Path(__file__).resolve().parent.parent / 'web'
+RESOLVES = threading.BoundedSemaphore(2)
+
+
+def resolve_source(source, kind):
+    from .media import FIXTURES, validate_source
+    canonical = validate_source(source)
+    if kind not in ('master', 'request'):
+        raise ValueError('kind must be master or request')
+    if canonical in FIXTURES:
+        from .media import duration_ok
+        duration = FIXTURES[canonical][0]
+        duration_ok(duration, kind)
+        name = canonical.split(':', 1)[1]
+        return {'source':canonical,'id':name,'title':name,'artist':None,'duration':duration,'recordingKey':canonical}
+    if not RESOLVES.acquire(blocking=False):
+        raise ResolveBusy('Metadata resolve limit reached')
+    proc = None
+    try:
+        proc = subprocess.Popen([sys.executable, '-m', 'jukebox.resolve', canonical, kind], stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        try:
+            out, err = proc.communicate(timeout=30)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL); proc.communicate()
+            raise ResolveUnavailable('Metadata resolve timed out')
+        if proc.returncode:
+            try: message = json.loads(err.decode(errors='replace')).get('error', 'Metadata resolve failed')
+            except Exception: message = 'Metadata resolve failed'
+            if any(s in message.lower() for s in ('duration', 'audio-only', 'combined/video', 'completed individual', 'byte limit')):
+                raise ValueError(message)
+            raise ResolveUnavailable(message)
+        data = json.loads(out)
+        return {'source':canonical, **data, 'recordingKey':'youtube:'+str(data['id'])}
+    except ResolveUnavailable:
+        raise
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ResolveUnavailable('Metadata resolve subprocess failed') from exc
+    finally:
+        if proc is not None:
+            try: os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError: pass
+        RESOLVES.release()
+
+
+class ResolveBusy(Exception): pass
+class ResolveUnavailable(Exception): pass
 
 
 def byte_range(header, size):
@@ -73,6 +127,9 @@ def make_server(store, port=8971):
                     self.reply(200, {**store.listing(), 'player': store.player(),
                                      'limits': {'cacheBytes': store.max_bytes, 'jobSeconds': store.job_seconds,
                                                 'assetBytes': 256*1024*1024, 'admittedJobs': 4}})
+                elif re.fullmatch(r'/api/jobs/[a-f0-9-]{36}', path):
+                    result = store.job(path.rsplit('/',1)[1])
+                    self.reply(200 if result else 404, result or {'error':'Unknown job'})
                 elif re.fullmatch(r'/media/[a-f0-9-]{36}', path):
                     self.media(path.split('/')[-1])
                 elif path in ('/', '/display', '/app.js', '/turn.js', '/style.css'):
@@ -130,11 +187,19 @@ def make_server(store, port=8971):
             try:
                 self.guard()
                 length = int(self.headers.get('Content-Length', '0'))
-                if not 0 < length <= 16384 or self.headers.get('Content-Type') != 'application/json':
+                path = urlsplit(self.path).path
+                limit = 65536 if path == '/api/retention' else 16384
+                if not 0 < length <= limit or self.headers.get('Content-Type') != 'application/json':
                     raise ValueError('Small JSON body required')
                 body = json.loads(self.rfile.read(length))
-                path = urlsplit(self.path).path
-                if path == '/api/prepare':
+                if path == '/api/resolve':
+                    try: self.reply(200, resolve_source(body.get('source'), body.get('kind')))
+                    except ResolveBusy as exc: self.reply(503, {'error':str(exc),'retryable':True})
+                    except ResolveUnavailable as exc: self.reply(503, {'error':str(exc),'retryable':True})
+                    except (ValueError, TypeError) as exc: self.reply(400, {'error':str(exc),'retryable':False})
+                elif path == '/api/retention':
+                    self.reply(200, store.retention(body.get('revision'), body.get('assets')))
+                elif path == '/api/prepare':
                     self.reply(202, store.submit(body.get('source'), body.get('kind')))
                 elif path == '/api/claim':
                     self.reply(200, store.claim(body.get('token')))
@@ -151,7 +216,7 @@ def make_server(store, port=8971):
                 else:
                     self.reply(404, {'error': 'Not found'})
             except Conflict as exc:
-                self.reply(409, {'error': str(exc)})
+                self.reply(409, {'error': str(exc), 'retryable': True})
             except (ValueError, TypeError, KeyError) as exc:
                 self.reply(400, {'error': str(exc)})
             except (BrokenPipeError, ConnectionResetError):

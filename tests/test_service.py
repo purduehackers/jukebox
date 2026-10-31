@@ -204,4 +204,58 @@ class RealPreparationHTTP(unittest.TestCase):
         self.assertEqual(cm.exception.code,404); cm.exception.close()
 
 
+class WorkerAPI(unittest.TestCase):
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory(); self.store=Store(self.temp.name)
+        self.server=make_server(self.store,0); self.thread=threading.Thread(target=self.server.serve_forever,daemon=True); self.thread.start()
+        self.base=f'http://127.0.0.1:{self.server.server_port}'
+    def tearDown(self):
+        self.server.shutdown(); self.server.server_close(); self.thread.join(); self.store.close(); self.temp.cleanup()
+    def post(self,path,data):
+        request=urllib.request.Request(self.base+path,data=json.dumps(data).encode(),headers={'Content-Type':'application/json'})
+        try:
+            with urllib.request.urlopen(request,timeout=3) as response: return response.status,json.load(response)
+        except urllib.error.HTTPError as error:
+            try: return error.code,json.load(error)
+            finally: error.close()
+    def test_fixture_resolve_and_request_duration_rejection(self):
+        status,result=self.post('/api/resolve',{'source':'fixture:request','kind':'request'})
+        self.assertEqual(status,200); self.assertEqual(result,{'source':'fixture:request','id':'request','title':'request','artist':None,'duration':4,'recordingKey':'fixture:request'})
+        status,result=self.post('/api/resolve',{'source':'fixture:song','kind':'request'})
+        self.assertEqual(status,400); self.assertFalse(result['retryable']); self.assertIn('six minutes',result['error'])
+    def test_retention_order_pins_delete_cleanup_and_restart(self):
+        retained=str(uuid.uuid4()); other=str(uuid.uuid4())
+        self.assertEqual(self.post('/api/retention',{'revision':4,'assets':[retained]})[1],{'revision':4,'assets':[retained]})
+        self.assertEqual(self.post('/api/retention',{'revision':3,'assets':[other]})[1],{'revision':4,'assets':[retained]})
+        directory=self.store.assets/retained; directory.mkdir(); (directory/'asset.webm').write_bytes(b'a')
+        self.store.db.execute('insert into assets values(?,?,?)',(retained,json.dumps({'kind':'request','duration':4,'file':'asset.webm','mime':'audio/webm','bytes':1}),time.time()))
+        self.store.db.commit()
+        with self.assertRaises(Conflict): self.store.delete(retained)
+        self.store.ttl=-1; self.store.cleanup(); self.assertTrue(directory.exists())
+        self.store.close(); self.store=Store(self.temp.name)
+        self.assertIn(retained,self.store.references())
+        self.assertEqual(self.store.retention(0,[])['revision'],4)
+    def test_job_endpoint_ready_and_failed(self):
+        accepted=self.store.submit('fixture:request','request'); deadline=time.monotonic()+10
+        while time.monotonic()<deadline:
+            result=self.store.job(accepted['id'])
+            if result['status'] in ('ready','failed'): break
+            time.sleep(.05)
+        self.assertEqual(result['status'],'ready',result['error']); self.assertEqual(set(result['asset']),{'id','url','mime','codec','duration','bytes'})
+        status,endpoint=self.post('/api/prepare',{'source':'fixture:song','kind':'request'})
+        self.assertEqual(status,202); deadline=time.monotonic()+2
+        while time.monotonic()<deadline:
+            failed=self.store.job(endpoint['id'])
+            if failed['status']=='failed': break
+            time.sleep(.05)
+        self.assertEqual(failed['status'],'failed'); self.assertFalse(failed['retryable'])
+    @patch('jukebox.server.os.killpg')
+    @patch('jukebox.server.subprocess.Popen')
+    def test_resolve_timeout_is_retryable_and_kills_group(self,popen,killpg):
+        from jukebox.server import resolve_source, ResolveUnavailable
+        child=unittest.mock.Mock(pid=123); child.communicate.side_effect=subprocess.TimeoutExpired('cmd',30); popen.return_value=child
+        with self.assertRaises(ResolveUnavailable): resolve_source('https://youtu.be/BaW_jenozKc','master')
+        child.communicate.assert_has_calls([unittest.mock.call(timeout=30),unittest.mock.call()]); killpg.assert_called()
+
+
 if __name__ == '__main__': unittest.main()
