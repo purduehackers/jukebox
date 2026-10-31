@@ -83,3 +83,24 @@ load on the laptop, HDMI routing and audible output, phone scanning a QR using a
 approved reachable origin, sleep/wake and prolonged whole-night rehearsal. Layout
 is targeted at 1920×1080, not a claim of wall testing. No public dev service was
 exposed, and no DNS/auth/deployment work occurred.
+
+## Recorded result
+
+On 2026-10-30, `./scripts/check` passed: 15 Python tests, five policy tests,
+43 TypeScript tests, both TypeScript projects and the production build.
+`verify-display.py` passed in Firefox 158.0.1 at an exact 1920×1080 viewport:
+real audio/Bayer pixel response, position heartbeats beyond 15 seconds, pause,
+elapsed paused countdown, seek, master→request→resumed master, explicit activation
+after refresh, QR decoding to the browser-reachable test `/queue`, all listed
+fixture states without horizontal overflow, and reduced-motion preference.
+`verify-player.py --dev-smoke` also passed against the actual run-dev path.
+Screenshot capture waits for fonts and completed paint; long-title and queue
+screenshots were visually inspected. Fixture history is flat when no local player
+exists, intentionally. No claim of phone scanning or real venue audio is made.
+
+One bounded Codex Other / gpt-6-luna medium subagent delivered the metadata proposal
+(`7992857`, cherry-picked as `b346dee`) with passing tests and typecheck. Lead review
+added optional-field compatibility, URL credential rejection and migration upgrade
+coverage; independently found and fixed the revision-only SSE freshness gap.
+Design, rendering, player integration and Firefox review stayed with the lead.
+No additional top-level threads or later phases were started.
