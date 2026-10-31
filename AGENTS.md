@@ -4,10 +4,13 @@
 
 Read `docs/jukebox/README.md`, `docs/jukebox/DECISIONS.md`, and the applicable phase brief.
 This is `purduehackers/jukebox`, a separate app from the Hack Night dashboard.
-Phase 1 now includes a local Python audio worker/cache, SQLite proof checkpoint,
-and minimal Firefox page. Read `docs/jukebox/PHASE-1-FINDINGS.md` and the root
-README for commands and measured limits. There is no production app/deployment,
-shared queue/auth stack, or final display yet. Do not assume dashboard scripts exist here.
+Phase 1 includes a local Python audio worker/cache and minimal Firefox proof page
+(`docs/jukebox/PHASE-1-FINDINGS.md`). Phase 2 adds the shared contract
+(`src/contract/`) and a durable local queue/scheduler/authority service
+(`src/server/`); read `docs/jukebox/PHASE-2-CONTRACT.md` before phase 3/4 work and
+propose contract/migration changes to the integration owner instead of forking them.
+There is no production app/deployment, live PH ID client, real player, or final
+display yet. Do not assume dashboard scripts exist here.
 
 The user approved `docs/jukebox/APPROVAL-PLAN.md` on 2026-10-30, including its
 defaults and subsequent display/server clarifications. Phase 1 is authorized to

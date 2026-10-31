@@ -1,6 +1,6 @@
 # Jukebox project plan
 
-Status: Phase-1 local playback proof implemented; venue/server gates pending. Updated 2026-10-30.
+Status: Phase 1 (local playback proof) and Phase 2 (shared contract + durable local service) implemented; venue/server/PH ID client gates pending. Updated 2026-10-30.
 
 The user approved [the consolidated plan](APPROVAL-PLAN.md) and its defaults on
 2026-10-30. It is the current scope/behavior authority. Start phase 1 in its own
@@ -47,6 +47,8 @@ superseded by the intended jukebox hostname.
 
 ## Documents
 
+- [Phase-2 contract and service](PHASE-2-CONTRACT.md): behavior table, typed
+  commands/snapshots, authority/lease semantics, PH ID status, evidence, limitations.
 - [Phase-1 measured findings](PHASE-1-FINDINGS.md): implemented local runtime,
   Firefox/source evidence, boundaries, interface proposals, and pending gates.
 

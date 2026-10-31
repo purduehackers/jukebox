@@ -242,3 +242,27 @@ Firefox interrupt/resume and playing-media analysis worked. The worker/page use
 a minimal experiment stack, not the later full application. Existing-server
 source reliability, venue HDMI, production source operation, matching, and secure
 shared contracts remain unverified. No dependent phase has started.
+
+
+## Phase-2 implementation record (2026-10-30)
+
+The user said “sure move to next” after the phase-1 report; phase 2 implemented the
+[shared contract and durable local service](PHASE-2-CONTRACT.md). It applies the
+confirmed rules and approved defaults. These **implementation choices** filled gaps
+and remain open to user revision (none was asked as a product question):
+
+- Runtime: TypeScript on Node (type stripping) + SQLite, single process; Python
+  worker stays the media boundary.
+- Only prepared (`ready`) requests count when a turn falls due; a still-preparing
+  request makes the turn empty.
+- Duplicate rule covers `preparing`/`ready` requests (“waiting”), keyed by playable recording.
+- PH ID `organizer`/`admin` roles grant Jukebox admin, plus an explicit allowlist.
+- Lease 15 s, heartbeat 5 s (≤ 5 s replay after a crash), unconfirmed after 10 s;
+  same-device second tab needs explicit takeover.
+- Bounded retries: 2 preparation attempts, 2 playback loads per request, master item
+  unusable after 2 failures.
+- Master may play outside an open night; requests require one. Night close archives a
+  playing request without refund (the quota period ends).
+
+Not established: live PH ID sign-in (no client registered), Firefox against this
+service (phase 3), real-source resolve through the new endpoint, existing-server fit.

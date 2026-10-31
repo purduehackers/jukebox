@@ -1,9 +1,31 @@
 # Purdue Hackers Jukebox
 
-Audio-only music queue and venue player for Hack Night. Phase 1 now contains a
-runnable local worker/cache and Firefox playback experiment. Production, shared
-queues, PH ID, admin/attendee pages, and the wall display remain later phases.
+Audio-only music queue and venue player for Hack Night. Phase 1 contains a
+runnable local worker/cache and Firefox playback experiment. Phase 2 adds the
+shared typed contract and a durable local queue/scheduler/device-authority
+service. Production, a registered PH ID client, the real player, admin/attendee
+pages, and the wall display remain later phases.
 Intended production origin: `https://jukebox.purduehackers.com` (not deployed).
+
+## Run the phase-2 queue service
+
+Requires Node 22.18+ (tested on 26.11.1). Run `npm ci` once for type checking.
+
+```sh
+./scripts/run-service --dev-auth                  # offline: fake media, fixture metadata
+./scripts/run-local &                             # phase-1 worker on :8971, then:
+./scripts/run-service --dev-auth --worker http://127.0.0.1:8971
+node scripts/smoke-service.ts                     # end-to-end smoke with owned fixtures
+```
+
+The service listens on `http://127.0.0.1:8980` (`--port`, `--data` for state).
+`--dev-auth` is a clearly labelled local fake sign-in (`/auth/login` → form; tick
+organizer for admin). PH ID uses `JUKEBOX_PHID_CLIENT_ID`, `JUKEBOX_PHID_REDIRECT_URI`,
+`JUKEBOX_SESSION_SECRET` (and optional `JUKEBOX_PHID_CLIENT_SECRET`, `JUKEBOX_PHID_BASE`);
+no Jukebox client is registered with PH ID yet, so live sign-in is untested.
+API: `GET /api/v1/snapshot`, `GET /api/v1/stream` (SSE), `POST /api/v1/commands`,
+`GET /media/<id>` (same-origin proxy to the worker). Contract, behavior table,
+and limits: [Phase-2 contract](docs/jukebox/PHASE-2-CONTRACT.md).
 
 ## Run the local proof
 
@@ -51,7 +73,8 @@ MP3, FLAC); Firefox verification here covers Opus/WebM and AAC/M4A only.
 
 ```sh
 .venv/bin/python -m pip install -r requirements-dev.lock.txt
-./scripts/check
+npm ci
+./scripts/check   # Python worker, phase-1 policy, tsc, and phase-2 TypeScript tests
 .venv/bin/python scripts/verify-firefox.py
 # Opt-in network test; downloads real audio and then deletes the test assets:
 .venv/bin/python scripts/verify-source.py

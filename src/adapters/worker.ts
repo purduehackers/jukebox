@@ -67,7 +67,8 @@ export class WorkerAdapter implements SourcePort, MediaPort {
       if (body.status === 'failed') return {status:'failed',error:body.error ?? 'Media preparation failed',retryable:body.retryable === true};
       if (body.status === 'ready' && body.asset) {
         const a=body.asset;
-        const asset:AssetDescriptor={assetId:a.id,url:this.baseUrl+a.url,mime:a.mime,codec:a.codec,durationSec:a.duration,byteLength:a.bytes};
+        // Same-origin path served by proxyMedia: Web Audio analysis needs same-origin media in Firefox.
+        const asset:AssetDescriptor={assetId:a.id,url:`/media/${a.id}`,mime:a.mime,codec:a.codec,durationSec:a.duration,byteLength:a.bytes};
         return {status:'ready',asset};
       }
       return {status:'preparing'};
