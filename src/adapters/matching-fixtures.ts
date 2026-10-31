@@ -1,5 +1,8 @@
 import type { SourceRef } from '../contract/types.ts';
 import { PortError } from '../core/ports.ts';
+import type { SourcePort } from '../core/ports.ts';
+import { FakeSource } from './fakes.ts';
+import { MatchingSource } from './matching-source.ts';
 import { canonicalizeUrl } from '../core/sources.ts';
 import type { Candidate, CandidateSearchPort, CatalogPort, CatalogTrack } from './matching-core.ts';
 
@@ -84,4 +87,29 @@ export class UnconfiguredCatalog implements CatalogPort {
 function canonicalUrlForTrack(track: CatalogTrack): string {
   if (track.provider === 'spotify') return canonicalizeUrl(`https://open.spotify.com/track/${track.itemId}`).canonicalUrl;
   return `https://music.apple.com/song/${track.itemId}`;
+}
+
+/** Plain YouTube links the offline dev service knows, for trying the attendee page by hand. */
+export const DEMO_YOUTUBE_LINKS = {
+  song: 'https://youtu.be/DEMOsong001',
+  second: 'https://youtu.be/DEMOsong002',
+  overlong: 'https://youtu.be/DEMOlong001',
+} as const;
+
+/**
+ * Offline source for local development: fixture YouTube items, plus Spotify/Apple fixture links
+ * matched through MatchingSource. Not a live matcher; every title, duration, and candidate is made up
+ * except the one Spotify track named in the comments above.
+ */
+export function fixtureMatchingSource(): SourcePort {
+  const inner = new FakeSource()
+    .add(DEMO_YOUTUBE_LINKS.song, { title: 'Demo Song One', artist: 'Demo Artist', durationSec: 192 })
+    .add(DEMO_YOUTUBE_LINKS.second, { title: 'Demo Song Two', artist: 'Demo Artist', durationSec: 201 })
+    .add(DEMO_YOUTUBE_LINKS.overlong, { title: 'Demo Long Mix', artist: 'Demo Artist', durationSec: 421 });
+  for (const candidates of Object.values(FIXTURE_CANDIDATES)) {
+    for (const candidate of candidates) {
+      inner.add(candidate.url, { title: candidate.title, artist: candidate.channel, durationSec: candidate.durationSec, recordingKey: `youtube:${new URL(candidate.url).searchParams.get('v')}` });
+    }
+  }
+  return new MatchingSource(inner, new FixtureCatalog(), new FixtureCandidateSearch());
 }

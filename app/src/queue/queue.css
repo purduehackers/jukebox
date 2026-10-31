@@ -64,3 +64,4 @@ input[type='url']:focus-visible, .q-button:focus-visible, .q-link:focus-visible 
 .q-problem .q-badge { color: var(--jb-amber); }
 .q-foot { font-size: 0.8rem; }
 @media (prefers-reduced-motion: no-preference) { .q-button { transition: border-color 0.15s; } }
+.q-panel > .q-button { margin-top: 0.5rem; }

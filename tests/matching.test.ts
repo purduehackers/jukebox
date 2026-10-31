@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { MediaPurpose, SourceRef } from '../src/contract/types.ts';
 import { FakeClock, FakeMedia, FakeSource } from '../src/adapters/fakes.ts';
-import { FixtureCandidateSearch, FixtureCatalog, MATCHING_FIXTURE_URLS, UnconfiguredCatalog } from '../src/adapters/matching-fixtures.ts';
+import { DEMO_YOUTUBE_LINKS, FixtureCandidateSearch, FixtureCatalog, MATCHING_FIXTURE_URLS, UnconfiguredCatalog, fixtureMatchingSource } from '../src/adapters/matching-fixtures.ts';
 import { baseTitle, candidateMatchesTitleArtist, detectMarkers, normalizeText } from '../src/adapters/matching-core.ts';
 import { MatchingSource } from '../src/adapters/matching-source.ts';
 import { PortError, type SourcePort } from '../src/core/ports.ts';
@@ -191,5 +191,13 @@ test('admitted Spotify and Apple requests survive preparation (stored URLs are r
     assert.equal(svc.snapshot(bob).quota?.used, 0);
   } finally {
     svc.close();
+  }
+});
+
+test('the offline dev source resolves its demo links and fixture catalog links', async () => {
+  const source = fixtureMatchingSource();
+  for (const url of [...Object.values(DEMO_YOUTUBE_LINKS), MATCHING_FIXTURE_URLS.spotify, MATCHING_FIXTURE_URLS.apple, MATCHING_FIXTURE_URLS.durationTrap]) {
+    if (url === MATCHING_FIXTURE_URLS.durationTrap) await expectMatchError(source, url, 'version_mismatch');
+    else assert.ok((await source.resolve(source.canonicalize(url), 'request')).durationSec > 0, url);
   }
 });
