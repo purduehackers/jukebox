@@ -2,8 +2,9 @@
 
 Status: separate repo, audio-only direction, one request per turn, 15-minute master
 periods, PH ID, three-song quota, admin-managed nights, and automatic admission
-confirmed. Timer edge cases, quota accounting, failures, and worker placement
-still need final contracts.
+confirmed. Elapsed time includes pause/buffering; empty-turn reset and accepted
+submission counting with technical failure refunds are confirmed. Remaining defaults
+and worker placement are in the pending approval plan.
 
 ## Goal
 
@@ -19,9 +20,9 @@ version with fake source/player adapters for local development.
 - Queue entry: stable ID, queue kind, ordering, item/version, lifecycle.
 - Playback session: active entry, mode, intended state, observed state, saved
   master item/position, current device generation, last acknowledged command.
-- Schedule: persist progress through the 15-minute master playback period, plus
+- Schedule: persist progress through the 15-minute elapsed master period, plus
   the active request turn and policy revision. Fixed wall-clock slots are not the
-  selected policy. Confirm non-playing-state accounting before finalizing.
+  selected policy. Pauses/buffering do not freeze it; media seeks do not jump it.
 - Device: pairing/authorization, active lease, expiry and heartbeat information.
 - Prepared media: stable asset ID, audio codec/container, preparation state,
   cache references, lifetime, and failed-job cleanup. Keep a suspended mix pinned.
@@ -37,11 +38,10 @@ defining the acceptable resume tolerance.
    quotas at midnight. Define session-end queue/playback behavior.
    Honor the confirmed normal-song boundary and over-six-minute mix interruption
    rule. Request length validation is a separate policy from master classification.
-   Start another 15-minute master playback period after requested music. Track
-   observed elapsed playback separately from media position so a seek does not
-   incorrectly advance the request timer. Confirm pause/buffering accounting.
-   Play exactly one user song per turn. An empty turn waits another interval;
-   confirm its reset point using the decision log's example.
+   Start another 15-minute elapsed master period after requested music. Count
+   pauses/buffering; keep the timer independent of media position so seeks cannot
+   jump it. Play exactly one user song per turn. An empty turn resets the interval;
+   the 9:15-empty/9:17-submission/9:30-due example is confirmed.
 2. Define typed commands, responses, events, public snapshots, errors, and
    authorization. Keep the shared contract in one clearly owned location.
 3. Persist queue and scheduler transitions atomically. Use revision checks or
@@ -55,7 +55,8 @@ defining the acceptable resume tolerance.
    `/display` rendering is not itself authorization to claim venue playback.
 7. Separate pending resolution/preparation from ready-to-play entries. Admission
    is automatic after validation; admin removal is supported without an approval
-   gate. Require PH ID and enforce three songs per user/night on the server.
+   gate. Require PH ID and enforce three accepted submissions per user/night on
+   the server, refunding technical playback failures.
    Validate duration and use provider URL allowlists and bounded
    resolver behavior; do not fetch arbitrary submitted URLs on the server.
 8. Build fixtures, a fake clock, and a fake player/source resolver. Use a short
@@ -68,8 +69,8 @@ state, transactional ordering, and clear error paths. Meaningful tests cover
 timer boundaries, master resume state, empty queues, stale/duplicate commands,
 simultaneous changes, lease expiry, moderation/quota accounting, and reconnect.
 
-Remaining scheduling and quota-accounting decisions must be settled before
-claiming this phase done; use the confirmed identity/session model above.
+Apply the confirmed scheduler and quota rules above; adopt other defaults only
+after the user approves the consolidated plan.
 The backend's time-based decisions must survive instance restarts; a sleeping
 browser interval must not be their only trigger. A due transition can be reconciled
 atomically when the designated player reconnects if that matches the chosen policy.

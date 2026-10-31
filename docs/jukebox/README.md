@@ -33,8 +33,9 @@ video download, or video stream fallback.
 Each turn plays exactly one user song. The next follows another 15 minutes of
 master playback; an empty turn waits a new interval. Attendees must use PH ID and
 get three songs per person per admin-managed night session. Requests enter
-automatically and admins can remove them. Pause/buffering, exact empty-turn reset,
-quota accounting, and source/failure rules still need final details.
+automatically and admins can remove them. The master timer uses elapsed time,
+including pause/buffering, and empty turns reset the interval. Quota counts accepted
+submissions and refunds technical failures. Further defaults are in the approval plan.
 
 Jukebox's own display needs song information, a QR code, and possibly a countdown
 to the next request slot. Visualizer placement and Lunar Lander sharing remain

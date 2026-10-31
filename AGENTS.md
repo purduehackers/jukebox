@@ -23,15 +23,17 @@ defaults in it remain proposals until then; do not silently promote them to fact
 - Ordinary master songs finish before a due request. Tracks over six minutes are
   mixes that may be interrupted and must resume at their saved position. After
   requested music, allow another 15 minutes of master playback before the next
-  request turn. Exactly one user song plays per turn. Attendee duration cutoff
-  and timer edge cases remain open.
+  request turn. Exactly one user song plays per turn. The 15-minute period uses
+  elapsed time even during pause/buffering; seeking does not jump the timer.
 - Attendees must sign in with Purdue Hackers ID; the limit is three songs per
   person per admin-managed night session. Valid requests enter automatically;
-  admins may remove them. Quota consumption/refunds are still open.
+  admins may remove them. Count accepted submissions; refund technical playback
+  failures. Further removal/skip defaults are in the pending approval plan.
 - The designated display browser is Firefox. Test codecs, activation, seeking,
   and any media-origin behavior in Firefox; do not infer support from Chrome.
 - If a request turn is empty, wait for a new 15-minute master interval. Working
-  interpretation: the empty turn resets the interval; confirm with a timing example.
+  rule: the empty turn resets the interval. Empty at 9:15 and a request at 9:17
+  waits until 9:30 with uninterrupted master music.
 - The wall has two independent monitors. The existing dashboard is only a visual
   reference: do not add widgets, edit its chat/layout, or implement cross-dashboard
   coordination as part of this scope. Jukebox's display runs on its own monitor.

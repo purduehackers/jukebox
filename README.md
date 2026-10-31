@@ -21,8 +21,9 @@ resumed at the saved position. After requested music, the next turn follows anot
 15 minutes of master playback. Exactly one user song plays per turn. Attendees
 sign in with Purdue Hackers ID and get three songs per person per admin-managed
 night session. Valid requests enter automatically; admins can remove them.
-Empty request turns wait for another 15-minute interval. Quota accounting and
-some failure/timer edge cases are still being decided. The display uses Firefox.
+Empty turns reset the 15-minute interval; pause/buffering does not stop its elapsed
+clock. Count accepted submissions and refund technical playback failures.
+Remaining edge-case defaults are in the approval plan. The display uses Firefox.
 No video media should be downloaded, streamed, or embedded.
 
 Start with [the project plan](docs/jukebox/README.md),

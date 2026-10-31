@@ -20,6 +20,8 @@ request flow and explicit request status.
 - Surface unsupported provider, invalid link, unknown/over-limit duration,
   duplicates, unavailable source, quota exhaustion, and moderation state.
 - Prevent duplicate submission on retries. Enforce all rules server-side.
+- Count accepted submissions toward allowance and refund technical playback
+  failures. Further removal/skip defaults depend on the consolidated plan approval.
 - Show validating/preparing/queued/playing/played/rejected/failed/cancelled states as
   appropriate, remaining allowance, and queue timing based on the chosen policy.
   Do not present a guaranteed exact ETA when the queue can change.

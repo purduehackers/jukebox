@@ -49,6 +49,8 @@ quota accounting, source/failure behavior, and worker location before dependent 
 > Test Firefox. Each request turn plays exactly one song, then another 15 minutes
 > of master playback. An empty turn waits a new interval; follow the decision log
 > for its confirmed reset point and pause/buffering accounting.
+> The user confirmed that pauses/buffering do not freeze the elapsed master timer,
+> empty turns reset it, and accepted submissions count with technical failure refunds.
 
 ## Second: shared contracts, persistence, and scheduling
 

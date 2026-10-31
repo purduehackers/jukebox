@@ -35,6 +35,11 @@ and possible Lunar sharing belong in their later component discussion.
 - After the request, begin another 15-minute master playback period.
 - An empty request turn waits another 15-minute interval; it does not stay open
   to play a late arrival immediately.
+- The 15-minute master period uses elapsed time: pausing/buffering does not freeze
+  it, and seeking does not jump it. It restarts after the user request or an empty
+  turn. With uninterrupted master music, empty at 9:15 plus submission at 9:17
+  means the next opportunity is 9:30, respecting a normal song's end.
+- Quota counts accepted submissions, with refunds for technical playback failures.
 - Night quotas reset through admin-managed sessions, not at midnight.
 - No video media downloaded, streamed, or embedded anywhere in the music path.
 
@@ -42,15 +47,14 @@ and possible Lunar sharing belong in their later component discussion.
 
 These fill gaps; they are not represented as already-confirmed user answers.
 
-- **Timer:** count actual master playing time. Pause/buffering freezes it; seeking
-  does not jump it. An empty turn resets the 15-minute period immediately. With
-  uninterrupted master music, empty at 9:15 plus a submission at 9:17 means the
-  next opportunity is 9:30, still respecting a normal song's end.
+- **Paused at a due turn:** keep the elapsed timer running, mark the request due,
+  and wait for organizer resume rather than overriding a deliberate pause. The
+  song/mix boundary rule still applies when playback resumes.
 - **Request length:** retain the sketch's strict under-six-minute limit for user
   requests. A master track exactly six minutes long remains a normal song.
-- **Quota:** count accepted submissions; validate/reserve allowance atomically.
-  Refund technical preparation/playback failures. Invalid submissions use none.
-  An admin removal or deliberate skip does not automatically restore allowance.
+- **Quota details:** reserve allowance atomically after validation. Invalid
+  submissions use none; preparation failures receive the same refund as technical
+  playback failures. Admin removal or deliberate skip does not automatically refund.
 - **Ordering:** FIFO unless an admin reorders; reject the same playable recording
   already waiting in the user queue. No voting or per-user round-robin in v1.
 - **Failure/skip:** retry transient failures a bounded number of times. A failed

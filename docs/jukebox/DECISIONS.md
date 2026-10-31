@@ -13,8 +13,9 @@ requested music rather than fixed clock slots. Exactly one request plays per tur
 PH ID and three songs per person per night are confirmed. The wall has two
 independent monitors, and dashboard changes are outside scope. The user also chose
 automatic requests, admin-managed night sessions, waiting a new interval after an
-empty turn, and Firefox. Quota accounting, failure behavior, exact timer details,
-and later display design remain open.
+empty turn, and Firefox. Latest answers confirm the empty-turn reset example,
+elapsed time during pause/buffering, accepted-submission quota, and technical
+failure refunds. Remaining defaults are consolidated in the pending approval plan.
 
 ## Confirmed intent
 
@@ -40,8 +41,11 @@ and later display design remain open.
   next request turn. Fixed wall-clock slots are ruled out. Exactly one user song
   plays per turn, then the master queue resumes.
 - If a due request turn is empty, wait for a new 15-minute interval rather than
-  playing a later submission immediately. Working interpretation: reset at the
-  empty turn; a concrete example will confirm this.
+  playing a later submission immediately. Confirmed: reset at the empty turn;
+  empty at 9:15 and a request at 9:17 waits until 9:30 with uninterrupted master music.
+- The master period counts elapsed time even while paused/buffering. Seeking
+  does not change the timer. It is anchored to each fresh master period, not a
+  fixed clock schedule spanning user-song time.
 - The designated display browser is Firefox. OS and resolution can be confirmed
   during playback/display feasibility work rather than reopening monitor layout.
 - Admin: volume, play/pause, skip/replay, seek; add items/playlists; remove and
@@ -50,8 +54,9 @@ and later display design remain open.
   links. Which launch first, and whether all resolve to one provider, are open.
 - Attendees must sign in with Purdue Hackers ID. The quota is three songs per
   person per admin-managed night session. Admins start/end sessions and allowance
-  resets for the next session, not at midnight. Which outcomes consume/refund
-  allowance are still open. The diagram's strict under-six-minute request limit
+  resets for the next session, not at midnight. Count accepted submissions and
+  refund technical playback failures. Further removal/skip defaults and the
+  diagram's strict under-six-minute request limit
   still needs its exact boundary clarified.
 - Valid requests join automatically, without per-song admin approval. Admins may
   remove requests. Validation failures and source preparation are not approval gates.
@@ -63,8 +68,9 @@ and later display design remain open.
 Ask a small batch and use the answers to narrow subsequent questions.
 
 1. **Scheduling:** Exactly one request per turn, with the song/mix rule and a new
-   15-minute master period afterward. Empty turns wait another interval. Confirm
-   pause/buffering accounting and the precise empty-turn timing with an example.
+   15-minute elapsed master period afterward. Empty turns reset the interval;
+   pausing/buffering does not stop it. Handling a deliberately paused due turn is
+   proposed in the approval plan.
    A seek must not silently count skipped media as listening time.
 2. **Worker location:** The user asked for a researched recommendation rather
    than selecting either option. Proposed: hosted media worker in production,
@@ -74,7 +80,8 @@ Ask a small batch and use the answers to narrow subsequent questions.
    player is ruled out. Which launch link types need metadata matching, and how
    should ambiguous Spotify/Apple matches be resolved?
 4. **Quota accounting:** PH ID, three songs, and admin-managed night sessions are
-   settled. Define quota consumption/refunds and organizer authorization.
+   settled, as are accepted-submission counting and technical failure refunds.
+   Remaining defaults and organizer authorization follow the approval plan.
 5. **Display details, deferred:** Two independent monitors are confirmed. Use the
    dashboard heavily as a visual reference when the dedicated display discussion
    begins. Firefox is confirmed; OS/resolution and Lunar placement remain deferred.
@@ -86,20 +93,20 @@ Ask a small batch and use the answers to narrow subsequent questions.
 
 ### Scheduling and queue edge cases
 
-- Confirm this empty-turn example: with uninterrupted master playback, an empty
+- Confirmed empty-turn example: with uninterrupted master playback, an empty
   turn at 9:15 restarts the interval; a request at 9:17 waits until 9:30. These times
   illustrate elapsed master playback, not a new fixed-clock scheduling policy.
 - If the master queue is empty, play user requests immediately, stay silent, or
   use a fallback? At master exhaustion, repeat the mix, loop the list, or stop?
-- Confirm which playback states count toward the 15-minute master period:
-  buffering, disconnection, admin pause, seek, replay, and skip. Proposed: count
-  observed master playing time, independent of seeks, and freeze while not playing.
+- Confirmed: buffering and pauses do not freeze the elapsed master timer; seeks
+  do not jump it. Remaining disconnection/skip/recovery defaults are proposed in
+  the approval plan rather than inferred as past user answers.
 - If a request takes longer than a slot or loading stalls, can due slots stack?
   Define a bounded catch-up policy; never unleash a backlog of overdue interrupts.
 - If an admin skips a user song, does that finish the slot or take the next user
   song? If the admin skips master while it is suspended, what resumes afterward?
-- On a failed user track, retry, try another request, or resume the master?
-  Does the failure refund the attendee's allowance?
+- Technical playback failures refund allowance. The approval plan proposes bounded
+  retries and return to master after failure; that behavior is pending approval.
 - Is the resume promise an approximate song position or sample-accurate seamless
   audio? A browser/provider seek should be tested before promising precision.
 - FIFO requests, round-robin by person, votes, or another fairness rule? Can the
@@ -162,10 +169,10 @@ Ask a small batch and use the answers to narrow subsequent questions.
 | D01 | Jukebox name and intended hostname | Confirmed | Use jukebox URLs in new docs |
 | D02 | Display browser emits HDMI music | Intended; hardware test needed | Other clients remain silent |
 | D03 | Master pause/resume around requests | Confirmed intent | Save provider item and position |
-| D04 | Request cadence | One user song, then 15 more minutes of master playback; finish songs, interrupt mixes; empty turns wait another interval | Confirm pause/buffering and a concrete empty-turn timing example |
+| D04 | Request cadence | One user song, then 15 elapsed minutes in master; pauses/buffering count; empty turns reset interval | Due-while-paused and recovery defaults await plan approval |
 | D05 | Provider and cross-service matching | Audio-only confirmed; implementation under research | No video fallback; resolve links separately |
 | D06 | Repo/service/hosting ownership | Separate org repo confirmed and created | `purduehackers/jukebox`; runtime/hosting still open |
-| D07 | Identity and quota | PH ID; three songs/person/admin-managed night session | Consumption/refunds and session-end queue behavior remain open |
+| D07 | Identity and quota | PH ID; three accepted submissions/person/admin-managed night; technical failures refunded | Removal/skip and session-end defaults await plan approval |
 | D08 | Moderation and failure behavior | Automatic requests; admin removal confirmed | Failures, skips, and quota effects remain open |
 | D09 | Wall/Lunar/visualizer layout | Two independent monitors confirmed | Dedicated Jukebox design and optional Lunar placement are deferred |
 | D10 | Existing dashboard integration | Outside scope | Dashboard is a visual reference; no changes or cross-dashboard coordination |
@@ -194,8 +201,10 @@ is visual reference for the later Jukebox display discussion.
 
 The latest answers selected automatic request admission with admin removal,
 admin-managed night sessions, and waiting a new 15-minute interval after an empty
-turn. The user then specified Firefox. The empty-turn interpretation above is
-explicitly marked for confirmation rather than silently assuming its reset point.
+turn. The user then specified Firefox. They subsequently confirmed the empty-turn
+example, selected elapsed-time counting during pause/buffering, and selected
+accepted submissions with technical playback failure refunds. These supersede the
+earlier proposed playback-only timer. They also requested a finalized plan to approve.
 
 When a decision is made, record the user's answer, date, rationale, and affected
 phase. Avoid silently resolving open questions through implementation defaults.
