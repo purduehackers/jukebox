@@ -9,13 +9,16 @@ of the current planning task.
    auth, and metadata resolver. Pick non-conflicting ports; the current dashboard
    and API-v4 defaults both use 3000.
 2. Run separate browser profiles/devices as attendee, organizer, and designated
-   player. Validate that the user/organizer pages produce no music.
-3. Simulate a full event with an accelerated clock, across midnight and any Lunar
-   schedule boundaries. Exercise quota reset, empty queues, moderation, repeated
+   Firefox player. Validate that the user/organizer pages produce no music.
+3. Simulate an admin-managed night session with an accelerated clock, across
+   midnight without a quota reset. Exercise next-session quota reset, empty turns,
+   automatic request admission, admin removal, repeated
    commands, track errors, connection loss, device lease expiry, and refresh.
 4. Rehearse on the real laptop and wall: window placement, audio activation,
-   HDMI route, sound coexistence, sleep recovery, QR reachability, and emergency
+   HDMI route, Firefox sleep recovery, QR reachability, and emergency
    fallback. Keep simulated success distinct from hardware success.
+   Use the dedicated Jukebox monitor; changes to the existing dashboard are not
+   part of integration or rehearsal.
 
 ## Preview deployment
 

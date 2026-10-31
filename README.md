@@ -14,7 +14,11 @@ runtime, production deployment, or configured jukebox domain yet.
 The master queue supports ordinary songs and long mixes. Ordinary songs finish
 before a due user request; mixes longer than six minutes may be interrupted and
 resumed at the saved position. After requested music, the next turn follows another
-15 minutes of master playback; the number of requests per turn is still open.
+15 minutes of master playback. Exactly one user song plays per turn. Attendees
+sign in with Purdue Hackers ID and get three songs per person per admin-managed
+night session. Valid requests enter automatically; admins can remove them.
+Empty request turns wait for another 15-minute interval. Quota accounting and
+some failure/timer edge cases are still being decided. The display uses Firefox.
 No video media should be downloaded, streamed, or embedded.
 
 Start with [the project plan](docs/jukebox/README.md),
@@ -24,5 +28,6 @@ Start with [the project plan](docs/jukebox/README.md),
 Ordered implementation prompts and separate phase briefs are included.
 
 The [Hack Night dashboard](https://github.com/purduehackers/hack-night-dashboard)
-is the visual reference and possible integration target. Jukebox is a separate
-application; use the dashboard's actual fonts, colors, borders, and dithering.
+is the visual reference. It runs on a separate independent monitor and is outside
+the implementation scope. Jukebox uses the dashboard's actual fonts, colors,
+borders, and dithering in its own application and display.

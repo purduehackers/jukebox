@@ -151,6 +151,12 @@ reliability based only on a successful developer-machine test.
 Hardware/OS/browser, source support, expected load, budget, and engineer ownership
 are still needed before this becomes an implementation decision.
 
+Later clarification: Firefox is the designated display browser, with Jukebox on
+its own independent monitor. OS and resolution are deferred to the relevant
+feasibility/display phase. The Chrome-specific permission evidence above does not
+establish Firefox's local-helper behavior; verify Firefox directly if that option
+is pursued. No existing dashboard integration is needed for either worker option.
+
 - **Laptop helper:** keeps prepared audio at the venue and avoids repeatedly
   relaying it through cloud hosting. Requires installation/startup/update handling.
   A hosted `/display` contacting a localhost helper needs origin, browser local

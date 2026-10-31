@@ -2,9 +2,10 @@
 
 These are templates for future chats, not instructions to start implementation
 now. The user has returned and chosen a separate repo, audio-only playback,
-song/mix interruption, a fresh 15-minute master period, and exact dashboard styling.
-Finish decisions on slot size, timer edge cases, identity, hardware, moderation,
-and worker location first.
+song/mix interruption, one request per turn, a fresh 15-minute master period,
+PH ID, a three-song admin-managed night quota, automatic admission, Firefox,
+two independent monitors, and exact dashboard styling. Settle timer edge cases,
+quota accounting, source/failure behavior, and worker location before dependent work.
 
 ## Workspace and sequencing
 
@@ -13,7 +14,7 @@ and worker location first.
   discovery branch; no dashboard app history or unrelated demos were copied.
 - The implementation repo is now <https://github.com/purduehackers/jukebox>, with
   ADMIN access. Bind future implementation chats to that project/repo, not the
-  dashboard. The dashboard checkout remains a visual/integration reference.
+  dashboard. The dashboard checkout is a visual reference only; do not modify it.
 - Before launching a worktree, commit the accepted planning/contracts baseline:
   separate worktrees begin from commits and do not inherit uncommitted documents.
 - Use T3's explicit workspace strategy for ordinary new chats. Choose the actual
@@ -41,6 +42,9 @@ and worker location first.
 > stream/download video as a fallback. Keep a suspended mix cached through the
 > request, support browser seek via the selected media endpoint, and clean up
 > unused assets. Ordinary songs finish; mixes over six minutes may be interrupted.
+> Test Firefox. Each request turn plays exactly one song, then another 15 minutes
+> of master playback. An empty turn waits a new interval; follow the decision log
+> for its confirmed reset point and pause/buffering accounting.
 
 ## Second: shared contracts, persistence, and scheduling
 
@@ -85,14 +89,18 @@ and worker location first.
 > server failures understandable. Use fixtures rather than production credentials
 > for routine checks. Own attendee UI and assigned resolver integration files;
 > coordinate shared schema changes with the integration owner.
+> PH ID is required, with three songs per admin-managed night session. Admit valid
+> requests automatically; support admin removal without inventing an approval gate.
 
-### Wall presentation and dashboard, parallel
+### Dedicated jukebox display, parallel
 
 > Read AGENTS.md, docs/jukebox/{DISCOVERY,DECISIONS}.md, the shared snapshot contract,
 > and phases/04c-display.md. Implement the agreed wall layout using fixture states,
 > then connect read-only now-playing/next-slot/QR presentation. Keep playback in
-> the player-owned boundary. Preserve existing dashboard refresh, clocks, Discord,
-> and overlays. Implement Lunar/announcement coordination only as decided, and
+> the player-owned boundary. Use Jukebox's independent monitor and Firefox. The
+> existing dashboard is a visual reference only; no widgets, chat/layout edits,
+> or cross-dashboard announcement integration are in scope. Implement any Lunar
+> sharing only as decided during the dedicated display discussion, and
 > inspect any related repo's instructions before changing it. Treat reactive audio
 > visualization as optional until a real source/capture approach has been proven.
 > Follow DESIGN-REFERENCE.md precisely for colors, font assets, borders, and the

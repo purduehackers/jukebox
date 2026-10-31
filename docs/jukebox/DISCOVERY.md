@@ -42,9 +42,9 @@ There is no jukebox queue, music transport, attendee identity flow, or admin pan
 in the inspected dashboard code. The current React coordinator does not cross
 tabs, origins, or devices. It cannot alone coordinate a separate jukebox browser.
 
-There are existing sounds besides future music. We need an explicit decision on
-how countdown/announcements affect jukebox playback. HDMI alone does not provide
-cross-tab volume coordination.
+The reference dashboard has existing sounds besides future music. The user's
+later scope clarification excludes cross-dashboard coordination; Jukebox owns its
+own playback controls. HDMI alone does not coordinate the two pages' volume.
 
 ## Local development evidence
 
@@ -163,13 +163,16 @@ the current extraction, cache, and native browser audio proposal.
 ## Suggested boundaries to discuss
 
 The user confirmed a separately deployable Jukebox repo, with the dashboard used
-as the exact visual reference. Keep any dashboard integration small and read-only
-unless announcement coordination is chosen. Unattended music recovery should be
-independent of routine dashboard refreshes. Hosting and media worker placement
+as the exact visual reference. They explicitly excluded changes to the existing
+dashboard/chat/layout and confirmed two independent monitors. Do not add dashboard
+widgets or cross-dashboard announcement coordination. Jukebox runs independently
+in Firefox on its own monitor. Hosting and media worker placement
 still need decisions. The wider website review is in
 [the design reference](DESIGN-REFERENCE.md).
 
 For the scheduler, prefer a persisted next-deadline plus atomic state transitions
 and player acknowledgements. A page interval or function-local 15-minute timer
 cannot provide reliable state across restarts and concurrent clients. The
-precise scheduler behavior remains undecided.
+remaining timer/accounting edge cases are tracked in the decision log. Confirmed:
+one user song per turn, a fresh 15-minute master period afterward, and waiting a
+new interval after an empty turn.

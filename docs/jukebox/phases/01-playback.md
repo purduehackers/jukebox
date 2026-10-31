@@ -1,6 +1,6 @@
 # Phase 1: prove playback
 
-Status: audio-only and separate repo confirmed; worker/hardware choices pending.
+Status: audio-only, separate repo, and Firefox confirmed; worker/OS details pending.
 
 ## Goal
 
@@ -14,7 +14,7 @@ and the shared backend out of this first experiment.
 - Read `AUDIO-RESEARCH.md`. Prove an audio-only source resolver and temporary
   seekable audio asset in the new Jukebox repo. No video player/download fallback
   is acceptable. Define supported request link types separately from media sources.
-- Test the target OS/browser's activation/autoplay behavior, volume, play/pause,
+- Test Firefox on the target OS for activation/autoplay behavior, volume, play/pause,
   seek, end events, and useful errors. A successful play command is not proof of
   audible playback: listen to the HDMI output on the real machine when available.
 - Save master mix item and position, switch to a request, let it finish, and resume
@@ -23,7 +23,8 @@ and the shared backend out of this first experiment.
   limitations rather than masking them with fake success.
 - Confirm a normal master song finishes before a due request, while a mix longer
   than six minutes is interruptible. After requested music, the next turn follows
-  another 15 minutes of master playback. Slot size remains open.
+  another 15 minutes of master playback. Exactly one user song plays per turn;
+  an empty turn waits for a new interval.
 - Keep a suspended master mix pinned in cache and clean up unused assets after
   completion. Validate audio-only source selection and final media stream types.
 - Determine whether one audio element swapping items suffices. Do not add simultaneous

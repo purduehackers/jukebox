@@ -7,8 +7,9 @@ Draft for the user to send or discuss. No external message has been sent.
 1. The user chose a separate `purduehackers/jukebox` repo, now created. Who should
    own the app and production operation? Which frontend hosting and audio-worker
    runtime/storage should it use?
-2. `patiowizard` has ADMIN on the new repo but read-only on the dashboard. What
-   contribution route should we use for eventual dashboard integration changes?
+2. `patiowizard` has ADMIN on the new repo. Who should review Jukebox deployment
+   and DNS changes? The existing dashboard is a visual reference only and does
+   not require contribution access for this project scope.
 3. Which coordination service currently serves `api.purduehackers.com`? API v4
    describes Vercel/Hono + Redis/Turso, but the DNS repo's `api.yaml` is marked
    Workers-managed. Is it migrated, routed through Cloudflare, or still on v3?
@@ -23,9 +24,9 @@ Draft for the user to send or discuss. No external message has been sent.
    be checked? Which claim is a stable user identifier?
 6. How should a venue playback browser be enrolled/paired and revoked? Is there
    an existing device credential pattern we should reuse?
-7. Is there an existing signal for announcements/checkpoints/midnight across
-   systems, or does it currently exist only in the dashboard browser? Who defines
-   audio priority and when music should pause or duck?
+7. PH ID is required for attendee submissions. Are there restrictions on client
+   registration, stable user identity, or organizer authorization that affect a
+   three-song per-user quota in admin-managed night sessions?
 
 ## Needed before staging and production
 
@@ -35,8 +36,9 @@ Draft for the user to send or discuss. No external message has been sent.
 9. Is DNS repo GitOps the required path for `jukebox`? Should we also set up a
    `music` redirect? Public DNS currently returns no A/CNAME for either name.
    What domain target/verification should the hosting project supply?
-10. What is the wall's actual laptop/OS/browser, resolution, display topology,
-    fullscreen/window arrangement, HDMI audio path, and startup procedure?
+10. The user confirmed Firefox and two independent monitors. For later playback
+    tests, what are the laptop OS, Jukebox monitor resolution, HDMI audio path,
+    and startup procedure? No redesign of the other dashboard is needed.
     Does the checked-in Ubuntu Mac Mini playbook relate to that device?
 11. How does Lunar's wall display run today? Is iframe embedding supported, and
     who owns changes involving its layout, camera controls, or play windows?

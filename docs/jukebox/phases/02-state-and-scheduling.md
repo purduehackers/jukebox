@@ -1,7 +1,9 @@
 # Phase 2: shared state and scheduling
 
-Status: separate repo and audio-only source direction confirmed. Exact scheduling,
-identity, worker placement, and moderation choices still block final contracts.
+Status: separate repo, audio-only direction, one request per turn, 15-minute master
+periods, PH ID, three-song quota, admin-managed nights, and automatic admission
+confirmed. Timer edge cases, quota accounting, failures, and worker placement
+still need final contracts.
 
 ## Goal
 
@@ -31,12 +33,15 @@ defining the acceptable resume tolerance.
 ## Work and contracts
 
 1. Write the behavior table for timer due, empty queues, end, skip, pause, failure,
-   buffering, offline, and reset. Decide the midnight/event-boundary behavior.
+   buffering, offline, and reset. Night sessions are admin-managed; do not reset
+   quotas at midnight. Define session-end queue/playback behavior.
    Honor the confirmed normal-song boundary and over-six-minute mix interruption
    rule. Request length validation is a separate policy from master classification.
    Start another 15-minute master playback period after requested music. Track
    observed elapsed playback separately from media position so a seek does not
    incorrectly advance the request timer. Confirm pause/buffering accounting.
+   Play exactly one user song per turn. An empty turn waits another interval;
+   confirm its reset point using the decision log's example.
 2. Define typed commands, responses, events, public snapshots, errors, and
    authorization. Keep the shared contract in one clearly owned location.
 3. Persist queue and scheduler transitions atomically. Use revision checks or
@@ -48,8 +53,10 @@ defining the acceptable resume tolerance.
    timeout and how admin sees “requested” versus “confirmed by player.”
 6. Enforce admin, attendee, and playback-device permissions server-side. Public
    `/display` rendering is not itself authorization to claim venue playback.
-7. Separate pending resolution/moderation from ready-to-play entries. Validate
-   duration and quotas on the server. Use provider URL allowlists and bounded
+7. Separate pending resolution/preparation from ready-to-play entries. Admission
+   is automatic after validation; admin removal is supported without an approval
+   gate. Require PH ID and enforce three songs per user/night on the server.
+   Validate duration and use provider URL allowlists and bounded
    resolver behavior; do not fetch arbitrary submitted URLs on the server.
 8. Build fixtures, a fake clock, and a fake player/source resolver. Use a short
    simulated interval in tests without changing production policy.
@@ -61,7 +68,8 @@ state, transactional ordering, and clear error paths. Meaningful tests cover
 timer boundaries, master resume state, empty queues, stale/duplicate commands,
 simultaneous changes, lease expiry, moderation/quota accounting, and reconnect.
 
-Schedule and identity decisions must be settled before claiming this phase done.
+Remaining scheduling and quota-accounting decisions must be settled before
+claiming this phase done; use the confirmed identity/session model above.
 The backend's time-based decisions must survive instance restarts; a sleeping
 browser interval must not be their only trigger. A due transition can be reconciled
 atomically when the designated player reconnects if that matches the chosen policy.

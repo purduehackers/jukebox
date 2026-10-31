@@ -3,14 +3,20 @@
 Updated 2026-10-30 after the user's return and first answers. Repository ownership,
 audio-only presentation, and song-versus-mix interruption are now substantially
 clearer. The user subsequently chose another 15 minutes of master playback after
-requested music rather than fixed clock slots. Slot size, identity, hardware,
-moderation, and exact pause/buffering behavior remain open.
+requested music rather than fixed clock slots. Exactly one request plays per turn;
+PH ID and three songs per person per night are confirmed. The wall has two
+independent monitors, and dashboard changes are outside scope. The user also chose
+automatic requests, admin-managed night sessions, waiting a new interval after an
+empty turn, and Firefox. Quota accounting, failure behavior, exact timer details,
+and later display design remain open.
 
 ## Confirmed intent
 
 - Name: Jukebox; intended hostname `jukebox.purduehackers.com`.
 - Laptop connected through HDMI; `/display` is intended to produce the music.
-- Existing dashboard on the left, jukebox display on the right; geometry unknown.
+- Two independent monitors: existing dashboard on the left, jukebox display on
+  the right. The existing dashboard is only a visual reference; no changes to
+  its chat/layout or cross-dashboard integration belong in this project scope.
 - `/admin` controls music from another browser/device.
 - QR code takes attendees to `/queue`.
 - Separate master and user queues. Master can contain long mixes.
@@ -23,15 +29,26 @@ moderation, and exact pause/buffering behavior remain open.
 - Build in its own Purdue Hackers repo, `purduehackers/jukebox`, with all jukebox
   routes under the intended jukebox hostname. No jukebox domain/deploy exists yet.
 - Match the dashboard's exact fonts, colors, borders, and dithering. The dashboard
-  is a reference/integration target rather than the jukebox implementation home.
+  is a visual reference rather than an integration target or implementation home.
 - After requested music, allow another 15 minutes of master playback before the
-  next request turn. Fixed wall-clock slots are ruled out. Slot size is open.
+  next request turn. Fixed wall-clock slots are ruled out. Exactly one user song
+  plays per turn, then the master queue resumes.
+- If a due request turn is empty, wait for a new 15-minute interval rather than
+  playing a later submission immediately. Working interpretation: reset at the
+  empty turn; a concrete example will confirm this.
+- The designated display browser is Firefox. OS and resolution can be confirmed
+  during playback/display feasibility work rather than reopening monitor layout.
 - Admin: volume, play/pause, skip/replay, seek; add items/playlists; remove and
   reorder items in both queues.
 - Submission intent includes YouTube, Spotify, Apple Music, and potentially other
   links. Which launch first, and whether all resolve to one provider, are open.
-- Diagram proposes user songs shorter than six minutes. Three per person/night
-  is explicitly tentative, including how to enforce it.
+- Attendees must sign in with Purdue Hackers ID. The quota is three songs per
+  person per admin-managed night session. Admins start/end sessions and allowance
+  resets for the next session, not at midnight. Which outcomes consume/refund
+  allowance are still open. The diagram's strict under-six-minute request limit
+  still needs its exact boundary clarified.
+- Valid requests join automatically, without per-song admin approval. Admins may
+  remove requests. Validation failures and source preparation are not approval gates.
 - Work locally first, split the project into discussion/implementation phases,
   then deploy after understanding existing infrastructure.
 
@@ -39,9 +56,10 @@ moderation, and exact pause/buffering behavior remain open.
 
 Ask a small batch and use the answers to narrow subsequent questions.
 
-1. **Scheduling:** Respect the song/mix rule and the new 15-minute master period.
-   Play one request or a batch? Confirm pause/buffering accounting and empty-slot
-   behavior. A seek must not silently count skipped media as listening time.
+1. **Scheduling:** Exactly one request per turn, with the song/mix rule and a new
+   15-minute master period afterward. Empty turns wait another interval. Confirm
+   pause/buffering accounting and the precise empty-turn timing with an example.
+   A seek must not silently count skipped media as listening time.
 2. **Worker location:** The user asked for a researched recommendation rather
    than selecting either option. Proposed: hosted media worker in production,
    the same worker locally for development, subject to phase-1 hosting-network
@@ -49,19 +67,22 @@ Ask a small batch and use the answers to narrow subsequent questions.
 3. **Playback source:** Audio-only sourcing is required; a visible/hidden video
    player is ruled out. Which launch link types need metadata matching, and how
    should ambiguous Spotify/Apple matches be resolved?
-4. **Identity/quota:** Require Purdue Hackers ID, allow anonymous QR submissions,
-   or support both? Is three songs per person per night a firm requirement?
-5. **Hardware/layout:** Laptop OS/browser and wall resolution? Two independent
-   screens/windows, or one wide canvas? How should Lunar Lander share the space?
-6. **Moderation/announcements:** Automatic validated requests or admin approval?
-   Should dashboard announcements/countdown pause or lower the music volume?
+4. **Quota accounting:** PH ID, three songs, and admin-managed night sessions are
+   settled. Define quota consumption/refunds and organizer authorization.
+5. **Display details, deferred:** Two independent monitors are confirmed. Use the
+   dashboard heavily as a visual reference when the dedicated display discussion
+   begins. Firefox is confirmed; OS/resolution and Lunar placement remain deferred.
+6. **Failure/removal behavior:** Requests enter automatically and admins can
+   remove them. Define skip/failure/quota behavior. Existing dashboard coordination
+   is outside scope; do not add it by default.
 
 ## Next questions, after the first answers
 
 ### Scheduling and queue edge cases
 
-- If a slot arrives with no requests, is it skipped, kept open until a request
-  arrives, or does the next slot start a full interval later?
+- Confirm this empty-turn example: with uninterrupted master playback, an empty
+  turn at 9:15 restarts the interval; a request at 9:17 waits until 9:30. These times
+  illustrate elapsed master playback, not a new fixed-clock scheduling policy.
 - If the master queue is empty, play user requests immediately, stay silent, or
   use a fallback? At master exhaustion, repeat the mix, loop the list, or stop?
 - Confirm which playback states count toward the 15-minute master period:
@@ -84,16 +105,17 @@ Ask a small batch and use the answers to narrow subsequent questions.
 
 ### Session, identity, and moderation
 
-- What is a “night”: an admin-started event, a fixed date, or another period?
-  Midnight occurs during Hack Night, so a midnight quota reset may be wrong.
+- Admins start/end the night session; midnight does not reset quota. Decide how
+  pending requests and master playback behave on session end/new-session start.
 - Count submissions, accepted songs, pending songs, or successfully played songs
   toward the quota? What happens on rejection, removal, cancellation, or failure?
-- How should attendees without a PH account participate? Who may be an admin,
-  and how are organizer rights granted/revoked?
+- How should an attendee without a PH account reach registration? Do not add
+  guest submissions; PH ID is required. Who may be an admin, and how are organizer
+  rights granted/revoked?
 - Are explicit tracks allowed? Any artwork/metadata rules, artist blocks, or an
   emergency pause/clear action? Do requests need a visible submitter name?
-- Do anonymous users only get a soft convenience quota? Cookies can be cleared;
-  IP quotas can penalize the whole venue behind shared Wi-Fi/NAT.
+- Enforce the three-song limit against stable PH ID identity, not cookies or a
+  shared venue IP. Verify the current provider's stable subject claim.
 - Are user playlists forbidden while admin playlists are supported? Are live
   streams, unknown durations, podcasts, and non-music video links allowed?
 - Does the attendee limit remain strictly below 360 seconds, or is exactly 360
@@ -117,8 +139,9 @@ Ask a small batch and use the answers to narrow subsequent questions.
 
 ### Presentation and scope
 
-- Where should now-playing, next-slot countdown, pending requests, and QR appear?
-  Is a QR needed on both halves? What does “dash” refer to in later instructions?
+- Where should now-playing, next-slot countdown, pending requests, and QR appear
+  within Jukebox's dedicated display? Defer its visual discussion; do not add
+  content to the existing dashboard monitor.
 - Is a genuine music-reactive visualizer required now, optional later, or is
   decorative motion sufficient? It affects source/capture requirements.
 - Keep Lunar separate, embed its display, rotate modes, or overlay a small music
@@ -133,15 +156,16 @@ Ask a small batch and use the answers to narrow subsequent questions.
 | D01 | Jukebox name and intended hostname | Confirmed | Use jukebox URLs in new docs |
 | D02 | Display browser emits HDMI music | Intended; hardware test needed | Other clients remain silent |
 | D03 | Master pause/resume around requests | Confirmed intent | Save provider item and position |
-| D04 | Request cadence | 15 more minutes of master playback confirmed; finish songs, interrupt mixes | Slot size, pause/buffering, and empty-slot behavior remain open |
+| D04 | Request cadence | One user song, then 15 more minutes of master playback; finish songs, interrupt mixes; empty turns wait another interval | Confirm pause/buffering and a concrete empty-turn timing example |
 | D05 | Provider and cross-service matching | Audio-only confirmed; implementation under research | No video fallback; resolve links separately |
 | D06 | Repo/service/hosting ownership | Separate org repo confirmed and created | `purduehackers/jukebox`; runtime/hosting still open |
-| D07 | Identity, night boundaries, quota accounting | Open | Blocks enforceable request rules |
-| D08 | Moderation and failure behavior | Open | Blocks request lifecycle |
-| D09 | Wall/Lunar/visualizer layout | Open | Blocks final display design |
-| D10 | Announcement audio priority | Open | Blocks cross-origin coordination design |
+| D07 | Identity and quota | PH ID; three songs/person/admin-managed night session | Consumption/refunds and session-end queue behavior remain open |
+| D08 | Moderation and failure behavior | Automatic requests; admin removal confirmed | Failures, skips, and quota effects remain open |
+| D09 | Wall/Lunar/visualizer layout | Two independent monitors confirmed | Dedicated Jukebox design and optional Lunar placement are deferred |
+| D10 | Existing dashboard integration | Outside scope | Dashboard is a visual reference; no changes or cross-dashboard coordination |
 | D11 | Visual identity | Confirmed | Match exact dashboard tokens/assets and dithering |
 | D12 | Audio worker placement | Hosted worker recommended; user has not selected | Run the same worker locally first; verify intended hosting network |
+| D13 | Display browser | Firefox confirmed | Validate actual target codec, activation, seek, and recovery behavior |
 
 ## Answer provenance
 
@@ -156,6 +180,16 @@ exact UI reference. GitHub subsequently allowed creation of
 In the next answer, the user selected “Another 15 minutes of master music” and
 asked the agent to recommend a worker location after research. This settles the
 interval reset but does not approve a hosted provider, budget, or laptop helper.
+
+The next answers selected exactly one user song per request turn, required PH ID,
+and three songs per person per night. The user confirmed two independent monitors
+and explicitly said not to change the existing dashboard/chat: its purpose here
+is visual reference for the later Jukebox display discussion.
+
+The latest answers selected automatic request admission with admin removal,
+admin-managed night sessions, and waiting a new 15-minute interval after an empty
+turn. The user then specified Firefox. The empty-turn interpretation above is
+explicitly marked for confirmation rather than silently assuming its reset point.
 
 When a decision is made, record the user's answer, date, rationale, and affected
 phase. Avoid silently resolving open questions through implementation defaults.
