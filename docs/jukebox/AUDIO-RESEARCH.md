@@ -94,6 +94,9 @@ interruption would break the central resume requirement.
 An owned audio source also makes a genuine Web Audio visualizer more plausible:
 use the same-origin media path, or correct CORS if the worker/media origin differs.
 It still needs a browser proof; no visualizer is declared working by this research.
+The user's later clarification makes real audio-driven dithering a display
+requirement. Prove the playing-media analysis path early, then discuss the final
+listener/features/shader/rendering design in the dedicated display phase.
 
 ## Worker placement and operational constraints
 
@@ -107,6 +110,8 @@ current recommendation follows.
 
 The user requested a recommendation after research rather than choosing a helper.
 Recommend a small hosted media worker with a bounded audio cache for production.
+The user subsequently noted an existing capable server: evaluate that server first
+as the hosted worker/cache location. “Hosted” does not imply buying a new provider.
 Run the same worker locally during phase 1, with local storage and fixtures, so
 the extraction/playback experiment can proceed before choosing paid infrastructure.
 This is an architecture recommendation; no hosting provider or spend is approved.

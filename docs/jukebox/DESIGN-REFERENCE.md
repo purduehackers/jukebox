@@ -51,8 +51,25 @@ Do not apply the dashboard's giant wall text sizes directly to mobile controls.
 - size `2`, speed `0.04`, scale `1`;
 - full container coverage with absolute positioning.
 
-Reuse these settings as the starting reference. This generated shader motion is
-separate from streamed video and from a measured music-reactive visualizer.
+Reuse these settings as a visual starting reference. The user clarified that the
+Jukebox shader/visualization must be driven by measured playing audio. Copying the
+dashboard's idle `warp` animation without an audio-analysis connection is not a
+complete implementation. Exact audio features, geometry, shader adaptation, and
+smoothing belong in the dedicated display discussion.
+
+## User's display composition
+
+See [the original sketch](references/display-sketch.png) and
+[its interpretation](references/README.md). The main left area is the real
+audio-reactive dithered visualizer. A bottom-left strip holds now-playing artwork
+and information. Queue entries occupy a right sidebar, with the song-request QR
+area toward its bottom. Treat proportions as guidance until the display discussion.
+
+The audio listener should follow the playing master/request source across swaps,
+pauses, seeks, and resumes. Discuss direct media analysis rather than assuming a
+microphone or operating-system audio capture. Browser versus server processing is
+an architectural discussion; the user's capable existing server should be taken
+into account without assuming server capacity determines browser rendering speed.
 
 ## Wider website review
 

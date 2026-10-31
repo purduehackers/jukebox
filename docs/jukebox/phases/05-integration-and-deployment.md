@@ -24,6 +24,9 @@ of the current planning task.
 
 - Confirm repo ownership and write access, hosting project, runtime, durable
   storage, event isolation, provider credentials, and identity callback setup.
+- Evaluate the user's existing capable server before proposing new infrastructure.
+  Confirm actual runtime/resources, deployment ownership, storage, source access,
+  and network paths; do not infer capabilities or credentials from the description.
 - Use preview-only storage, credentials, and device pairing. Preview commands must
   not reach the production player or queues, even when accounts are shared.
 - Deploy compatible app/service contracts and database migrations deliberately.

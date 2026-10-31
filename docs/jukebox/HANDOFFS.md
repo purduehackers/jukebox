@@ -51,6 +51,8 @@ quota accounting, source/failure behavior, and worker location before dependent 
 > for its confirmed reset point and pause/buffering accounting.
 > The user confirmed that pauses/buffering do not freeze the elapsed master timer,
 > empty turns reset it, and accepted submissions count with technical failure refunds.
+> Establish a usable analysis path from the actual playing audio for the required
+> dithered visualizer. Leave its final signal/rendering design to the display chat.
 
 ## Second: shared contracts, persistence, and scheduling
 
@@ -63,6 +65,8 @@ quota accounting, source/failure behavior, and worker location before dependent 
 > behavior with a fake clock/player and concurrent clients. Be the integration
 > owner for shared contracts until parallel phases are integrated. Report a stable
 > baseline commit before the UI/player chats start.
+> Inspect the existing purduehackers/id repository/code before PH ID integration;
+> use the current supported flow rather than building a new identity provider.
 
 ## Third group: launch only after the phase-2 baseline
 
@@ -107,10 +111,14 @@ quota accounting, source/failure behavior, and worker location before dependent 
 > existing dashboard is a visual reference only; no widgets, chat/layout edits,
 > or cross-dashboard announcement integration are in scope. Implement any Lunar
 > sharing only as decided during the dedicated display discussion, and
-> inspect any related repo's instructions before changing it. Treat reactive audio
-> visualization as optional until a real source/capture approach has been proven.
+> inspect any related repo's instructions before changing it. A real playing-audio
+> listener driving the dithered visualization is required. Use the user's sketch
+> in references/display-sketch.png; discuss the detailed signal/shader/layout design
+> in this phase. Do not replace the requirement with decorative looping motion.
 > Follow DESIGN-REFERENCE.md precisely for colors, font assets, borders, and the
 > dashboard's dithering settings; avoid substituting the wider site's palette.
+> The user reports an existing capable server. Consider it when discussing workload
+> placement, but do not assume specifications, access, or a server-rendered video path.
 
 ## Last: integration and deployment
 
@@ -125,3 +133,4 @@ quota accounting, source/failure behavior, and worker location before dependent 
 > observed limitations. Do not invent DNS targets or reuse production state in
 > previews. Register every PR worked on with this thread when T3 PR linking is
 > available.
+> Evaluate the user's existing capable server before proposing new hosted compute.

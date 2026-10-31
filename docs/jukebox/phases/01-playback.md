@@ -29,8 +29,10 @@ and the shared backend out of this first experiment.
   completion. Validate audio-only source selection and final media stream types.
 - Determine whether one audio element swapping items suffices. Do not add simultaneous
   players or crossfades unless behavior requires them and the provider supports it.
-- Inspect source APIs and audio access before promising a real visualizer. Keep
-  decorative animation and measured audio response distinct.
+- Prove a usable analysis path from the actual playing media for the required
+  audio-reactive dithered visualizer. A direct audio tap is the initial approach
+  to investigate; do not assume a room microphone. Avoid implementing the final
+  signal features/shader/layout until the display discussion.
 
 ## Deliverables and exit gate
 

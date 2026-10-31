@@ -22,8 +22,13 @@ A separate Purdue Hackers Jukebox in `purduehackers/jukebox`, intended for
 
 Use the dashboard's actual fonts, colors, borders, and dithering. The existing
 dashboard/chat on the other monitor is only a visual reference; do not change it
-or build cross-dashboard integrations. Detailed Jukebox display design, visualizer,
-and possible Lunar sharing belong in their later component discussion.
+or build cross-dashboard integrations. The user's
+[display sketch](references/display-sketch.png) sets the composition: a large
+audio-reactive dithered visualizer on the left, a now-playing/artwork strip below,
+and queue entries with a request QR area on the right. Real audio analysis driving
+the visualization is a requirement; a decorative looping shader alone is not.
+Detailed signal analysis, shader behavior, final layout, and possible Lunar sharing
+belong in the later display component discussion.
 
 ## 2. Music behavior — confirmed
 
@@ -80,6 +85,13 @@ test clock for routine checks. Use the same worker process in hosted production
 so the venue laptop can remain browser-only. Exact runtime/database/hosting follow
 the feasibility result and infrastructure engineer input.
 
+The user reports that an existing server is quite capable. Evaluate that server
+first for the hosted media worker/cache and any relevant processing rather than
+assuming new hosting or a serverless-only design. Specs, available runtime/storage,
+network access, and ownership are for the infrastructure discussion, not assumed.
+For PH ID, inspect and integrate the current `purduehackers/id` repo/code in the
+auth phase; no new identity system is being built here.
+
 The worker resolves metadata and prepares strictly audio-only assets using a
 maintained extractor such as yt-dlp and FFmpeg when needed. Preserve a compatible
 source codec rather than automatically converting everything to MP3. Serve media
@@ -103,7 +115,8 @@ dependent features. Source/service constraints are recorded in AUDIO-RESEARCH.md
 
 1. **Playback proof:** local audio worker/cache and minimal Firefox player.
    Demonstrate an hour-long mix → one request → resume, no video, seeking,
-   preparation/cleanup, and failure handling. Record observed limits.
+   preparation/cleanup, and failure handling. Verify a usable analysis path from
+   the playing audio without building the final visualizer. Record observed limits.
 2. **Shared foundation:** agree typed API/events; implement durable queues,
    scheduler, PH ID integration, organizer authorization, session quotas, paired
    playback authority, and local fixtures. Test timing and concurrent clients.
@@ -111,7 +124,8 @@ dependent features. Source/service constraints are recorded in AUDIO-RESEARCH.md
    player/recovery; admin controls; attendee queue; dedicated display/design.
    Give each an isolated worktree and shared baseline, with one integration owner.
    The display chat uses the dashboard heavily as reference and resolves its
-   layout/visualizer/Lunar choices before implementing those choices.
+   final layout, real audio analysis/dithered visualization, and Lunar choices
+   before implementing them, using the supplied sketch as the starting composition.
 4. **Integration and rehearsal:** combine components, simulate a full night across
    midnight, test multiple browser/device roles, then validate real Firefox/HDMI
    and the second monitor. Produce a short organizer runbook and fallback procedure.

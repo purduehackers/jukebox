@@ -6,7 +6,9 @@ Draft for the user to send or discuss. No external message has been sent.
 
 1. The user chose a separate `purduehackers/jukebox` repo, now created. Who should
    own the app and production operation? Which frontend hosting and audio-worker
-   runtime/storage should it use?
+   runtime/storage should it use? The user reports an existing capable server:
+   what are its available compute/storage/network resources, supported runtime,
+   deployment procedure, and access boundaries? Evaluate it before new hosting.
 2. `patiowizard` has ADMIN on the new repo. Who should review Jukebox deployment
    and DNS changes? The existing dashboard is a visual reference only and does
    not require contribution access for this project scope.
@@ -21,7 +23,8 @@ Draft for the user to send or discuss. No external message has been sent.
 
 5. What is the current supported PH ID OIDC integration and process for registering
    local, preview, and production callback URLs? How should organizer privileges
-   be checked? Which claim is a stable user identifier?
+   be checked? Which claim is a stable user identifier? We have identified
+   `purduehackers/id`; use its current code/integration when this phase begins.
 6. How should a venue playback browser be enrolled/paired and revoked? Is there
    an existing device credential pattern we should reuse?
 7. PH ID is required for attendee submissions. Are there restrictions on client

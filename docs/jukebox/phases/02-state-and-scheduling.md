@@ -53,6 +53,9 @@ defining the acceptable resume tolerance.
    timeout and how admin sees “requested” versus “confirmed by player.”
 6. Enforce admin, attendee, and playback-device permissions server-side. Public
    `/display` rendering is not itself authorization to claim venue playback.
+   Inspect the current `purduehackers/id` code and supported client integration
+   when implementing auth. Reuse PH ID; do not build a replacement identity system
+   or copy an outdated example without verifying it against the current provider.
 7. Separate pending resolution/preparation from ready-to-play entries. Admission
    is automatic after validation; admin removal is supported without an approval
    gate. Require PH ID and enforce three accepted submissions per user/night on

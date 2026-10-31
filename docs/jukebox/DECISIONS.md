@@ -37,6 +37,16 @@ failure refunds. Remaining defaults are consolidated in the pending approval pla
   routes under the intended jukebox hostname. No jukebox domain/deploy exists yet.
 - Match the dashboard's exact fonts, colors, borders, and dithering. The dashboard
   is a visual reference rather than an integration target or implementation home.
+- The user's [display sketch](references/display-sketch.png) supplies the starting
+  composition: large left audio visualization, now-playing/artwork below it, queue
+  sidebar on the right with a request QR area toward its bottom.
+- The visualization must analyze/listen to the real playing audio and render it
+  with dithering. It is not merely decorative shader motion. Exact signal path,
+  shader adaptation, geometry, and rendering responsibilities are deferred to the
+  display-phase discussion. The sketch is guidance, not a finalized mockup.
+- PH ID has an existing repo/codebase (`purduehackers/id`) to inspect/reuse in the
+  identity phase. The user reports an existing capable server to consider for
+  relevant hosted workloads; specifications/access/deployment are not verified.
 - After requested music, allow another 15 minutes of master playback before the
   next request turn. Fixed wall-clock slots are ruled out. Exactly one user song
   plays per turn, then the master queue resumes.
@@ -82,9 +92,11 @@ Ask a small batch and use the answers to narrow subsequent questions.
 4. **Quota accounting:** PH ID, three songs, and admin-managed night sessions are
    settled, as are accepted-submission counting and technical failure refunds.
    Remaining defaults and organizer authorization follow the approval plan.
-5. **Display details, deferred:** Two independent monitors are confirmed. Use the
-   dashboard heavily as a visual reference when the dedicated display discussion
-   begins. Firefox is confirmed; OS/resolution and Lunar placement remain deferred.
+5. **Display details, deferred:** Two independent monitors, Firefox, the rough
+   sketch composition, and real audio-driven dithering are confirmed. Use the
+   dashboard heavily as a visual reference during this discussion. Exact listener,
+   shader, OS/resolution, server/browser responsibilities, and Lunar placement
+   remain deferred; do not reopen whether audio response is required.
 6. **Failure/removal behavior:** Requests enter automatically and admins can
    remove them. Define skip/failure/quota behavior. Existing dashboard coordination
    is outside scope; do not add it by default.
@@ -155,8 +167,9 @@ Ask a small batch and use the answers to narrow subsequent questions.
 - Where should now-playing, next-slot countdown, pending requests, and QR appear
   within Jukebox's dedicated display? Defer its visual discussion; do not add
   content to the existing dashboard monitor.
-- Is a genuine music-reactive visualizer required now, optional later, or is
-  decorative motion sufficient? It affects source/capture requirements.
+- Real music-reactive dithering is required. Discuss its exact audio analysis,
+  visual geometry, shader processing, responsiveness, pause/silence behavior, and
+  rendering location during the display phase; decorative motion is insufficient.
 - Keep Lunar separate, embed its display, rotate modes, or overlay a small music
   status panel? Preserve its existing remote camera and play-window behavior.
 - What is the first demo target/date, expected attendee count, organizer count,
@@ -174,11 +187,12 @@ Ask a small batch and use the answers to narrow subsequent questions.
 | D06 | Repo/service/hosting ownership | Separate org repo confirmed and created | `purduehackers/jukebox`; runtime/hosting still open |
 | D07 | Identity and quota | PH ID; three accepted submissions/person/admin-managed night; technical failures refunded | Removal/skip and session-end defaults await plan approval |
 | D08 | Moderation and failure behavior | Automatic requests; admin removal confirmed | Failures, skips, and quota effects remain open |
-| D09 | Wall/Lunar/visualizer layout | Two independent monitors confirmed | Dedicated Jukebox design and optional Lunar placement are deferred |
+| D09 | Wall/Lunar/visualizer layout | Two monitors, rough sketch, and real audio-reactive dithering confirmed | Detailed listener/shader/layout and Lunar placement deferred |
 | D10 | Existing dashboard integration | Outside scope | Dashboard is a visual reference; no changes or cross-dashboard coordination |
 | D11 | Visual identity | Confirmed | Match exact dashboard tokens/assets and dithering |
 | D12 | Audio worker placement | Hosted worker recommended; user has not selected | Run the same worker locally first; verify intended hosting network |
 | D13 | Display browser | Firefox confirmed | Validate actual target codec, activation, seek, and recovery behavior |
+| D14 | Existing server | User reports capable existing server | Evaluate its actual resources/access before proposing new hosting |
 
 ## Answer provenance
 
@@ -205,6 +219,12 @@ turn. The user then specified Firefox. They subsequently confirmed the empty-tur
 example, selected elapsed-time counting during pause/buffering, and selected
 accepted submissions with technical playback failure refunds. These supersede the
 earlier proposed playback-only timer. They also requested a finalized plan to approve.
+
+During review, the user supplied a display sketch, clarified that the dithering
+must visualize real playing audio, noted the existing PH ID repo/code, and said
+the existing server is capable. They explicitly deferred detailed discussion of
+those components to their phases. These additions do not constitute approval of
+the consolidated plan or approval to start implementation.
 
 When a decision is made, record the user's answer, date, rationale, and affected
 phase. Avoid silently resolving open questions through implementation defaults.

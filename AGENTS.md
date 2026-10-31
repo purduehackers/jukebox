@@ -39,6 +39,15 @@ defaults in it remain proposals until then; do not silently promote them to fact
   coordination as part of this scope. Jukebox's display runs on its own monitor.
 - Exact Hack Night dashboard visual identity: preserve actual fonts, token color
   values, border treatment, and dithering as documented in DESIGN-REFERENCE.md.
+- The display has a real audio-reactive dithered visualizer, not just idle shader
+  motion. Follow the user's sketch in `docs/jukebox/references/display-sketch.png`:
+  large left visualizer, now-playing strip below, queue and request QR on the right.
+  Detailed audio analysis/rendering choices belong to the display-phase discussion.
+- Reuse the existing PH ID implementation (`purduehackers/id`) when the auth phase
+  begins; inspect current code and supported integration rather than inventing ID.
+- The user reports an existing capable server. Evaluate it for hosted media/cache
+  and related workloads before proposing new infrastructure; specs/access/runtime
+  are not verified and must be discussed in the relevant phase.
 - Work locally first; verify real audio preparation and seeking before polishing
   UI. Do not claim media/network/hardware behavior was tested from docs alone.
 

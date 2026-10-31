@@ -37,9 +37,10 @@ automatically and admins can remove them. The master timer uses elapsed time,
 including pause/buffering, and empty turns reset the interval. Quota counts accepted
 submissions and refunds technical failures. Further defaults are in the approval plan.
 
-Jukebox's own display needs song information, a QR code, and possibly a countdown
-to the next request slot. Visualizer placement and Lunar Lander sharing remain
-for the later display discussion. The existing dashboard is not an integration
+The user's [display sketch](references/display-sketch.png) places a large real
+audio-reactive dithered visualizer on the left, now-playing/artwork below it, and
+a queue sidebar with request QR on the right. Detailed listener/shader/layout work
+and Lunar Lander sharing remain for the display discussion. The existing dashboard is not an integration
 target. The canonical project name is Jukebox; old music URLs in the drawing are
 superseded by the intended jukebox hostname.
 
@@ -90,6 +91,11 @@ hosting and the media worker's location remain open.
    proposal pending source/hosting tests, not an accepted hosting decision. Keep
    the active/suspended master asset pinned.
 
+Use the existing `purduehackers/id` code when implementing PH ID. The user reports
+an existing capable server: evaluate it for hosted worker/cache and relevant
+processing before proposing new infrastructure. Actual specs/access/runtime and
+browser-versus-server visualizer responsibilities are later phase decisions.
+
 A source link and a playable recording are different records. Store the submitted
 URL and requested version separately from the selected playable provider item.
 YouTube, Spotify, and Apple Music support should be explicit capabilities, not a
@@ -105,14 +111,15 @@ promise to play any arbitrary URL.
 | 3 | Connect the designated playback browser and prove remote control/recovery | Stage 2 contracts |
 | 4A | Admin queue and player controls | Stage 2; use mock player until 3 is ready |
 | 4B | PH ID submissions, three-song session quota, automatic queue feedback | Stage 2 plus source/accounting decisions |
-| 4C | Dedicated display, QR, exact dashboard visual identity, optional visual work | Stage 2 contracts and later display discussion |
+| 4C | Dedicated display, real audio-reactive dithering, queue/QR, exact dashboard visual identity | Stage 2 contracts, audio-analysis proof, and display discussion |
 | 5 | Integrate, rehearse on the wall, preview deploy, DNS, production operation | Stages 3 and 4 plus hosting/access |
 
 Stage 3 and the three stage-4 components can proceed in parallel **after** the
 shared contracts are stable. Initially use one integration owner for shared
 contracts and separate file ownership for each UI. Admin and attendee clients
 should use fake player/source adapters until the real integrations are ready.
-Visualizer research can run alongside these, but should not delay basic music.
+Visualizer design can proceed alongside these once the playing-audio analysis
+path is established; it is a required display component rather than idle decoration.
 
 Do not launch all phase chats yet. The unanswered questions materially affect
 the player, queue service, and worker location. Once answered, update the docs,
