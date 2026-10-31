@@ -45,7 +45,13 @@ export class WorkerAdapter implements SourcePort, MediaPort {
       throw new PortError('SOURCE_UNAVAILABLE', error instanceof Error ? error.message : 'Worker resolve unavailable', true);
     }
     if (!response.ok) throw this.workerError(body, response.status);
-    return { ref, title:body.title, artist:body.artist ?? null, durationSec:body.duration, recordingKey:body.recordingKey, selection:{source:body.source} };
+    const artworkUrl = typeof body.thumbnail === 'string' ? body.thumbnail : undefined;
+    if (artworkUrl !== undefined) {
+      try { const parsed = new URL(artworkUrl); if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error(); }
+      catch { throw new PortError('SOURCE_UNAVAILABLE', 'Worker returned an invalid artwork URL'); }
+    }
+    return { ref, title:body.title, artist:body.artist ?? null, durationSec:body.duration, recordingKey:body.recordingKey,
+      ...(artworkUrl ? { artworkUrl } : {}), selection:{source:body.source} };
   }
   async prepare(source: ResolvedSource, purpose: MediaPurpose): Promise<{jobId:string}> {
     const selection = source.selection as {source?:unknown};

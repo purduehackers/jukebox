@@ -126,6 +126,10 @@ const MIGRATIONS: string[] = [
     expires_at integer not null
   );
   `,
+  `
+  alter table master_items add column artwork_url text;
+  alter table requests add column artwork_url text;
+  `,
 ];
 
 export function openDatabase(path: string): DatabaseSync {

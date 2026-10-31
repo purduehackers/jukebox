@@ -26,6 +26,7 @@ export interface FakeTrack {
   durationSec: number;
   /** Defaults to `${provider}:${itemId}`; share one to model the same recording via two links. */
   recordingKey?: string;
+  artworkUrl?: string;
 }
 
 /** Catalog keyed by canonical URL. Unknown items are unavailable, never invented. */
@@ -58,6 +59,7 @@ export class FakeSource implements SourcePort {
       artist: track.artist ?? null,
       durationSec: track.durationSec,
       recordingKey: track.recordingKey ?? `${ref.provider}:${ref.itemId}`,
+      ...(track.artworkUrl ? { artworkUrl: track.artworkUrl } : {}),
       selection: { fake: ref.canonicalUrl },
     };
   }

@@ -59,6 +59,8 @@ export interface ResolvedSource {
   durationSec: number;
   /** Identity of the playable recording, used for duplicate detection. */
   recordingKey: string;
+  /** Optional source artwork/thumbnail; only absolute HTTP(S) URLs are accepted. */
+  artworkUrl?: string;
   /** Opaque, worker-specific selection; never a signed media URL. */
   selection: unknown;
 }
@@ -91,6 +93,7 @@ export interface MasterEntryView {
   id: string;
   title: string;
   artist: string | null;
+  artworkUrl?: string;
   durationSec: number | null;
   isMix: boolean;
   status: MasterStatus;
@@ -101,6 +104,7 @@ export interface RequestEntryView {
   id: string;
   title: string;
   artist: string | null;
+  artworkUrl?: string;
   durationSec: number | null;
   status: RequestStatus;
   /** Present for admins only. */
@@ -171,8 +175,11 @@ export interface Snapshot {
     entryId: string;
     title: string;
     artist: string | null;
+    artworkUrl?: string;
     durationSec: number | null;
   } | null;
+  /** Public-safe master item that will play when the current request turn ends. */
+  nextMaster: { title: string; artist: string | null; durationSec: number; artworkUrl?: string } | null;
   /** Suspended mix waiting for the request to finish. */
   suspendedMaster: { entryId: string; title: string; positionSec: number } | null;
   /** Requested vs player-confirmed. `confirmed` means the player acked this epoch. */

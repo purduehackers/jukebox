@@ -17,6 +17,11 @@ import { PortError } from '../core/ports.ts';
 import { canonicalizeUrl } from '../core/sources.ts';
 import { openDatabase } from './db.ts';
 
+function isHttpArtworkUrl(value: string): boolean {
+  try { const url = new URL(value); return url.protocol === 'http:' || url.protocol === 'https:'; }
+  catch { return false; }
+}
+
 export type Actor =
   | { kind: 'public' }
   | { kind: 'user'; identity: Identity }
@@ -46,12 +51,13 @@ export class CommandError extends Error {
 
 interface MasterRow {
   id: string; order_key: number; source_url: string; provider: string; title: string; artist: string | null;
-  duration_sec: number; recording_key: string; selection: string; status: string; job_id: string | null;
+  artwork_url: string | null; duration_sec: number; recording_key: string; selection: string; status: string; job_id: string | null;
   asset: string | null; prep_attempts: number; failures: number; error: string | null; removed: number; created_at: number;
 }
 interface RequestRow {
   id: string; night_id: string; requester_key: string; requester_name: string; order_key: number; source_url: string;
   provider: string; title: string; artist: string | null; duration_sec: number; recording_key: string; selection: string;
+  artwork_url: string | null;
   status: string; job_id: string | null; asset: string | null; prep_attempts: number; play_attempts: number;
   charged: number; refunded: number; error: string | null; created_at: number; finished_at: number | null;
 }
@@ -249,6 +255,9 @@ export class JukeboxService {
     }
     const purpose: MediaPurpose = envelope.type === 'request.submit' ? 'request' : 'master';
     const resolved = await this.source.resolve(ref, purpose);
+    if (resolved.artworkUrl !== undefined && !isHttpArtworkUrl(resolved.artworkUrl)) {
+      throw new PortError('SOURCE_UNAVAILABLE', 'Source returned an invalid artwork URL');
+    }
     if (!(resolved.durationSec > 0)) throw new PortError('SOURCE_UNAVAILABLE', 'Recording has no known duration');
     if (purpose === 'request' && resolved.durationSec >= this.policy.requestMaxSec) {
       throw new PortError('DURATION_REJECTED', 'Requests must be shorter than six minutes');
@@ -520,9 +529,9 @@ export class JukeboxService {
   private masterAdd(tx: Tx, resolved: ResolvedSource) {
     const id = randomUUID();
     const max = (this.db.prepare('select max(order_key) as k from master_items').get() as { k: number | null }).k ?? 0;
-    this.db.prepare(`insert into master_items(id, order_key, source_url, provider, title, artist, duration_sec, recording_key,
-      selection, status, created_at) values(?, ?, ?, ?, ?, ?, ?, ?, ?, 'preparing', ?)`)
-      .run(id, max + 1, resolved.ref.canonicalUrl, resolved.ref.provider, resolved.title, resolved.artist, resolved.durationSec,
+    this.db.prepare(`insert into master_items(id, order_key, source_url, provider, title, artist, artwork_url, duration_sec, recording_key,
+      selection, status, created_at) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'preparing', ?) `)
+      .run(id, max + 1, resolved.ref.canonicalUrl, resolved.ref.provider, resolved.title, resolved.artist, resolved.artworkUrl ?? null, resolved.durationSec,
         resolved.recordingKey, JSON.stringify(resolved.selection ?? null), tx.now);
     this.emit(tx, 'master.added', { entryId: id });
     return { entryId: id };
@@ -764,10 +773,10 @@ export class JukeboxService {
     if (duplicate) throw new CommandError('DUPLICATE_REQUEST', 'That recording is already waiting in the queue');
     const id = randomUUID();
     const max = (this.db.prepare('select max(order_key) as k from requests where night_id = ?').get(night.id) as { k: number | null }).k ?? 0;
-    this.db.prepare(`insert into requests(id, night_id, requester_key, requester_name, order_key, source_url, provider, title, artist,
-      duration_sec, recording_key, selection, status, created_at) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'preparing', ?)`)
+    this.db.prepare(`insert into requests(id, night_id, requester_key, requester_name, order_key, source_url, provider, title, artist, artwork_url,
+      duration_sec, recording_key, selection, status, created_at) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'preparing', ?) `)
       .run(id, night.id, identity.key, identity.displayName, max + 1, resolved.ref.canonicalUrl, resolved.ref.provider, resolved.title,
-        resolved.artist, resolved.durationSec, resolved.recordingKey, JSON.stringify(resolved.selection ?? null), tx.now);
+        resolved.artist, resolved.artworkUrl ?? null, resolved.durationSec, resolved.recordingKey, JSON.stringify(resolved.selection ?? null), tx.now);
     this.emit(tx, 'request.submitted', { entryId: id });
     const limit = this.policy.quotaPerNight;
     return { entryId: id, quota: { used: used + 1, limit, remaining: limit - used - 1 } };
@@ -821,6 +830,7 @@ export class JukeboxService {
       artist: row.artist,
       durationSec: row.duration_sec,
       recordingKey: row.recording_key,
+      ...(row.artwork_url ? { artworkUrl: row.artwork_url } : {}),
       selection: JSON.parse(row.selection),
     };
   }
@@ -960,6 +970,9 @@ export class JukeboxService {
     const currentRow = pb.phase === 'master' ? this.master(pb.current_id) : this.request(pb.current_id);
     const suspended = pb.suspended ? (JSON.parse(pb.suspended) as Suspended) : null;
     const suspendedRow = this.master(suspended?.itemId ?? null);
+    const nextMasterRow = pb.phase === 'request' && suspendedRow
+      ? suspendedRow
+      : this.nextMaster(pb.master_cursor, pb.phase === 'master' && pb.current_id === null);
     const ready = !!this.nextReadyRequest();
     const due = pb.phase === 'master' && pb.period_started_at !== null && now - pb.period_started_at >= this.policy.periodMs && ready;
     const confirmation = pb.current_id === null ? 'none'
@@ -994,8 +1007,11 @@ export class JukeboxService {
         dueReason: !due ? null : pb.intent === 'paused' ? 'paused' : !live ? 'offline' : 'song_end',
       },
       nowPlaying: currentRow
-        ? { kind: pb.phase, entryId: currentRow.id, title: currentRow.title, artist: currentRow.artist, durationSec: currentRow.duration_sec }
+        ? { kind: pb.phase, entryId: currentRow.id, title: currentRow.title, artist: currentRow.artist, durationSec: currentRow.duration_sec,
+            ...(currentRow.artwork_url ? { artworkUrl: currentRow.artwork_url } : {}) }
         : null,
+      nextMaster: nextMasterRow ? { title: nextMasterRow.title, artist: nextMasterRow.artist, durationSec: nextMasterRow.duration_sec,
+        ...(nextMasterRow.artwork_url ? { artworkUrl: nextMasterRow.artwork_url } : {}) } : null,
       suspendedMaster: suspended && suspendedRow ? { entryId: suspendedRow.id, title: suspendedRow.title, positionSec: suspended.positionSec } : null,
       playback: {
         desiredEpoch: pb.current_id ? pb.epoch : null,
@@ -1008,6 +1024,7 @@ export class JukeboxService {
         id: r.id,
         title: r.title,
         artist: r.artist,
+        ...(r.artwork_url ? { artworkUrl: r.artwork_url } : {}),
         durationSec: r.duration_sec,
         status: r.status as RequestStatus,
         ...(isAdmin ? { requester: r.requester_name, sourceUrl: r.source_url, error: r.error ?? undefined } : {}),
@@ -1018,6 +1035,7 @@ export class JukeboxService {
     if (isAdmin) {
       snapshot.master = (this.db.prepare('select * from master_items where removed = 0 order by order_key').all() as unknown as MasterRow[]).map((m) => ({
         id: m.id, title: m.title, artist: m.artist, durationSec: m.duration_sec, isMix: this.isMix(m),
+        ...(m.artwork_url ? { artworkUrl: m.artwork_url } : {}),
         status: m.status as MasterStatus, sourceUrl: m.source_url,
       }));
       snapshot.devices = (this.db.prepare('select * from devices order by paired_at').all() as { id: string; name: string; revoked: number; paired_at: number }[])

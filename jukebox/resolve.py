@@ -1,6 +1,7 @@
 """Metadata-only audio selection subprocess. Emits no upstream URLs or headers."""
 import json
 import sys
+from urllib.parse import urlsplit
 from .media import FORMAT, validate_selection
 
 
@@ -15,10 +16,13 @@ def main():
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(source, download=False)
     validate_selection(info, kind)
+    thumbnail = info.get('thumbnail')
+    if not isinstance(thumbnail, str) or urlsplit(thumbnail).scheme not in ('http', 'https'):
+        thumbnail = None
     result = {'id': info.get('id'), 'title': info.get('title'),
               'artist': info.get('artist') or info.get('track_artist') or info.get('uploader'),
               'duration': info.get('duration'), 'formatId': info.get('format_id'),
-              'acodec': info.get('acodec')}
+              'acodec': info.get('acodec'), 'thumbnail': thumbnail}
     print(json.dumps(result))
 
 
