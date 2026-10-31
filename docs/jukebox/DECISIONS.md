@@ -266,3 +266,13 @@ and remain open to user revision (none was asked as a product question):
 
 Not established: live PH ID sign-in (no client registered), Firefox against this
 service (phase 3), real-source resolve through the new endpoint, existing-server fit.
+
+
+## Phase-4B implementation record (2026-10-30)
+
+The user said “start the next phase and its agents” after the phase-2 report; phase 4B built the attendee
+[`/queue` page and Spotify/Apple matcher](PHASE-4B-QUEUE.md). Not new user decisions; **implementation
+choices** open to revision: a read-only `request.preview` plus an `expectRecordingKey` guard (proposed to the
+contract owner); match ambiguity is resolved by the attendee choosing a YouTube link, never silently; rough
+"about N minutes" estimates instead of an ETA; no self-withdrawal until its quota effect is decided.
+Still unverified: live PH ID, live Spotify/Apple/YouTube search, a physical phone scanning a QR.

@@ -6,7 +6,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { closeSync, openSync, readFileSync, unlinkSync, writeSync } from 'node:fs';
 import type { DatabaseSync } from 'node:sqlite';
 import type {
-  Alert, ApiError, MasterStatus, AssetDescriptor, CommandEnvelope, CommandPayloads, CommandResponse, CommandType, DesiredPlayback,
+  Alert, ApiError, MasterStatus, PreviewResult, AssetDescriptor, CommandEnvelope, CommandPayloads, CommandResponse, CommandType, DesiredPlayback,
   ErrorCode, EventRecord, RequestStatus, Identity, MediaPurpose, ObservedPlayback, Phase, PlayerReport, Policy, ResolvedSource,
   Role, Snapshot,
 } from '../contract/types.ts';
@@ -32,6 +32,8 @@ export interface ServiceOptions {
   adminKeys?: string[];
   /** PH ID role names that grant Jukebox admin. Default organizer/admin. */
   adminRoles?: string[];
+  /** `request.preview` resolves links (bounded, possibly slow), so it is rate limited per identity. */
+  previewLimit?: { max: number; windowMs: number };
 }
 
 export class CommandError extends Error {
@@ -74,7 +76,7 @@ interface Tx {
   touched: boolean;
 }
 
-const UNSTORED: CommandType[] = ['player.report', 'device.pair'];
+const UNSTORED: CommandType[] = ['player.report', 'device.pair', 'request.preview'];
 const NOT_REPLAYED: ErrorCode[] = ['REVISION_CONFLICT', 'UNAUTHENTICATED', 'FORBIDDEN', 'INTERNAL', 'IDEMPOTENCY_MISMATCH'];
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const PAIR_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -92,6 +94,8 @@ export class JukeboxService {
   private listeners = new Set<(revision: number) => void>();
   private retained: string | null = null;
   private reconciling: Promise<void> | null = null;
+  private previewLimit: { max: number; windowMs: number };
+  private previewTimes = new Map<string, number[]>();
 
   private lockPath: string | null;
 
@@ -110,6 +114,7 @@ export class JukeboxService {
     this.policy = { ...POLICY, ...options.policy };
     this.adminKeys = new Set(options.adminKeys ?? []);
     this.adminRoles = new Set(options.adminRoles ?? ['organizer', 'admin']);
+    this.previewLimit = options.previewLimit ?? { max: 12, windowMs: 60_000 };
   }
 
   close() {
@@ -184,6 +189,7 @@ export class JukeboxService {
     let response: CommandResponse;
     try {
       this.authorize(actor, type);
+      if (type === 'request.preview') return await this.preview(actor, envelope);
       const prepared = await this.precheck(actor, envelope);
       response = this.transaction((tx) => {
         if (envelope.expectedRevision !== undefined && envelope.expectedRevision !== this.revision()) {
@@ -215,7 +221,7 @@ export class JukeboxService {
   private failure(commandId: string | null, error: unknown): CommandResponse {
     let api: ApiError;
     if (error instanceof CommandError) api = { code: error.code, message: error.message, retryable: error.retryable };
-    else if (error instanceof PortError) api = { code: error.code, message: error.message, retryable: error.technical };
+    else if (error instanceof PortError) api = { code: error.code, message: error.message, retryable: error.technical, ...(error.details ? { details: error.details } : {}) };
     else if (error instanceof ValidationError) api = { code: 'BAD_REQUEST', message: error.message, retryable: false };
     else {
       console.error('[jukebox] internal error', error);
@@ -256,7 +262,54 @@ export class JukeboxService {
     if (purpose === 'master' && resolved.durationSec > this.policy.masterMaxSec) {
       throw new PortError('DURATION_REJECTED', 'Master items are limited to four hours');
     }
+    const expected = (envelope.payload as { expectRecordingKey?: string }).expectRecordingKey;
+    if (envelope.type === 'request.submit' && expected !== undefined && expected !== resolved.recordingKey) {
+      throw new CommandError('GUARD_MISMATCH', 'This link now resolves to a different recording than the one you previewed; check the link again');
+    }
     return resolved;
+  }
+
+  /**
+   * Read-only "what would submit do now?". Reserves nothing, writes nothing, bumps no revision.
+   * Same validation order as submit; post-resolution rejections come back as a verdict so the
+   * requester still sees what the link resolved to.
+   */
+  private async preview(actor: Actor, envelope: CommandEnvelope): Promise<CommandResponse> {
+    const identity = (actor as { identity: Identity }).identity;
+    const now = this.clock.now();
+    const recent = (this.previewTimes.get(identity.key) ?? []).filter((t) => now - t < this.previewLimit.windowMs);
+    if (recent.length >= this.previewLimit.max) {
+      this.previewTimes.set(identity.key, recent);
+      return this.failure(envelope.commandId, new CommandError('RATE_LIMITED', 'Too many link checks; wait a moment and try again', true));
+    }
+    this.previewTimes.set(identity.key, [...recent, now]);
+    try {
+      const ref = this.source.canonicalize((envelope.payload as { url: string }).url);
+      const night = this.openNight();
+      if (!night) throw new CommandError('NIGHT_CLOSED', 'Requests are closed until an organizer opens tonight’s session');
+      const used = this.quotaUsed(night.id, identity.key);
+      const limit = this.policy.quotaPerNight;
+      if (used >= limit) throw new CommandError('QUOTA_EXCEEDED', `You have used all ${limit} requests for tonight`);
+      const resolved = await this.source.resolve(ref, 'request');
+      if (!(resolved.durationSec > 0)) throw new PortError('SOURCE_UNAVAILABLE', 'Recording has no known duration');
+      let verdict: PreviewResult['verdict'] = { accepted: true };
+      if (resolved.durationSec >= this.policy.requestMaxSec) {
+        verdict = { accepted: false, code: 'DURATION_REJECTED', message: 'Requests must be shorter than six minutes' };
+      } else if (this.openNight()?.id === night.id && this.db.prepare("select 1 from requests where night_id = ? and recording_key = ? and status in ('preparing','ready')")
+        .get(night.id, resolved.recordingKey)) {
+        verdict = { accepted: false, code: 'DUPLICATE_REQUEST', message: 'That recording is already waiting in the queue' };
+      }
+      const result: PreviewResult = {
+        source: { provider: resolved.ref.provider, canonicalUrl: resolved.ref.canonicalUrl, title: resolved.title, artist: resolved.artist,
+          durationSec: resolved.durationSec, recordingKey: resolved.recordingKey },
+        match: resolved.match ?? null,
+        verdict,
+        quota: { used, limit, remaining: limit - used },
+      };
+      return { ok: true, commandId: envelope.commandId, revision: this.revision(), result: result as never, replayed: false };
+    } catch (error) {
+      return this.failure(envelope.commandId, error);
+    }
   }
 
   private apply(tx: Tx, actor: Actor, envelope: CommandEnvelope, resolved: ResolvedSource | null): unknown {
@@ -270,6 +323,7 @@ export class JukeboxService {
       case 'master.move': return this.move(tx, 'master_items', p.entryId as string, p.afterEntryId as string | null);
       case 'request.remove': return this.requestRemove(tx, p.entryId as string);
       case 'request.move': return this.move(tx, 'requests', p.entryId as string, p.afterEntryId as string | null);
+      case 'request.preview': throw new Error('request.preview is handled before the transaction');
       case 'request.submit': return this.requestSubmit(tx, (actor as { identity: Identity }).identity, resolved!);
       case 'playback.play': return this.play(tx);
       case 'playback.pause': return this.pause(tx);
