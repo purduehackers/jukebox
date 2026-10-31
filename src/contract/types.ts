@@ -178,8 +178,8 @@ export interface Snapshot {
     artworkUrl?: string;
     durationSec: number | null;
   } | null;
-  /** Public-safe master item that will play when the current request turn ends. */
-  nextMaster: { title: string; artist: string | null; durationSec: number; artworkUrl?: string } | null;
+  /** Public-safe next master item, or the suspended mix to resume after a request. */
+  nextMaster?: { title: string; artist: string | null; durationSec: number; artworkUrl?: string } | null;
   /** Suspended mix waiting for the request to finish. */
   suspendedMaster: { entryId: string; title: string; positionSec: number } | null;
   /** Requested vs player-confirmed. `confirmed` means the player acked this epoch. */

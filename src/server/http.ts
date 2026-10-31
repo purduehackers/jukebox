@@ -89,15 +89,16 @@ export function createHttpServer(options: HttpOptions): http.Server {
       for (const stream of streams) pushSnapshot(stream);
     }, 25);
   });
-  function pushSnapshot(stream: { actor: Actor; res: http.ServerResponse; sent: number }) {
+  function pushSnapshot(stream: { actor: Actor; res: http.ServerResponse; sent: number }, heartbeat = false) {
     const snapshot = service.snapshot(stream.actor);
-    if (snapshot.revision <= stream.sent) return; // never send older state over newer
+    if (snapshot.revision < stream.sent || (!heartbeat && snapshot.revision === stream.sent)) return;
     stream.sent = snapshot.revision;
     stream.res.write(`id: ${snapshot.revision}\nevent: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`);
   }
   const keepAlive = setInterval(() => {
-    for (const stream of streams) stream.res.write(': keep-alive\n\n');
-  }, 15_000);
+    // Position-only reports keep the revision; refresh observedAt and serverTime too.
+    for (const stream of streams) pushSnapshot(stream, true);
+  }, 5_000);
   keepAlive.unref();
 
   async function route(req: http.IncomingMessage, res: http.ServerResponse) {

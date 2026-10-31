@@ -41,3 +41,22 @@ public snapshot privacy, `nextMaster` during normal master playback and a suspen
 request turn, and rejection of non-HTTP(S) artwork URLs. Worker adapter tests cover
 thumbnail mapping and rejection of an unsafe scheme. Run `npm test` and `npm run
 typecheck` before integration review.
+
+## Fresh position heartbeats (follow-up proposal)
+
+Display review found that SSE suppressed equal revisions, although position-only
+reports intentionally do not bump revision. After 15 seconds the last public
+observedAt would look offline even while the paired player was healthy. Refresh
+full role-scoped snapshots every five seconds, including equal revisions. This
+also bounds progress error after seeks. The existing client already accepts equal
+revisions; commands, durable revisions and scheduling remain unchanged.
+`tests/display-stream.test.ts` verifies an actual SSE connection receives fresh
+position, serverTime and observedAt without a revision change. Artwork validation
+also rejects embedded URL credentials, matching the display's image policy.
+
+Assets/dependencies are a separate proposal in [phase-4c-assets.md](phase-4c-assets.md).
+
+Follow-up review keeps `Snapshot.nextMaster` optional at the type boundary for
+older fixture/client compatibility. New service snapshots always include it.
+Upgrade coverage recreates the prior schema with existing queue/checkpoint rows
+and verifies the additive migration preserves them.

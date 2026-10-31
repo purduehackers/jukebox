@@ -36,9 +36,28 @@ test('artwork metadata persists and nextMaster is public-safe across a request t
 
 test('resolver artwork URLs reject unsafe schemes before persistence', async () => {
   const h = harness();
+  h.source.catalog.get(h.source.canonicalize(URLS.mix).canonicalUrl)!.artworkUrl = 'https://user:secret@img.example/cover.jpg';
+  const credentialResult = await h.cmd(h.admin, 'master.add', { url: URLS.mix });
+  assert.equal(credentialResult.ok, false);
   h.source.catalog.get(h.source.canonicalize(URLS.mix).canonicalUrl)!.artworkUrl = 'data:image/png;base64,AAAA';
   const result = await h.cmd(h.admin, 'master.add', { url: URLS.mix });
   assert.equal(result.ok, false);
   if (!result.ok) assert.match(result.error.message, /invalid artwork URL/i);
   assert.equal((h.svc.db.prepare('select count(*) as n from master_items').get() as { n: number }).n, 0);
+});
+
+test('pre-artwork database upgrades without losing existing queue/checkpoint state', async () => {
+  const h = harness();
+  await h.startNight();
+  await submit(h, h.alice, URLS.r1);
+  const before = h.snap({ kind: 'public' });
+  // Recreate the previous schema with real existing queue rows, then reopen.
+  h.svc.db.exec('alter table master_items drop column artwork_url; alter table requests drop column artwork_url; pragma user_version = 1');
+  h.restart();
+  const after = h.snap({ kind: 'public' });
+  assert.deepEqual(after.nowPlaying, before.nowPlaying);
+  assert.deepEqual(after.requests, before.requests);
+  assert.deepEqual(after.schedule, before.schedule);
+  assert.equal(after.nowPlaying?.artworkUrl, undefined);
+  h.svc.close();
 });
