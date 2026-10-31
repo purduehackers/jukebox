@@ -308,6 +308,8 @@ export interface ApiError {
 
 // ---- Durable events (audit log and change feed) ----
 export interface EventRecord {
+  /** Monotonic event sequence; several events may share one revision. */
+  seq: number;
   revision: number;
   at: number;
   type: string;
