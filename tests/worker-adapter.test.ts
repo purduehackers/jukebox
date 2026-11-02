@@ -52,3 +52,37 @@ test('job mapping, transient poll, retention, media proxy range/HEAD/header allo
     } finally {proxy.close();}
   } finally {w.server.close();}
 });
+
+test('candidate search is metadata-only, limited to ten candidates; worker outage says configuration, not removed recording', async () => {
+  const w=await worker((req,res)=>{
+    let data='';req.on('data',(chunk:any)=>data+=chunk);req.on('end',()=>{
+      assert.equal(req.url,'/api/search'); assert.equal(req.method,'POST');
+      assert.equal(JSON.parse(data).query,'Artist Song');
+      res.end(JSON.stringify({candidates:Array.from({length:20},()=>({url:'https://youtu.be/abcdefghijk',title:'Song',channel:'Artist',durationSec:123}))}));
+    });
+  });
+  try {
+    const adapter=new WorkerAdapter({baseUrl:w.base});
+    assert.equal((await adapter.search({provider:'spotify',itemId:'A'.repeat(22),title:'Song',artists:['Artist'],durationMs:123000})).length,10);
+  } finally { await new Promise<void>(r=>w.server.close(()=>r())); }
+  const adapter=new WorkerAdapter({baseUrl:w.base,resolveTimeoutMs:100});
+  await assert.rejects(adapter.resolve(adapter.canonicalize('https://youtu.be/abcdefghijk'),'request'),(e:any)=>e.technical && e.details.kind==='worker_unavailable' && e.message.includes('audio worker'));
+});
+
+test('positive metadata cache preserves purpose and shares equivalent catalog search text',async()=>{
+  let resolves=0, searches=0;
+  const w=await worker((req,res)=>{
+    let raw='';req.on('data',(chunk:any)=>raw+=chunk);req.on('end',()=>{
+      if(req.url==='/api/resolve') {resolves++;res.end(JSON.stringify({source:'fixture:request',title:'Request',artist:null,duration:4,recordingKey:'fixture:request'}));}
+      else {searches++;res.end(JSON.stringify({candidates:[{url:'https://youtu.be/abcdefghijk',title:'Song Pt 1',channel:'Artist',durationSec:120}]}));}
+    });
+  });
+  try {
+    const a=new WorkerAdapter({baseUrl:w.base});
+    const first=await a.resolve(a.canonicalize('fixture:request'),'request');first.title='Mutated';
+    assert.equal((await a.resolve(a.canonicalize('fixture:request'),'request')).title,'Request');assert.equal(resolves,1);
+    await a.resolve(a.canonicalize('fixture:request'),'master');assert.equal(resolves,2,'master cache cannot bypass request duration validation');
+    const track={provider:'spotify' as const,itemId:'A'.repeat(22),title:'Song (Pt. 1)',artists:['Artist'],durationMs:120000};
+    await a.search(track);await a.search({...track,title:'Song, Pt. 1',provider:'apple_music'});assert.equal(searches,1);
+  } finally {await new Promise<void>(r=>w.server.close(()=>r()));}
+});

@@ -4,7 +4,16 @@ cd "$(dirname "$0")/.."
 if [[ ! -x .venv/bin/python ]]; then
   python -m venv .venv
 fi
-if ! .venv/bin/python -c "import yt_dlp" 2>/dev/null; then
+# The current YouTube extractor needs the matching EJS package, not just an
+# importable old yt-dlp left in a previous virtual environment.
+if ! .venv/bin/python - <<'PYTHON' 2>/dev/null
+from importlib.metadata import version
+from pathlib import Path
+import yt_dlp_ejs
+expected = Path('requirements.txt').read_text().strip().split('==')[1]
+assert version('yt-dlp') == expected
+PYTHON
+then
   .venv/bin/python -m pip install -r requirements.txt
 fi
 for dependency in ffmpeg ffprobe node; do

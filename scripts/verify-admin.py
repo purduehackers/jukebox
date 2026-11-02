@@ -83,7 +83,7 @@ def main():
         temporary = tempfile.TemporaryDirectory(prefix='admin-', dir=out.parent)
         data = Path(temporary.name) / 'data'; data.mkdir()
         env = dict(__import__('os').environ, JUKEBOX_ORIGIN=web)
-        service = subprocess.Popen(['node', 'src/server/main.ts', '--dev-auth', '--port', str(svc_port), '--data', str(data)], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        service = subprocess.Popen(['node', 'src/server/main.ts', '--dev-auth', '--fixture-media', '--port', str(svc_port), '--data', str(data)], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         vite = subprocess.Popen(['node_modules/.bin/vite', '--port', str(vite_port), '--strictPort'], cwd=ROOT, env=dict(env, JUKEBOX_SERVICE=svc), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         wait_url(web + '/healthz'); check('serversReady', {'vite': web, 'service': svc})
 

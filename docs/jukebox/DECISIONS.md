@@ -354,3 +354,23 @@ Consolidation verification: `./scripts/check` passed 15 Python worker tests,
 Isolated Firefox runs passed 16 player checks, 15 display checks, and 47 admin
 checks including the 390 px layout. Fixture browsers used dedicated null audio
 sinks; the user's current PH ID credentials and saved app data were not replaced.
+
+## Link compatibility implementation follow-up (2026-11-02)
+
+**User scope:** fix real YouTube/Spotify/Apple track links locally; preserve audio
+only, PH ID, the single Firefox player and existing scheduling. No production
+deployment. The coordinator accepted raising the three submission URL gates to
+2048 characters; the queue-controls owner implements those shared-validator edits.
+
+**Implementation choices:** canonical single-recording YouTube links discard
+radio/list/time context; full recordings start at zero. Real worker + live matcher
+is the default regardless of auth provider, with explicit offline fixture flags.
+Public Spotify embed metadata (schema checked, replaceable) and Apple's public
+exact-ID iTunes lookup avoid mandatory new credentials. Optional Spotify Web API
+client credentials select its documented metadata API. Metadata is never audio;
+a bounded YouTube search and conservative matching precede audio-only preparation.
+
+Research, adapter interfaces, startup, measured Firefox evidence and provider
+limitations are in [LINK-COMPATIBILITY.md](LINK-COMPATIBILITY.md). The reported
+`yL-4oSQwzJI` recording is a 3,443-second mix: appropriate for master music and
+ineligible for attendee requests. This is a duration policy result, not a playlist.

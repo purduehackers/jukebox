@@ -40,9 +40,20 @@ def resolve_source(source, kind):
             os.killpg(proc.pid, signal.SIGKILL); proc.communicate()
             raise ResolveUnavailable('Metadata resolve timed out')
         if proc.returncode:
-            try: message = json.loads(err.decode(errors='replace')).get('error', 'Metadata resolve failed')
-            except Exception: message = 'Metadata resolve failed'
-            if any(s in message.lower() for s in ('duration', 'audio-only', 'combined/video', 'completed individual', 'byte limit')):
+            message = 'YouTube metadata resolve failed; try again later'
+            # yt-dlp may emit warnings before our final JSON error. Read only our
+            # structured error and remove upstream URLs rather than losing the cause.
+            for line in reversed(err.decode(errors='replace').splitlines()):
+                try:
+                    detail = json.loads(line).get('error')
+                    if isinstance(detail, str):
+                        message = re.sub(r'https?://\S+', '[provider URL omitted]', detail)[:600]
+                        break
+                except (ValueError, AttributeError):
+                    continue
+            if 'requested format is not available' in message.lower():
+                raise ResolveUnavailable('YouTube did not expose a suitable audio-only format to this worker. Try again later or use another recording; no video fallback is allowed.')
+            if any(s in message.lower() for s in ('duration', 'six minutes', 'audio-only', 'combined/video', 'completed individual', 'byte limit')):
                 raise ValueError(message)
             raise ResolveUnavailable(message)
         data = json.loads(out)
@@ -53,6 +64,30 @@ def resolve_source(source, kind):
         raise
     except Exception as exc:
         raise ResolveUnavailable('Metadata resolve subprocess failed') from exc
+    finally:
+        if proc is not None:
+            try: os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError: pass
+        RESOLVES.release()
+
+
+def search_candidates(query):
+    if not isinstance(query, str) or not 1 <= len(query) <= 300 or any(ord(c) < 32 for c in query):
+        raise ValueError('Search requires a short title and artist')
+    if not RESOLVES.acquire(blocking=False):
+        raise ResolveBusy('Metadata search/resolve limit reached')
+    proc = None
+    try:
+        proc = subprocess.Popen([sys.executable, '-m', 'jukebox.search', query],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        try:
+            out, _ = proc.communicate(timeout=30)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL); proc.communicate()
+            raise ResolveUnavailable('YouTube candidate search timed out')
+        if proc.returncode:
+            raise ResolveUnavailable('YouTube candidate search failed; try again later')
+        return json.loads(out)
     finally:
         if proc is not None:
             try: os.killpg(proc.pid, signal.SIGKILL)
@@ -125,6 +160,7 @@ def make_server(store, port=8971):
                 path = urlsplit(self.path).path
                 if path == '/api/status':
                     self.reply(200, {**store.listing(), 'player': store.player(),
+                                     'capabilities': {'candidateSearch': 1},
                                      'limits': {'cacheBytes': store.max_bytes, 'jobSeconds': store.job_seconds,
                                                 'assetBytes': 256*1024*1024, 'admittedJobs': 4}})
                 elif re.fullmatch(r'/api/jobs/[a-f0-9-]{36}', path):
@@ -194,6 +230,11 @@ def make_server(store, port=8971):
                 body = json.loads(self.rfile.read(length))
                 if path == '/api/resolve':
                     try: self.reply(200, resolve_source(body.get('source'), body.get('kind')))
+                    except ResolveBusy as exc: self.reply(503, {'error':str(exc),'retryable':True})
+                    except ResolveUnavailable as exc: self.reply(503, {'error':str(exc),'retryable':True})
+                    except (ValueError, TypeError) as exc: self.reply(400, {'error':str(exc),'retryable':False})
+                elif path == '/api/search':
+                    try: self.reply(200, {'candidates': search_candidates(body.get('query'))})
                     except ResolveBusy as exc: self.reply(503, {'error':str(exc),'retryable':True})
                     except ResolveUnavailable as exc: self.reply(503, {'error':str(exc),'retryable':True})
                     except (ValueError, TypeError) as exc: self.reply(400, {'error':str(exc),'retryable':False})

@@ -17,7 +17,7 @@ test('normalization removes diacritics and punctuation; title base drops feat an
 });
 
 test('clean Spotify and Apple catalog links match the same audio-only YouTube upload', async () => {
-  const source = matching(new FakeSource().add('https://youtu.be/GFOtrack001', { title: 'Playable recording', durationSec: 212, recordingKey: 'same-recording' }));
+  const source = matching(new FakeSource().add('https://youtu.be/GFOtrack001', { title: 'A New Kind Of Love Pt 1', artist: 'Ghost Funk Orchestra', durationSec: 212, recordingKey: 'same-recording' }));
   for (const url of [MATCHING_FIXTURE_URLS.spotify, MATCHING_FIXTURE_URLS.apple]) {
     const result = await source.resolve(source.canonicalize(url), 'request');
     assert.equal(result.title, 'A New Kind Of Love (pt. 1)');
@@ -40,7 +40,7 @@ test('version conflicts, absent matches, and different edits return structured d
 test('a cover distractor does not win; topic upload is preferred among equivalents', async () => {
   const fake = new FakeSource()
     .add('https://youtu.be/REALsong001', { title: 'Borrowed Time', durationSec: 180 })
-    .add('https://youtu.be/GFOtrack001', { title: 'Playable recording', durationSec: 212 });
+    .add('https://youtu.be/GFOtrack001', { title: 'A New Kind Of Love Pt 1', artist: 'Ghost Funk Orchestra', durationSec: 212 });
   const result = await matching(fake).resolve(canonicalizeUrl(MATCHING_FIXTURE_URLS.cover), 'request');
   assert.match(result.match?.url ?? '', /REALsong001/);
   const chosen = await matching(fake).resolve(canonicalizeUrl(MATCHING_FIXTURE_URLS.spotify), 'request');
@@ -49,8 +49,8 @@ test('a cover distractor does not win; topic upload is preferred among equivalen
 
 test('equivalent uploads use first search order and explain the selection', async () => {
   const inner = new FakeSource()
-    .add('https://youtu.be/FIRSTsong01', { title: 'Recording', durationSec: 212 })
-    .add('https://youtu.be/SECONDsong1', { title: 'Recording', durationSec: 214 });
+    .add('https://youtu.be/FIRSTsong01', { title: 'A New Kind Of Love Pt 1', artist: 'Ghost Funk Orchestra', durationSec: 212 })
+    .add('https://youtu.be/SECONDsong1', { title: 'A New Kind Of Love Pt 1', artist: 'Ghost Funk Orchestra', durationSec: 214 });
   const search = {
     search: async () => [
       { url: 'https://youtu.be/FIRSTsong01', title: 'A New Kind Of Love Pt 1', channel: 'Ghost Funk Orchestra', durationSec: 212 },
@@ -77,7 +77,7 @@ test('matching never calls fetch, including catalog and search failures', async 
   const previous = globalThis.fetch;
   globalThis.fetch = (() => { throw new Error('fetch must not run'); }) as typeof fetch;
   try {
-    const source = matching(new FakeSource().add('https://youtu.be/GFOtrack001', { title: 'Playable recording', durationSec: 212 }));
+    const source = matching(new FakeSource().add('https://youtu.be/GFOtrack001', { title: 'A New Kind Of Love Pt 1', artist: 'Ghost Funk Orchestra', durationSec: 212 }));
     await source.resolve(canonicalizeUrl(MATCHING_FIXTURE_URLS.spotify), 'request');
     await assert.rejects(new MatchingSource(new FakeSource(), { lookup: async () => { throw new PortError('SOURCE_UNAVAILABLE', 'catalog failure'); } }, new FixtureCandidateSearch()).resolve(canonicalizeUrl(MATCHING_FIXTURE_URLS.spotify), 'request'), /catalog failure/);
   } finally {
@@ -105,7 +105,7 @@ test('non-catalog sources delegate untouched to inner source', async () => {
 test('service preview, submission, duplicate detection, errors, quota, and unconfigured catalog', async () => {
   const clock = new FakeClock();
   const candidateUrl = 'https://youtu.be/GFOtrack001';
-  const inner = new FakeSource().add(candidateUrl, { title: 'Playable recording', durationSec: 212, recordingKey: 'same-recording' });
+  const inner = new FakeSource().add(candidateUrl, { title: 'A New Kind Of Love Pt 1', artist: 'Ghost Funk Orchestra', durationSec: 212, recordingKey: 'same-recording' });
   const media = new FakeMedia();
   const svc = new JukeboxService({ dbPath: ':memory:', clock, source: matching(inner), media });
   const admin = { kind: 'user' as const, identity: { key: 'test#admin', issuer: 'test', subject: 'admin', displayName: 'admin', roles: ['organizer'] } };
@@ -172,7 +172,7 @@ test('title and artist match whole words: "Love" is not "Lovely Day"; "Video Gam
 
 test('admitted Spotify and Apple requests survive preparation (stored URLs are re-parsed) and share one recording', async () => {
   const clock = new FakeClock();
-  const inner = new FakeSource().add('https://youtu.be/GFOtrack001', { title: 'Playable recording', durationSec: 212, recordingKey: 'same-recording' });
+  const inner = new FakeSource().add('https://youtu.be/GFOtrack001', { title: 'A New Kind Of Love Pt 1', artist: 'Ghost Funk Orchestra', durationSec: 212, recordingKey: 'same-recording' });
   const media = new FakeMedia();
   const svc = new JukeboxService({ dbPath: ':memory:', clock, source: matching(inner), media });
   const admin = { kind: 'user' as const, identity: { key: 'test#admin', issuer: 'test', subject: 'admin', displayName: 'admin', roles: ['organizer'] } };
@@ -200,4 +200,22 @@ test('the offline dev source resolves its demo links and fixture catalog links',
     if (url === MATCHING_FIXTURE_URLS.durationTrap) await expectMatchError(source, url, 'version_mismatch');
     else assert.ok((await source.resolve(source.canonicalize(url), 'request')).durationSec > 0, url);
   }
+});
+
+test('candidate is checked again after resolve: changed title/version/artist cannot silently win', async () => {
+  for (const changed of [
+    {title:'Unrelated song',artist:'Ghost Funk Orchestra'},
+    {title:'A New Kind Of Love Pt 1 (Live)',artist:'Ghost Funk Orchestra'},
+    {title:'A New Kind Of Love Pt 1',artist:'Other Artist'},
+  ]) {
+    const source=matching(new FakeSource().add('https://youtu.be/GFOtrack001',{...changed,durationSec:212}));
+    await expectMatchError(source,MATCHING_FIXTURE_URLS.spotify,'version_mismatch');
+  }
+});
+
+test('full catalog duration is authoritative before candidate search, including close shorter edits',async()=>{
+  let searches=0;
+  const source=new MatchingSource(new FakeSource(),{lookup:async()=>({provider:'spotify',itemId:'A'.repeat(22),title:'Song',artists:['Artist'],durationMs:360001})},{search:async()=>{searches++;return [];}});
+  await assert.rejects(source.resolve(canonicalizeUrl(MATCHING_FIXTURE_URLS.spotify),'request'),(e:any)=>e.code==='DURATION_REJECTED');
+  assert.equal(searches,0);
 });

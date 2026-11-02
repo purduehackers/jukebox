@@ -22,7 +22,7 @@ class SourcePolicy(unittest.TestCase):
         self.assertEqual(validate_source('https://youtu.be/TqTNaPB-4ow?si=uSH13mmOtwOR5z35'), 'https://www.youtube.com/watch?v=TqTNaPB-4ow')
         for url in ['https://youtu.be/TqTNaPB-4ow?si=x&si=y', 'https://youtu.be/TqTNaPB-4ow?si=', 'http://youtube.com/watch?v=BaW_jenozKc', 'https://youtube.com.evil/watch?v=BaW_jenozKc',
                     'https://youtube.com:443/watch?v=BaW_jenozKc', 'https://user@youtube.com/watch?v=BaW_jenozKc',
-                    'https://www.youtube.com/watch?v=BaW_jenozKc&list=x', 'https://localhost/file.mp3',
+                    'https://www.youtube.com/playlist?list=x', 'https://localhost/file.mp3',
                     'file:///tmp/a.mp3', 'https://open.spotify.com/track/x', '$(touch /tmp/untrusted)',
                     'https://www.youtube.com/watch?v=BaW_jenozKc;touch /tmp/untrusted']:
             with self.subTest(url=url), self.assertRaises(ValueError): validate_source(url)

@@ -114,3 +114,10 @@ Spotify `…/track/1OAFmguvHB2OI2AMYXpmyG` (clean match), `…/track/CCCCCCCCCCC
 - Withdrawal/replacement of one's own request is **not** implemented: its quota rules are not set.
 - No push/“your song is next” notification; the page updates over SSE while open.
 - Fonts: body uses the shared token font stack; PixelHackers/Whyte are owned by the display phase.
+
+## Live source follow-up (2026-11-02)
+
+The historical fixture-only catalog/search limitations above are superseded by
+[Link compatibility](LINK-COMPATIBILITY.md). Normal startup now uses the real
+worker and live matcher; fixture demos explicitly opt in. The new report records
+provider research, measured source/Firefox evidence, and remaining limitations.

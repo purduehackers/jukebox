@@ -2,12 +2,13 @@
 import json
 import sys
 from urllib.parse import urlsplit
-from .media import FORMAT, validate_selection
+from .media import FORMAT, validate_selection, validate_source
 
 
 def main():
     import yt_dlp
     source, kind = sys.argv[1:3]
+    source = validate_source(source)
     options = {'format': FORMAT, 'noplaylist': True, 'socket_timeout': 15,
                'retries': 1, 'fragment_retries': 1, 'extractor_retries': 1,
                'max_filesize': 256 * 1024 * 1024, 'concurrent_fragment_downloads': 1,
@@ -16,6 +17,8 @@ def main():
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(source, download=False)
     validate_selection(info, kind)
+    if info.get('id') != source.rsplit('=', 1)[-1]:
+        raise ValueError('Resolved recording identity changed')
     thumbnail = info.get('thumbnail')
     if not isinstance(thumbnail, str) or urlsplit(thumbnail).scheme not in ('http', 'https'):
         thumbnail = None

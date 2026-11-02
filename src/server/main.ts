@@ -5,6 +5,8 @@ import { parseArgs } from 'node:util';
 import { FakeIdentity, FakeMedia, FakeSource, systemClock } from '../adapters/fakes.ts';
 import { fixtureMatchingSource } from '../adapters/matching-fixtures.ts';
 import { phidFromEnv } from '../adapters/phid.ts';
+import { LiveCatalog } from '../adapters/live-catalog.ts';
+import { MatchingSource } from '../adapters/matching-source.ts';
 import { WorkerAdapter, proxyMedia } from '../adapters/worker.ts';
 import type { IdentityPort, MediaPort, SourcePort } from '../core/ports.ts';
 import { createHttpServer } from './http.ts';
@@ -17,6 +19,7 @@ const { values } = parseArgs({
     data: { type: 'string', default: '.local/service' },
     worker: { type: 'string' },
     'dev-auth': { type: 'boolean', default: false },
+    'fixture-media': { type: 'boolean', default: false },
     'fixture-matching': { type: 'boolean', default: false },
     'admin-key': { type: 'string', multiple: true, default: [] },
   },
@@ -28,15 +31,19 @@ const origin = process.env.JUKEBOX_ORIGIN ?? `http://${host}:${port}`;
 const data = resolve(values.data!);
 mkdirSync(data, { recursive: true });
 
+if (values.worker && (values['fixture-media'] || values['fixture-matching'])) throw new Error('Choose a real worker or an explicit fixture mode');
+const workerUrl = values.worker ?? process.env.JUKEBOX_WORKER_URL ?? 'http://127.0.0.1:8971';
+const useWorker = !values['fixture-media'] && !values['fixture-matching'];
+
 let source: SourcePort;
 let media: MediaPort;
 let mediaProxy: HttpOptions['mediaProxy'];
-if (values.worker) {
+if (useWorker) {
   // Phase-1 Python worker: real audio-only preparation, cache retention, and range media.
-  const worker = new WorkerAdapter({ baseUrl: values.worker });
-  source = worker;
+  const worker = new WorkerAdapter({ baseUrl: workerUrl });
+  source = new MatchingSource(worker, new LiveCatalog({ spotifyClientId: process.env.JUKEBOX_SPOTIFY_CLIENT_ID, spotifyClientSecret: process.env.JUKEBOX_SPOTIFY_CLIENT_SECRET, appleDeveloperToken: process.env.JUKEBOX_APPLE_MUSIC_DEVELOPER_TOKEN }), worker);
   media = worker;
-  mediaProxy = (assetId, req, res) => proxyMedia(values.worker!, assetId, req, res);
+  mediaProxy = (assetId, req, res) => proxyMedia(workerUrl, assetId, req, res);
 } else if (values['fixture-matching']) {
   // Offline attendee-page demo: fixture YouTube items and fixture Spotify/Apple catalog matching.
   source = fixtureMatchingSource();
@@ -72,7 +79,7 @@ const server = createHttpServer({ service, identity, origin, mediaProxy });
 // Server-side timer: due turns, lease expiry, and preparation progress never depend on a browser interval.
 const timer = setInterval(() => void service.reconcile().catch((error) => console.error('[jukebox] reconcile', error)), 1000);
 server.listen(port, host, () => {
-  console.log(`Jukebox queue service: ${origin} (${identity.kind === 'fake' ? 'FAKE local sign-in' : 'PH ID'}; ${values.worker ? `worker ${values.worker}` : 'fake media'})`);
+  console.log(`Jukebox queue service: ${origin} (${identity.kind === 'fake' ? 'FAKE local sign-in' : 'PH ID'}; ${useWorker ? `audio worker ${workerUrl}; live catalog matching` : 'EXPLICIT FIXTURE MEDIA (no audio)'})`);
 });
 
 function shutdown() {

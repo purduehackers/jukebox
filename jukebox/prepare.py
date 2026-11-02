@@ -43,6 +43,8 @@ def prepare(source, kind, directory):
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(source, download=False)
             validate_selection(info, kind)  # BEFORE any media download
+            if info.get('id') != source.rsplit('=', 1)[-1]:
+                raise ValueError('Resolved recording identity changed')
             selection = {k: info.get(k) for k in ('id', 'format_id', 'acodec', 'vcodec', 'protocol', 'duration')}
             # Persist only non-secret evidence, never temporary media URLs/headers.
             (directory / 'selection.json').write_text(json.dumps(selection))
