@@ -1,7 +1,7 @@
 // SQLite schema and migrations. One integration owner; append migrations, never edit old ones.
 import { DatabaseSync } from 'node:sqlite';
 
-const MIGRATIONS: string[] = [
+export const MIGRATIONS: string[] = [
   `
   create table meta(key text primary key, value text not null);
   insert into meta values('revision', '0'), ('retention_revision', '0');
@@ -132,6 +132,9 @@ const MIGRATIONS: string[] = [
   `,
   `alter table devices add column automatic integer not null default 0;
    alter table playback add column autostart integer not null default 0;`,
+  // Queue playback controls: shared mode and request-interval override (null = policy default).
+  `alter table playback add column mode text not null default 'auto' check(mode in ('auto','master','requests'));
+   alter table playback add column period_ms integer;`,
 ];
 
 export function openDatabase(path: string): DatabaseSync {

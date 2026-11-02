@@ -35,3 +35,15 @@ Contract proposals and service findings: [proposals/phase-4a.md](proposals/phase
 - `tests/admin-render.test.ts`: real TSX views server-rendered through Vite SSR from live-service snapshots.
 - `scripts/verify-admin.py`: headless **Firefox** against service + Vite (390 px phone viewport, real clicks).
 - Not covered: the real phase-3 player, real PH ID, real media worker, a physical phone, HDMI. Chromium preview is not Firefox evidence.
+
+## Queue controls
+
+Added 2026-11-02 on `feat/jukebox-queue-playback-controls` (decisions: [DECISIONS](DECISIONS.md#queue-playback-controls-2026-11-02)).
+In the Now-playing panel under the turn line: a `Play from` selector (`Auto` / `Master only` / `Requests only`; the last asks
+first and names what it interrupts), and `Request every [N] min` with `Set` and `Use 15 min`. Waiting request rows get
+`Play now…` (two-step confirm; disabled with a reason while a request plays or one is still loading). The turn line is mode-aware
+(`Master only`, `Requests only`, `Waiting for requests`) and the display/`/queue` estimates stop promising a countdown outside Auto.
+All state is in the service; the page only sends commands through the existing intent runner. Verification:
+`tests/queue-controls.test.ts`, `tests/queue-controls-ui.test.ts`, `scripts/verify-admin.py` (desktop + 390 px, real clicks),
+`scripts/verify-queue-controls.py` (real Firefox player and worker on a null audio sink; **not** audible HDMI).
+

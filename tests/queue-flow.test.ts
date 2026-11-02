@@ -191,7 +191,9 @@ test('unsupported and malicious links are rejected before any resolver work and 
     ['https://169.254.169.254/latest/meta-data', 'SOURCE_UNSUPPORTED'],
     ['https://music.apple.com/us/album/some-album/123456', 'SOURCE_UNSUPPORTED'],
     ['not a link', 'INVALID_SOURCE'],
-    [`https://youtu.be/${'a'.repeat(400)}`, 'BAD_REQUEST'],
+    // 400 characters is within the 2048 API bound now and fails as an invalid source; beyond it the envelope is rejected.
+    [`https://youtu.be/${'a'.repeat(400)}`, 'INVALID_SOURCE'],
+    [`https://youtu.be/${'a'.repeat(2100)}`, 'BAD_REQUEST'],
   ];
   const resolvedBefore = h.source.resolveCalls; // starting the night resolved the master item
   let n = 0;

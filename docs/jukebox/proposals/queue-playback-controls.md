@@ -1,7 +1,8 @@
 # Proposal: queue playback controls and request interval
 
 Branch `feat/jukebox-queue-playback-controls`, baseline `f9de59b`. Written 2026-11-02 for the
-integration owner (coordinator `mcp:14aa214f-…`) **before** implementation. Everything here is
+integration owner (coordinator `mcp:14aa214f-…`) **before** implementation; **approved by the integration owner and implemented as
+written**, plus the additions in "Implementation notes" at the end. Everything here is
 additive to contract version 1; no existing command, field, or migration changes meaning.
 
 Labels: **Confirmed** = the user answered it in this chat. **Default** = my choice to fill a gap;
@@ -153,3 +154,17 @@ position, chained requests, idle-then-ready, leaving each mode, interval shorten
 night resets, restart persistence, v3 → v4 migration, concurrent admins, replayed command IDs, refunds
 and one-per-turn in `auto`. Admin render tests; real Firefox desktop and 390 px admin checks via
 `scripts/verify-admin.py` on isolated ports. Audible HDMI output is not claimed.
+
+## Implementation notes (added after approval)
+
+- **Checkpoint while silent** (integration check): entering `requests` with nothing ready sends no new load, so the player's
+  `previous` position is never reported. The service now also takes the position from heartbeats for the *suspended master's own load*
+  while idle, and the player sends one immediate report when `desired` becomes null (transition only; `report()` refreshes the
+  snapshot, so reporting on every null `desired` would loop). Firefox: checkpoint error 0.000 s across three idle durations (1.2, 7, 2.6 s).
+- **Link bound**: `str(300)` is now `str(2048)` (`MAX_URL`) on `master.add`, `request.preview`, `request.submit` only.
+- **Shared-file diffs** outside the admin: `app/src/display/model.ts` (mode-aware turn text, interval from the snapshot),
+  `app/src/display/fixtures.ts`, `app/src/queue/model.ts` (`NOT_READY` copy; `estimateTurn` returns `master-only`/`requests-only`;
+  `describeEstimate` cases), `app/src/player/controller.ts` (one transition report), `tests/queue-model.test.ts` (schedule literal).
+  `/queue` page copy that says "about every 15 minutes" (`QueuePage.tsx`) is unchanged and does not follow a custom interval.
+- `scripts/verify-queue-controls.py` is new; `scripts/verify-admin.py` gained queue-control checks and a mobile controls screenshot.
+

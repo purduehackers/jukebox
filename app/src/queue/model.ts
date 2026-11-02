@@ -39,6 +39,8 @@ const ERROR_COPY: Record<ErrorCode, Omit<ErrorCopy, 'retry' | 'body'> & { body: 
     tone: 'warn',
     blocksLink: false,
   },
+  // Admin-only playback command; an attendee never sees it. Present only because the table is exhaustive.
+  NOT_READY: { title: 'Still loading', body: 'That item is still loading. Try again in a moment.', tone: 'warn', blocksLink: false },
   NIGHT_CLOSED: { title: 'Requests are closed', body: 'There is no open night right now. Ask an organizer, or try again when one starts.', tone: 'info', blocksLink: true },
   NIGHT_ALREADY_OPEN: { title: 'Night already open', body: 'A night session is already open.', tone: 'info', blocksLink: true },
   QUOTA_EXCEEDED: { title: 'You’re out of requests', body: 'You’ve used all your requests for tonight. A new night starts with a fresh allowance.', tone: 'info', blocksLink: true },
@@ -150,6 +152,10 @@ export type TurnEstimate =
   | { kind: 'closed' }
   | { kind: 'playing' }
   | { kind: 'not-waiting' }
+  /** Organizers switched off request turns; no estimate is honest. */
+  | { kind: 'master-only' }
+  /** Organizers are playing requests only, in queue order. */
+  | { kind: 'requests-only'; ahead: number }
   /** Master music has not started tonight, so the 15-minute request clock is not running. */
   | { kind: 'clock-not-started'; ahead: number }
   /** A turn is due but held: paused, player offline, or the current song is finishing. */
@@ -173,6 +179,8 @@ export function estimateTurn(snapshot: Pick<Snapshot, 'night' | 'schedule' | 're
   const waiting = lineup.filter((r) => WAITING.has(r.status));
   const ahead = waiting.findIndex((r) => r.id === entryId);
   const { schedule } = snapshot;
+  if (schedule.mode === 'master') return { kind: 'master-only' };
+  if (schedule.mode === 'requests') return { kind: 'requests-only', ahead };
   if (schedule.phase === 'request') {
     // A request is playing: the next turn starts a fresh master period after it ends.
     const playingLeft = lineup.find((r) => r.status === 'playing');
@@ -202,6 +210,8 @@ export function describeEstimate(estimate: TurnEstimate): string {
     case 'closed': return 'This night has ended.';
     case 'playing': return 'Playing now.';
     case 'not-waiting': return '';
+    case 'master-only': return 'The organizers have paused request turns for now. Your request is safe in the queue.';
+    case 'requests-only': return estimate.ahead === 0 ? 'Only requests are playing right now, and you’re next.' : `Only requests are playing right now, and ${plural(estimate.ahead, 'request')} ${estimate.ahead === 1 ? 'is' : 'are'} ahead of you.`;
     case 'clock-not-started': return 'Request turns begin about 15 minutes after the organizers start the music.';
     case 'turn-due': {
       const why = estimate.reason === 'paused'

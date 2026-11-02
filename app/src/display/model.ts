@@ -21,8 +21,12 @@ export function displayModel(snapshot: Snapshot | null, now: number, disconnecte
   let turn = 'Waiting for master playback';
   let detail = 'One request per turn';
   if (snapshot?.night?.status !== 'open') turn = snapshot ? 'Requests closed' : 'Connecting…';
-  else if (snapshot.schedule.phase === 'request') {
-    turn = 'Request turn'; detail = 'Then 15 minutes of master music';
+  else if (snapshot.schedule.mode === 'master') {
+    turn = 'Master music'; detail = 'Request turns are off';
+  } else if (snapshot.schedule.mode === 'requests') {
+    turn = snapshot.schedule.requestsIdle ? 'Waiting for requests' : 'Requests only'; detail = 'Requests play one after another';
+  } else if (snapshot.schedule.phase === 'request') {
+    turn = 'Request turn'; detail = `Then ${Math.round(snapshot.schedule.periodMs / 60_000)} minutes of master music`;
   } else if (snapshot.schedule.periodStartedAt != null) {
     const remaining = Math.max(0, snapshot.schedule.periodMs - (now - snapshot.schedule.periodStartedAt));
     turn = remaining > 0 ? `in ${duration(Math.ceil(remaining / 1000))}` : 'Turn due';
