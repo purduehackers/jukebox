@@ -37,6 +37,8 @@ of the current planning task.
   range requests, suspended-mix pinning, cleanup, and origin/auth behavior. A
   frontend deployment alone does not establish that the media worker is running.
 
+Operator questions and configuration inventory: [Deployment handoff](../DEPLOYMENT-HANDOFF.md).
+
 ## Production and DNS
 
 1. Create/configure the approved hosting project and attach

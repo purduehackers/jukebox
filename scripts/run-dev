@@ -4,7 +4,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 [[ -x node_modules/.bin/vite ]] || npm ci --no-audit --no-fund
-JUKEBOX_ORIGIN=http://127.0.0.1:5173 node src/server/main.ts --dev-auth "$@" &
+auth_args=()
+if [[ -z ${JUKEBOX_PHID_CLIENT_ID:-} ]]; then auth_args+=(--dev-auth); fi
+JUKEBOX_ORIGIN=http://127.0.0.1:5173 node src/server/main.ts "${auth_args[@]}" "$@" &
 service=$!
 trap 'kill $service 2>/dev/null' EXIT
 node_modules/.bin/vite

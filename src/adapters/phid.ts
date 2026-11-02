@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { oidcHttp } from './oidc-http.ts';
 import type { Identity } from '../contract/types.ts';
 import type { IdentityPort, LoginStart } from '../core/ports.ts';
 
@@ -13,7 +14,7 @@ export class IdentityError extends Error {
   }
 }
 
-/** OIDC discovery endpoints must be HTTPS, except on loopback HTTP for local tests. The issuer must either be exactly `${idBase origin}/api/auth` or share idBase's origin. id_token is decoded but not JWKS-verified; userinfo returned over TLS is authoritative. */
+/** Identity comes from the provider userinfo endpoint over TLS; the ID token is not used as proof. */
 export class PhidIdentity implements IdentityPort {
   readonly kind = 'phid' as const;
   private readonly config: Config;
@@ -24,7 +25,7 @@ export class PhidIdentity implements IdentityPort {
   constructor(config: Config) {
     this.config = config;
     if (config.stateSecret.length < 32) throw new Error('stateSecret must be at least 32 characters');
-    this.fetcher = config.fetch ?? fetch;
+    this.fetcher = config.fetch ?? ((input, init) => oidcHttp(input as string | URL, { method: init?.method, headers: init?.headers, body: init?.body as URLSearchParams | undefined, signal: init?.signal ?? undefined }));
     this.timeoutMs = config.timeoutMs ?? 10000;
     this.now = config.now ?? Date.now;
   }
@@ -52,14 +53,24 @@ export class PhidIdentity implements IdentityPort {
     else body.set('client_id', this.config.clientId);
     let token: any;
     try {
-      const response = await this.fetcher(discovery.token_endpoint, { method: 'POST', headers, body, signal: AbortSignal.timeout(this.timeoutMs) });
-      if (!response.ok) throw new Error();
+      const response = await this.fetcher(discovery.token_endpoint, { method: 'POST', headers, body, signal: AbortSignal.timeout(this.timeoutMs), redirect: 'error' });
+      if (!response.ok) {
+        let reason = '';
+        try {
+          const error = await response.json() as { error?: unknown };
+          if (typeof error.error === 'string' && ['invalid_client', 'invalid_grant', 'invalid_request', 'unauthorized_client', 'unsupported_grant_type'].includes(error.error)) reason = ` (${error.error})`;
+        } catch { /* Never expose untrusted provider response text. */ }
+        throw new IdentityError('token_exchange_failed', `Token exchange failed${reason} [HTTP ${response.status}]`);
+      }
       token = await response.json();
-    } catch { throw new IdentityError('token_exchange_failed', 'Token exchange failed'); }
+    } catch (error) {
+      if (error instanceof IdentityError) throw error;
+      throw new IdentityError('token_exchange_failed', 'Token exchange failed (provider unreachable or invalid response)');
+    }
     if (typeof token?.access_token !== 'string' || !token.access_token || typeof token?.token_type !== 'string' || token.token_type.toLowerCase() !== 'bearer') throw new IdentityError('token_exchange_failed', 'Token response was invalid');
     let user: any;
     try {
-      const response = await this.fetcher(discovery.userinfo_endpoint, { headers: { authorization: `Bearer ${token.access_token}`, accept: 'application/json' }, signal: AbortSignal.timeout(this.timeoutMs) });
+      const response = await this.fetcher(discovery.userinfo_endpoint, { headers: { authorization: `Bearer ${token.access_token}`, accept: 'application/json' }, signal: AbortSignal.timeout(this.timeoutMs), redirect: 'error' });
       if (!response.ok) throw new Error();
       user = await response.json();
     } catch { throw new IdentityError('userinfo_failed', 'User information request failed'); }
@@ -96,14 +107,14 @@ export class PhidIdentity implements IdentityPort {
   }
   private async loadDiscovery(): Promise<Discovery> {
     try {
-      const base = new URL(this.config.idBase); const response = await this.fetcher(new URL('/api/auth/.well-known/openid-configuration', base), { signal: AbortSignal.timeout(this.timeoutMs) });
+      const base = new URL(this.config.idBase); const response = await this.fetcher(new URL('/api/auth/.well-known/openid-configuration', base), { signal: AbortSignal.timeout(this.timeoutMs), redirect: 'error' });
       if (!response.ok) throw new Error();
       const d = await response.json() as Discovery;
-      const issuer = new URL(d.issuer); const loopback = base.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(base.hostname);
-      if (issuer.origin !== base.origin && d.issuer !== new URL('/api/auth', base).toString().replace(/\/$/, '')) throw new Error();
+      const loopback = base.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(base.hostname);
+      if ((base.protocol !== 'https:' && !loopback) || d.issuer !== new URL('/api/auth', base).toString()) throw new Error();
       for (const endpoint of [d.authorization_endpoint, d.token_endpoint, d.userinfo_endpoint]) {
         const u = new URL(endpoint);
-        if (u.protocol !== 'https:' && !(loopback && u.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname))) throw new Error();
+        if (u.origin !== base.origin || u.username || u.password || u.hash) throw new Error();
       }
       if (!d.authorization_endpoint || !d.token_endpoint || !d.userinfo_endpoint) throw new Error();
       return d;
@@ -112,9 +123,10 @@ export class PhidIdentity implements IdentityPort {
 }
 
 function createHashB64(value: string) { return createHash('sha256').update(value).digest('base64url'); }
-function safeReturnTo(value: string) { return value.startsWith('/') && !value.startsWith('//') ? value : '/'; }
+function safeReturnTo(value: string) { return value.startsWith('/') && !value.startsWith('//') && !/[\\\x00-\x1f\x7f]/.test(value) ? value : '/'; }
 export function phidFromEnv(env: Record<string, string | undefined>): PhidIdentity | null {
   const clientId = env.JUKEBOX_PHID_CLIENT_ID; const redirectUri = env.JUKEBOX_PHID_REDIRECT_URI; const stateSecret = env.JUKEBOX_SESSION_SECRET;
-  if (!clientId || !redirectUri || !stateSecret) return null;
+  if (!clientId && !redirectUri && !stateSecret && !env.JUKEBOX_PHID_CLIENT_SECRET) return null;
+  if (!clientId || !redirectUri || !stateSecret) throw new Error('Incomplete PH ID configuration');
   return new PhidIdentity({ idBase: env.JUKEBOX_PHID_BASE ?? 'https://id.purduehackers.com', clientId, clientSecret: env.JUKEBOX_PHID_CLIENT_SECRET, redirectUri, stateSecret });
 }

@@ -299,3 +299,14 @@ other devices permission to steal a live lease.
 Firefox/local-worker recovery evidence is recorded separately from pending audible,
 HDMI, wall and actual laptop sleep/wake checks. Final display design remains phase
 4C; venue/server/production integration remains phase 5.
+
+## PH ID live local verification (2026-11-02)
+
+The user supplied a `/queue` screenshot signed in as `patiowizard` following the
+PH ID token transport fix. Record this as user-observed live local sign-in;
+organizer/admin permissions are pending their PH ID role grant, then a fresh
+login. The user requested that future DNS/operator questions be retained;
+[Deployment handoff](DEPLOYMENT-HANDOFF.md) records hosting/server evaluation,
+DNS target and approval procedure, HTTPS/ingress, durable storage, PH ID production
+callback/credential ownership, and rehearsal gates. No infrastructure choice,
+production change, or external outreach was made.

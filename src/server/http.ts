@@ -154,7 +154,7 @@ export function createHttpServer(options: HttpOptions): http.Server {
         const sessionId = randomBytes(32).toString('base64url');
         service.db.prepare('delete from sessions where expires_at <= ?').run(service.clock.now());
         service.db.prepare('insert into sessions values(?, ?, ?)').run(hash(sessionId), JSON.stringify(result.identity), service.clock.now() + ttl);
-        const returnTo = result.returnTo.startsWith('/') && !result.returnTo.startsWith('//') ? result.returnTo : '/';
+        const returnTo = result.returnTo.startsWith('/') && !result.returnTo.startsWith('//') && !/[\\\x00-\x1f\x7f]/.test(result.returnTo) ? result.returnTo : '/';
         res.writeHead(303, {
           location: returnTo,
           'set-cookie': [cookie(SESSION_COOKIE, sessionId, Math.floor(ttl / 1000)), cookie(LOGIN_COOKIE, '', 0)],

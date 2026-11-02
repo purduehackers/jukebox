@@ -13,6 +13,7 @@ export class FakeOidc {
   missingSub = false;
   nextIdNonce?: string;
   discoveryFailure = false;
+  clientSecret?: string;
   httpEndpoints = false;
   private constructor() {
     this.server = createServer(async (req, res) => {
@@ -31,9 +32,13 @@ export class FakeOidc {
         res.writeHead(302, { location: `${p.get('redirect_uri')}?code=${code}&state=${p.get('state')}` }); return res.end();
       }
       if (url.pathname === '/token') {
+        // Match PH ID's production CSRF guard: back-channel calls omit browser metadata.
+        if (req.headers['sec-fetch-mode']) return send(403, { error: 'invalid_request', error_description: 'Cross-site POST form submissions are forbidden' });
         let raw = ''; for await (const chunk of req) raw += chunk;
         const form = new URLSearchParams(raw); const code = form.get('code') ?? ''; const d = this.codes.get(code);
-        const clientId = form.get('client_id') ?? 'test-client';
+        const expectedBasic = `Basic ${Buffer.from(`test-client:${this.clientSecret}`).toString('base64')}`;
+        if (this.clientSecret && req.headers.authorization !== expectedBasic) return send(401, { error: 'invalid_client' });
+        const clientId = form.get('client_id') ?? (req.headers.authorization === expectedBasic ? 'test-client' : '');
         if (!d || this.used.has(code) || d.redirect !== form.get('redirect_uri') || d.clientId !== clientId || createHash('sha256').update(form.get('code_verifier') ?? '').digest('base64url') !== d.challenge) return send(400, { error: 'invalid_grant' });
         this.used.add(code); this.users.set('active', d.user);
         const payload = Buffer.from(JSON.stringify({ nonce: d.idNonce ?? d.nonce, sub: d.user.sub })).toString('base64url');

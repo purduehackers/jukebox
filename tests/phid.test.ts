@@ -70,3 +70,23 @@ test('rejects non-https discovery endpoints for non-loopback ID base', async () 
   const id = new PhidIdentity(config('https://id.example', { fetch: fakeFetch }));
   await assert.rejects(id.beginLogin('/'), (e: IdentityError) => e.code === 'discovery_failed');
 });
+
+test('discovery rejects cross-origin HTTPS endpoints and unsafe return paths', async () => {
+  const fakeFetch: typeof fetch = async () => new Response(JSON.stringify({ issuer: 'https://id.example/api/auth', authorization_endpoint: 'https://evil.example/auth', token_endpoint: 'https://id.example/token', userinfo_endpoint: 'https://id.example/userinfo' }));
+  await assert.rejects(new PhidIdentity(config('https://id.example', { fetch: fakeFetch })).beginLogin('/'), (e: IdentityError) => e.code === 'discovery_failed');
+  const p = await FakeOidc.start();
+  try {
+    const start = await new PhidIdentity(config(p.base)).beginLogin('/\\evil.example');
+    assert.equal(JSON.parse(Buffer.from(start.state.split('.')[0]!, 'base64url').toString()).returnTo, '/');
+  } finally { await p.close(); }
+});
+
+test('PH ID CSRF guard rejects Node fetch metadata; back-channel transport completes login', async (t) => {
+  const p = await FakeOidc.start(); t.after(() => p.close());
+  const browserLike = await fetch(`${p.base}/token`, { method: 'POST', body: new URLSearchParams({ grant_type: 'invalid' }) });
+  assert.equal(browserLike.status, 403);
+  assert.equal((await browserLike.json() as { error: string }).error, 'invalid_request');
+  p.clientSecret = 'secret';
+  const { result } = await runLogin(p, { clientSecret: 'secret' });
+  assert.equal(result.identity.subject, 'test-user');
+});

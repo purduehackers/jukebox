@@ -1,6 +1,6 @@
 # Questions for the infrastructure engineer
 
-Draft for the user to send or discuss. No external message has been sent.
+Historical discovery questions. For the current implementation and the next operator/DNS discussion, use [Deployment handoff](DEPLOYMENT-HANDOFF.md). No external message has been sent.
 
 ## Needed before choosing the implementation home
 
