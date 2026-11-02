@@ -83,8 +83,8 @@ export function AccessGate({ access, onRetry }: { access: Exclude<Access, { stat
   return (
     <main className="jb-panel adm-gate">
       <h1>Organizer access required</h1>
-      <p>You are signed in as <strong>{access.name}</strong>, which isn’t an organizer account. Ask a Purdue Hackers admin for access, or use a different account.</p>
-      <button type="button" className="adm-btn" onClick={onRetry}>Check again</button>
+      <p>You are signed in as <strong>{access.name}</strong>, but this sign-in doesn’t include organizer access. If your PH ID access changed recently, check again to refresh it.</p>
+      <a className="adm-btn adm-primary" href="/auth/login?returnTo=/admin">Check again</a>
       <a className="adm-btn" href="/auth/login?returnTo=/admin">Use a different account</a>
     </main>
   );

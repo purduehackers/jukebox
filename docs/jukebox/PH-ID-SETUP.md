@@ -33,3 +33,16 @@ Existing integration limitation: an already-open event stream retains its initia
 The first real login returned `invalid_request` HTTP 403 during code exchange. A credential-free probe reproduced this with Node `fetch`: PH ID returned `Cross-site POST form submissions are forbidden`. Node's automatic `Sec-Fetch-Mode: cors` header triggers PH ID's browser CSRF guard (`src/lib/server/csrf.ts` in the ID repository). The adapter now uses Node's server HTTP transport without browser Fetch Metadata. The same live probe reaches OAuth validation and returns the expected HTTP 400 `unsupported_grant_type` for its deliberately invalid grant. This proves the transport clears the CSRF rejection; the user subsequently verified a fresh live sign-in on the local queue page. The local provider fixture now enforces this guard, and regression coverage reproduces the old failure before verifying login with the new transport.
 
 For infrastructure, DNS, production callback ownership, and operator questions, see [Deployment handoff](DEPLOYMENT-HANDOFF.md). After PH ID grants an organizer/admin role, sign out and back in to refresh the server session before testing `/admin`.
+
+
+## Role changes after sign-in
+
+Jukebox saves the PH ID roles returned at login; checking `/auth/me` or refreshing
+an admin snapshot does not fetch new provider claims. If PH ID grants a role after
+that login, complete a fresh `/auth/login?returnTo=/admin` flow. The forbidden
+admin screen's **Check again** link now does this instead of rereading the cached
+session. PH ID's `identityClaims` returns `roles` only for the `roles` scope, and
+its `grantedRoles` maps `admin` to both `organizer` and `admin`. Jukebox accepts
+either. An empty saved array alone does not prove that the current provider
+account lacks access; verify again after a fresh sign-in and confirm the registered
+client allows `roles` if it remains empty.
