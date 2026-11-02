@@ -2,9 +2,9 @@
 // (offline display, unconfirmed command, conflicts) can be rendered from a fixture snapshot.
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { MasterEntryView, RequestEntryView, Snapshot } from '../../../src/contract/types.ts';
+import type { MasterEntryView, QueueMode, RequestEntryView, Snapshot } from '../../../src/contract/types.ts';
 import { POLICY } from '../../../src/contract/types.ts';
-import { PLAYER_LABEL, describeTurn, estimatePosition, explainError, formatClock, moveAnchor, optimisticIntent, playerState, playingRequest, waitingRequests } from './derive.ts';
+import { PLAYER_LABEL, describeTurn, estimatePosition, explainError, formatClock, formatMinutes, moveAnchor, optimisticIntent, playerState, playingRequest, waitingRequests } from './derive.ts';
 import type { Direction, PlayerState } from './derive.ts';
 import type { Intent } from './intents.ts';
 import type { Access, Link } from './state.ts';
@@ -26,6 +26,9 @@ export interface Actions {
   addRequest(url: string): Done;
   removeMaster(entryId: string, title: string): Done;
   moveMaster(entryId: string, afterEntryId: string | null, title: string): Done;
+  setMode(mode: QueueMode): Done;
+  setInterval(periodMs: number | null): Done;
+  playNow(entryId: string, title: string): Done;
   removeRequest(entryId: string, title: string): Done;
   moveRequest(entryId: string, afterEntryId: string | null, title: string): Done;
   retry(intentId: string): void;
@@ -51,11 +54,11 @@ function Panel({ title, id, children, aside, className = '' }: { title: string; 
 const Tag = ({ tone, children }: { tone: Tone; children: ReactNode }) => <span className={`adm-tag adm-${tone}`}>{children}</span>;
 
 /** Two-step button: the first press arms it, the second performs the action. */
-export function ConfirmButton({ label, confirmLabel, warning, onConfirm, context, danger = true, disabled = false, className = '' }: {
-  label: string; confirmLabel: string; warning?: string; onConfirm: (armedContext: number | undefined) => void; context?: number; danger?: boolean; disabled?: boolean; className?: string;
+export function ConfirmButton({ label, confirmLabel, warning, onConfirm, context, danger = true, disabled = false, className = '', title }: {
+  label: string; confirmLabel: string; warning?: string; onConfirm: (armedContext: number | undefined) => void; context?: number; danger?: boolean; disabled?: boolean; className?: string; title?: string;
 }) {
   const [armed, setArmed] = useState<{ context: number | undefined } | null>(null);
-  if (!armed) return <button type="button" className={`adm-btn ${className}`} disabled={disabled} onClick={() => setArmed({ context })}>{label}</button>;
+  if (!armed) return <button type="button" className={`adm-btn ${className}`} disabled={disabled} title={title} onClick={() => setArmed({ context })}>{label}</button>;
   return (
     <span className="adm-confirm" role="group" aria-label={`Confirm: ${label}`}>
       {warning ? <span className="adm-warning">{warning}</span> : null}
@@ -226,7 +229,13 @@ export function NowPlayingPanel({ snapshot, serverNow, actions, pendingVolume, i
               <p className="adm-dim">{now.artist ?? 'Unknown artist'}{request?.requester ? ` · requested by ${request.requester}` : ''}</p>
               {snapshot.suspendedMaster ? <p className="adm-dim adm-small">“{snapshot.suspendedMaster.title}” resumes at {time(snapshot.suspendedMaster.positionSec)} after this.</p> : null}
             </>
-          ) : <p className="adm-now-title adm-dim">Nothing playing. Add songs to the master queue.</p>}
+          ) : snapshot.schedule.requestsIdle
+            ? <>
+                <span className="adm-kind adm-warn">Requests only</span>
+                <p className="adm-now-title adm-dim">Waiting for requests.</p>
+                {snapshot.suspendedMaster ? <p className="adm-dim adm-small">“{snapshot.suspendedMaster.title}” resumes at {time(snapshot.suspendedMaster.positionSec)} when you switch back.</p> : null}
+              </>
+            : <p className="adm-now-title adm-dim">Nothing playing. Add songs to the master queue.</p>}
         </div>
       </div>
 
@@ -295,6 +304,80 @@ export function TurnPanel({ snapshot, serverNow }: { snapshot: Snapshot; serverN
   );
 }
 
+// ------------------------------------------------------------ queue control
+
+const MODES: { mode: QueueMode; label: string; help: string }[] = [
+  { mode: 'auto', label: 'Auto', help: 'Master music, with one request every interval.' },
+  { mode: 'master', label: 'Master only', help: 'Request turns are off. Requests wait in the queue.' },
+  { mode: 'requests', label: 'Requests only', help: 'Only requests play, one after another. Silent when none are ready.' },
+];
+
+/** Which queue plays and how often requests take a turn. State lives in the service; this only sends commands. */
+export function QueueControls({ snapshot, serverNow, actions, intents = [] }: { snapshot: Snapshot; serverNow: number; actions: Actions; intents?: readonly Intent[] }) {
+  const { schedule } = snapshot;
+  const open = snapshot.night?.status === 'open';
+  const pendingMode = optimisticIntent(snapshot, intents, ['queue.mode'])?.payload as { mode: QueueMode } | undefined;
+  const mode = pendingMode?.mode ?? schedule.mode;
+  const [confirming, setConfirming] = useState(false);
+  const current = schedule.phase === 'master' ? snapshot.nowPlaying : null;
+  const ready = waitingRequests(snapshot).filter((r) => r.status === 'ready').length;
+  const choose = (next: QueueMode) => {
+    if (next === 'requests' && current) { setConfirming(true); return; }
+    setConfirming(false);
+    if (next !== mode) void actions.setMode(next);
+  };
+  const interruption = current
+    ? `Interrupts “${current.title}” now; it resumes where it left off when you leave Requests only.${ready ? '' : ' No request is ready, so music stops until one is.'}`
+    : '';
+
+  const minMinutes = Math.ceil(schedule.periodMinMs / 60_000), maxMinutes = Math.floor(schedule.periodMaxMs / 60_000);
+  const currentMinutes = Math.round(schedule.periodMs / 60_000);
+  const [draft, setDraft] = useState(String(currentMinutes));
+  useEffect(() => setDraft(String(currentMinutes)), [currentMinutes]);
+  const minutes = Number(draft);
+  const valid = draft.trim() !== '' && Number.isInteger(minutes) && minutes >= minMinutes && minutes <= maxMinutes;
+  const elapsedMs = mode === 'auto' && schedule.phase === 'master' && schedule.periodStartedAt !== null ? serverNow - schedule.periodStartedAt : null;
+  const alreadyElapsed = valid && elapsedMs !== null && elapsedMs >= minutes * 60_000;
+  const overridden = schedule.periodMs !== schedule.periodDefaultMs;
+
+  return (
+    <div className="adm-qc" id="adm-queue-control">
+      <div className="adm-qc-row">
+        <div className="adm-seg" role="radiogroup" aria-label="Play from">
+          {MODES.map((m) => (
+            <button
+              key={m.mode} type="button" role="radio" aria-checked={mode === m.mode} data-mode={m.mode}
+              className={`adm-btn adm-seg-btn${mode === m.mode ? ' adm-selected' : ''}`}
+              disabled={m.mode === 'requests' && !open} title={m.mode === 'requests' && !open ? 'Start the night first' : m.help}
+              onClick={() => choose(m.mode)}
+            >{m.label}</button>
+          ))}
+        </div>
+        <form className="adm-interval" onSubmit={(e) => { e.preventDefault(); if (valid) void actions.setInterval(minutes * 60_000); }}>
+          <label htmlFor="adm-interval">Request every</label>
+          <input id="adm-interval" type="number" inputMode="numeric" min={minMinutes} max={maxMinutes} step={1} value={draft} onChange={(e) => setDraft(e.target.value)} aria-invalid={draft !== '' && !valid} />
+          <span aria-hidden="true">min</span>
+          <button type="submit" className="adm-btn" disabled={!valid || minutes === currentMinutes}>Set</button>
+          {overridden ? <button type="button" className="adm-btn adm-quiet" onClick={() => void actions.setInterval(null)}>Use {formatMinutes(schedule.periodDefaultMs)}</button> : null}
+        </form>
+      </div>
+      <p className="adm-dim adm-small" data-testid="mode-help" aria-live="polite">
+        {MODES.find((m) => m.mode === mode)!.help}
+        {mode === 'auto' ? ` Now every ${formatMinutes(schedule.periodMs)}.` : ''}
+      </p>
+      {!valid && draft !== '' ? <p className="adm-warning adm-small" role="alert">Use a whole number from {minMinutes} to {maxMinutes} minutes.</p> : null}
+      {alreadyElapsed ? <p className="adm-warning adm-small" data-testid="interval-warning">{formatClock(elapsedMs!)} has already passed in this interval, so saving now makes the turn due right away{ready ? '' : ' (nothing is ready, so the timer just restarts)'}.</p> : null}
+      {confirming ? (
+        <div className="adm-confirm" role="group" aria-label="Confirm: Requests only">
+          <span className="adm-warning">{interruption}</span>
+          <button type="button" className="adm-btn adm-danger" onClick={() => { setConfirming(false); void actions.setMode('requests'); }}>Switch to Requests only</button>
+          <button type="button" className="adm-btn" onClick={() => setConfirming(false)}>Cancel</button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 // ------------------------------------------------------------------ queues
 
 function MoveButtons({ ids, index, onMove }: { ids: readonly string[]; index: number; onMove: (afterEntryId: string | null) => void }) {
@@ -311,6 +394,19 @@ function MoveButtons({ ids, index, onMove }: { ids: readonly string[]; index: nu
 }
 
 const REQUEST_TAG: Partial<Record<RequestEntryView['status'], [Tone, string]>> = { preparing: ['warn', 'loading'], playing: ['ok', 'playing'], failed: ['bad', 'failed'] };
+
+/** Plays a ready request right now. The interrupted master item resumes at its saved position afterward. */
+function PlayNowButton({ snapshot, request, onConfirm }: { snapshot: Snapshot; request: RequestEntryView; onConfirm: () => void }) {
+  const open = snapshot.night?.status === 'open';
+  const requestPlaying = !!playingRequest(snapshot);
+  const current = snapshot.schedule.phase === 'master' ? snapshot.nowPlaying : null;
+  const reason = !open ? 'Start the night first' : request.status !== 'ready' ? 'Still loading' : requestPlaying ? 'A request is playing. Move this one to the top to play it next.' : undefined;
+  const effects = [
+    current ? `Interrupts “${current.title}”; it resumes where it left off afterward.` : 'Starts right away.',
+    snapshot.schedule.intent === 'paused' ? 'Playback is paused, so press Play to hear it.' : null,
+  ].filter(Boolean).join(' ');
+  return <ConfirmButton className="adm-quiet" danger={false} label="Play now…" confirmLabel="Play now" warning={effects} disabled={!!reason} title={reason} onConfirm={onConfirm} />;
+}
 
 export function RequestQueuePanel({ snapshot, actions }: { snapshot: Snapshot; actions: Actions }) {
   const playing = playingRequest(snapshot);
@@ -329,6 +425,7 @@ export function RequestQueuePanel({ snapshot, actions }: { snapshot: Snapshot; a
         {tag ? <Tag tone={tag[0]}>{tag[1]}</Tag> : null}
         <div className="adm-row-actions">
           {r.status !== 'playing' ? <MoveButtons ids={ids} index={index} onMove={(after) => void actions.moveRequest(r.id, after, r.title)} /> : null}
+          {r.status !== 'playing' ? <PlayNowButton snapshot={snapshot} request={r} onConfirm={() => void actions.playNow(r.id, r.title)} /> : null}
           <ConfirmButton
             className="adm-quiet"
             label="Remove…" confirmLabel="Remove"

@@ -65,7 +65,7 @@ const entry = (id: string, status: RequestStatus, durationSec = 180): RequestEnt
 function snap(over: Partial<Pick<Snapshot, 'night' | 'schedule' | 'requests'>>): Pick<Snapshot, 'night' | 'schedule' | 'requests'> {
   return {
     night: { id: 'n', status: 'open', openedAt: 0, closedAt: null },
-    schedule: { phase: 'master', intent: 'playing', periodStartedAt: 0, periodMs: 15 * 60_000, turnDue: false, dueReason: null },
+    schedule: { phase: 'master', intent: 'playing', periodStartedAt: 0, periodMs: 15 * 60_000, periodDefaultMs: 15 * 60_000, periodMinMs: 60_000, periodMaxMs: 120 * 60_000, mode: 'auto', requestsIdle: false, turnDue: false, dueReason: null },
     requests: [],
     ...over,
   };

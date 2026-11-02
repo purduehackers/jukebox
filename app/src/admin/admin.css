@@ -128,3 +128,14 @@
 
 .adm-activity .adm-tag { border: 0; padding: 0; }
 .adm-activity, .adm-activity * { animation: none; transition: none; }
+
+/* queue control: mode selector + request interval */
+.adm-qc { display: flex; flex-direction: column; gap: 0.4rem; border-top: 1px solid var(--jb-purple); padding-top: 0.75rem; }
+.adm-qc-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1.25rem; }
+.adm-seg { display: inline-flex; flex-wrap: wrap; }
+.adm-seg-btn + .adm-seg-btn { margin-left: -1px; }
+.adm-seg-btn.adm-selected { border-color: var(--jb-yellow); background: var(--jb-yellow); color: var(--jb-canvas); font-weight: 700; }
+.adm-interval { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.adm-root input[type='number'] { font: inherit; width: 4.5rem; color: var(--jb-foreground); background: var(--jb-canvas); border: 1px solid var(--jb-purple); border-radius: 0; padding: 0.45rem 0.5rem; min-height: 40px; box-sizing: border-box; }
+.adm-root input[type='number'][aria-invalid='true'] { border-color: #ff6b6b; }
+@media (max-width: 640px) { .adm-seg { width: 100%; } .adm-seg-btn { flex: 1 1 auto; padding-inline: 0.5rem; } }

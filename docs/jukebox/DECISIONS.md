@@ -374,3 +374,25 @@ Research, adapter interfaces, startup, measured Firefox evidence and provider
 limitations are in [LINK-COMPATIBILITY.md](LINK-COMPATIBILITY.md). The reported
 `yL-4oSQwzJI` recording is a 3,443-second mix: appropriate for master music and
 ineligible for attendee requests. This is a duration policy result, not a playlist.
+
+## Queue playback controls (2026-11-02)
+
+The user asked for a simple way to play only the user queue, to play one request on demand, to pick
+between admin/master/user-queue playback, and to change the interval. Design and contract:
+[proposal](proposals/queue-playback-controls.md); implementation notes in
+[Phase 2 contract](PHASE-2-CONTRACT.md#queue-playback-controls-2026-11-02) and [Phase 4A](PHASE-4A-ADMIN.md#queue-controls).
+
+**Confirmed by the user in this chat** (each chosen from options, recommended defaults noted):
+1. **Requests only with nothing ready: wait silently.** No master fallback, no automatic return to Auto.
+2. **Explicit admin actions cut in immediately**, including over an ordinary master song (this was *not* the
+   recommended option). The song is suspended and resumes at its saved position. Automatic turns keep the
+   "ordinary songs finish" rule unchanged.
+3. **Interval edits apply to the running countdown** (`due = periodStartedAt + new interval`).
+4. **Mode resets to Auto when a night opens or closes; the interval setting persists** across nights.
+
+**Defaults I chose to fill gaps (not asked; open to revision):** labels `Auto` / `Master only` / `Requests only` and
+`Play now`; a request that is already playing is never cut off by a mode change (finishes first); `Play now`
+is refused while a request plays; Auto after Master only starts a fresh interval with no catch-up turn; a
+deliberate pause stays paused through `Play now`/mode changes (the request loads and waits for Play); `Play now` and
+mode changes never change allowance; interval bounds 1–120 minutes (service-enforced); `Requests only` plays
+requests back to back by explicit organizer choice, while Auto keeps exactly one request per turn.

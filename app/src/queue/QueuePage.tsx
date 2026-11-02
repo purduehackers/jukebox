@@ -72,7 +72,10 @@ export function QueuePage() {
 
       <footer className="q-foot">
         <p>Audio only. Valid requests join the queue automatically; organizers can remove any of them.</p>
-        <p>Request turns come about every 15 minutes of regular music. Wait estimates are rough and not guaranteed.</p>
+        <p>{!snapshot ? 'Organizers control when requests play.'
+          : snapshot.schedule.mode === 'master' ? 'Request turns are paused while only regular music plays.'
+          : snapshot.schedule.mode === 'requests' ? 'Requests play back to back in queue order.'
+          : `Request turns come about every ${snapshot.schedule.periodMs / 60_000} minutes of regular music.`} Wait estimates are rough and not guaranteed.</p>
       </footer>
     </main>
   );

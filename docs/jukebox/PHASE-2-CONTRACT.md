@@ -196,3 +196,36 @@ Migration 3 appends `devices.automatic` and `playback.autostart`; prior migratio
 are unchanged. First connected display is the audio browser; another display
 waits for release/expiry. This is a local-first implementation, not a hardened
 public deployment.
+
+## Queue playback controls (2026-11-02)
+
+Additive; contract version stays 1. Full rationale: [proposal](proposals/queue-playback-controls.md).
+
+- **Commands (admin only):** `queue.mode {mode: 'auto'|'master'|'requests'}` (absolute, idempotent),
+  `queue.interval {periodMs: number | null}` (`null` = default; service bounds 1–120 min),
+  `request.playNow {entryId}`. New error code `NOT_READY` (request still preparing).
+- **Snapshot (`schedule`):** `mode`, `requestsIdle`, effective `periodMs`, `periodDefaultMs`, `periodMinMs`, `periodMaxMs`.
+  `turnDue`/`dueReason` are false/null outside `auto`.
+- **Migration 4:** `playback.mode` (default `auto`, checked) and `playback.period_ms` (null = default). In-place; a v3
+  database keeps queue, quota, lease, suspended mix and period anchor (tested).
+- **Scheduler:** `requests` mode keeps the master suspended and pinned, chains ready requests, and is silent
+  (`phase = request`, no current entry, new load so the player stops) when none is ready; `finishTurn` is the single
+  place that chains, idles, resumes, or starts a fresh period (only in `auto`). Closing a night resets the mode before
+  archiving, so an idle or playing request never chains past the close.
+- **Checkpoint while silent:** with no new load there is no `previous` report, so heartbeats for the suspended master's
+  own load update its checkpoint while `requests` is idle (`report()`); the player also sends one immediate report when
+  `desired` becomes null (`app/src/player/controller.ts`, transition only). Measured in Firefox: 0.000 s error.
+
+| Situation | Behavior | Status |
+| --- | --- | --- |
+| `Play now` on a ready request | Cuts in at once (mix or ordinary song), suspends at saved position, resumes after; fresh period in `auto` | Confirmed |
+| Switching to `requests` while master plays | Same cut-in; a playing request is never cut off | Confirmed / default |
+| `requests`, nothing ready | Silent wait; next ready request starts at once | Confirmed |
+| `master` | No automatic turns; timer not running; `Play now` still works | Default |
+| Back to `auto` | Fresh interval from that moment, no catch-up turn | Default |
+| Interval changed | Applies to the running countdown; already-elapsed with no ready request is an empty turn (re-anchors) | Confirmed |
+| Night open/close | Mode resets to `auto`; interval persists | Confirmed |
+| `queue.mode`/`queue.interval`/`request.playNow` replays | Stored final response; no re-execution | Existing rule |
+
+The API character bound for submitted links is now 2048 on `master.add`, `request.preview` and `request.submit`
+only (previously 300); the source layer's own byte bounds still apply.

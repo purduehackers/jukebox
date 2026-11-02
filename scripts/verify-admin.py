@@ -299,6 +299,95 @@ def main():
         wait.until(lambda d: any('bob' in li.text and li.get_attribute('data-status') == 'ready' for li in d.find_elements(By.CSS_SELECTOR, 'section[aria-labelledby="adm-requests"] li')))
         check('requestFromBobVisible', True)
 
+        # ---- Queue controls (mode, interval, Play now). Every effect is read back from the service. ----
+        held = {}
+
+        def snapshot_now(): return get_json(web, '/api/v1/snapshot', token)
+
+        def ack(status='playing', position=None):
+            desired = snapshot_now()['desired']
+            held.update(epoch=desired['epoch'], loadId=desired['loadId'], position=desired['startPositionSec'] if position is None else position)
+            return report_player(status, position)
+
+        def hold():
+            # While requests-only is silent there is no desired load: keep the lease with the held load's heartbeat.
+            post(web, '/api/v1/commands', {'commandId': str(uuid.uuid4()), 'type': 'player.report', 'payload': {'generation': generation, 'epoch': held['epoch'], 'loadId': held['loadId'], 'status': 'paused', 'positionSec': held['position']}}, token)
+
+        def radio(mode): return driver.find_element(By.CSS_SELECTOR, f'[role="radio"][data-mode="{mode}"]')
+
+        def set_interval_field(value):
+            field = driver.find_element(By.ID, 'adm-interval')
+            driver.execute_script("const e=arguments[0],s=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;s.call(e,arguments[1]);e.dispatchEvent(new Event('input',{bubbles:true}));", field, str(value))
+
+        def set_button(): return driver.find_element(By.XPATH, "//form[contains(@class,'adm-interval')]//button[normalize-space()='Set']")
+
+        def request_row(who): return next(li for li in driver.find_elements(By.CSS_SELECTOR, 'section[aria-labelledby="adm-requests"] li') if who in li.text)
+
+        ack()
+        verify('modeDefaultsToAuto', radio('auto').get_attribute('aria-checked') == 'true' and snapshot_now()['schedule']['mode'] == 'auto')
+        verify('threeModeChoices', [r.text for r in driver.find_elements(By.CSS_SELECTOR, '[role="radiogroup"] [role="radio"]')] == ['Auto', 'Master only', 'Requests only'])
+        set_interval_field(0)
+        verify('intervalRejectsInvalidInput', 'Use a whole number from 1 to 120' in driver.find_element(By.ID, 'adm-queue-control').text and not set_button().is_enabled())
+        set_interval_field(20)
+        set_button().click()
+        wait.until(lambda d: snapshot_now()['schedule']['periodMs'] == 20 * 60_000)
+        ack()
+        driver.refresh()  # the setting is service state, not browser state
+        wait.until(lambda d: d.find_elements(By.ID, 'adm-interval'))
+        verify('intervalPersistsAcrossReload', driver.find_element(By.ID, 'adm-interval').get_attribute('value') == '20' and 'Use 15 min' in driver.find_element(By.ID, 'adm-queue-control').text)
+        driver.find_element(By.XPATH, "//button[normalize-space()='Use 15 min']").click()
+        wait.until(lambda d: snapshot_now()['schedule']['periodMs'] == 15 * 60_000)
+        wait.until(lambda d: 'Use 15 min' not in d.find_element(By.ID, 'adm-queue-control').text)
+        check('intervalSetAndReset', {'saved': '20 min', 'reset': '15 min'})
+        ack()
+
+        # Play now: bob's ready request interrupts the master mix immediately.
+        master_before = snapshot_now()['nowPlaying']['title']
+        row = request_row('bob')
+        row.find_element(By.XPATH, ".//button[normalize-space()='Play now…']").click()
+        verify('playNowNamesTheInterruption', f'Interrupts “{master_before}”' in row.text, row.text)
+        row.find_element(By.XPATH, ".//button[normalize-space()='Play now']").click()
+        wait.until(lambda d: snapshot_now()['schedule']['phase'] == 'request')
+        ack()
+        wait.until(lambda d: 'request' in d.find_element(By.CSS_SELECTOR, '.adm-kind').text.lower())
+        verify('playNowStartsRequest', snapshot_now()['nowPlaying']['kind'] == 'request' and 'resumes at' in driver.find_element(By.CSS_SELECTOR, '.adm-track-text').text)
+        wait.until(lambda d: any(b.get_attribute('title') for b in d.find_elements(By.XPATH, "//button[normalize-space()='Play now…']")) or not d.find_elements(By.XPATH, "//button[normalize-space()='Play now…']"))
+        ack('ended', 30)
+        wait.until(lambda d: snapshot_now()['schedule']['phase'] == 'master')
+        ack()
+        check('requestEndsMasterResumes', snapshot_now()['nowPlaying']['title'])
+
+        # Requests only: confirm, cut in, chain, wait silently, then leave.
+        post(web, '/api/v1/commands', {'commandId': str(uuid.uuid4()), 'type': 'request.submit', 'payload': {'url': 'fixture:request'}}, origin=web, opener=opener)
+        wait.until(lambda d: any(li.get_attribute('data-status') == 'ready' for li in d.find_elements(By.CSS_SELECTOR, 'section[aria-labelledby="adm-requests"] li')))
+        radio('requests').click()
+        confirm_group = driver.find_element(By.CSS_SELECTOR, '[aria-label="Confirm: Requests only"]')
+        verify('requestsOnlyAsksFirst', 'Interrupts' in confirm_group.text and snapshot_now()['schedule']['mode'] == 'auto', confirm_group.text)
+        driver.find_element(By.XPATH, "//button[normalize-space()='Cancel']").click()
+        verify('requestsOnlyCancelChangesNothing', snapshot_now()['schedule']['mode'] == 'auto')
+        radio('requests').click()
+        driver.find_element(By.XPATH, "//button[normalize-space()='Switch to Requests only']").click()
+        wait.until(lambda d: snapshot_now()['schedule']['mode'] == 'requests' and snapshot_now()['schedule']['phase'] == 'request')
+        ack()
+        wait.until(lambda d: radio('requests').get_attribute('aria-checked') == 'true')
+        ack('ended', 30)
+        wait.until(lambda d: snapshot_now()['schedule']['requestsIdle'])
+        verify('requestsOnlyWaitsSilently', snapshot_now()['desired'] is None)
+        wait.until(lambda d: 'Waiting for requests' in d.find_element(By.ID, 'adm-turn').text)
+        verify('idleShowsWaitingForRequests', 'Waiting for requests' in driver.find_element(By.CSS_SELECTOR, '.adm-track-text').text and 'resumes at' in driver.find_element(By.CSS_SELECTOR, '.adm-track-text').text)
+        driver.save_screenshot(str(out.parent / 'admin-requests-idle.png'))
+        for _ in range(3): hold(); time.sleep(1)
+        radio('master').click()
+        wait.until(lambda d: snapshot_now()['schedule']['mode'] == 'master' and snapshot_now()['nowPlaying'] is not None)
+        ack()
+        verify('masterOnlyTurnLine', 'Master only' in driver.find_element(By.ID, 'adm-turn').text and snapshot_now()['schedule']['periodStartedAt'] is None)
+        radio('auto').click()
+        wait.until(lambda d: snapshot_now()['schedule']['mode'] == 'auto' and snapshot_now()['schedule']['periodStartedAt'] is not None)
+        ack()
+        check('modeRoundTrip', 'auto -> requests -> idle -> master -> auto')
+        driver.save_screenshot(str(out.parent / 'admin-queue-controls.png'))
+        report_player()  # fresh report so the lease-expiry check below starts now
+
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             if 'offline' in driver.find_element(By.CSS_SELECTOR, '[data-testid="player-state"]').text.lower(): break
@@ -321,6 +410,11 @@ def main():
         ''')
         driver.switch_to.default_content()
         driver.save_screenshot(str(out.parent / 'admin-mobile.png'))
+        driver.switch_to.frame('phone')
+        driver.execute_script("document.getElementById('adm-queue-control').scrollIntoView({block: 'center'})")
+        time.sleep(.3)
+        driver.switch_to.default_content()
+        driver.save_screenshot(str(out.parent / 'admin-mobile-controls.png'))
         check('mobileScreenshot', str(out.parent / 'admin-mobile.png'))
         offenders = [b for b in metrics['buttons'] if b['height'] < 40]
         evidence['details']['mobileLayoutMetrics'] = metrics

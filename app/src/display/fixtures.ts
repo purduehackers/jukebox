@@ -6,7 +6,7 @@ export function displayFixture(state: FixtureState, now = Date.now()): Snapshot 
   const snapshot: Snapshot = {
     contractVersion: 1, revision: 10, serverTime: now, role: 'public',
     night: { id: 'fixture-night', status: 'open', openedAt: now - 3600000, closedAt: null },
-    schedule: { phase: 'master', intent: 'playing', periodStartedAt: now - 528000, periodMs: 900000, turnDue: false, dueReason: null },
+    schedule: { phase: 'master', intent: 'playing', periodStartedAt: now - 528000, periodMs: 900000, periodDefaultMs: 900000, periodMinMs: 60000, periodMaxMs: 7200000, mode: 'auto', requestsIdle: false, turnDue: false, dueReason: null },
     nowPlaying: { kind: 'master', entryId: 'fixture-master', title: 'NCS: 1 Hour Gaming Music Mix', artist: 'NoCopyrightSounds', durationSec: 3634 },
     nextMaster: { title: 'Next organizer track', artist: 'Master artist', durationSec: 240 },
     suspendedMaster: null,

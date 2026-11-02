@@ -2,7 +2,7 @@
 // command identity in intents.ts, markup in views.tsx.
 import { useEffect, useMemo, useState } from 'react';
 import './admin.css';
-import { AccessGate, ActivityPanel, AddBar, AlertsBand, Header, MasterQueuePanel, NightPanel, NowPlayingPanel, RequestQueuePanel, TurnPanel } from './views.tsx';
+import { AccessGate, ActivityPanel, AddBar, AlertsBand, Header, MasterQueuePanel, NightPanel, NowPlayingPanel, QueueControls, RequestQueuePanel, TurnPanel } from './views.tsx';
 import type { Actions } from './views.tsx';
 import { useControls, useLive, useServerNow, useTicker } from './state.ts';
 
@@ -35,6 +35,9 @@ export function AdminPage() {
     addRequest: (url) => runner.run(`Add to requests: ${url}`, 'request.submit', { url }),
     removeMaster: (entryId, title) => runner.run(`Remove “${title}” from master`, 'master.remove', { entryId }),
     moveMaster: (entryId, afterEntryId, title) => runner.run(`Move “${title}”`, 'master.move', { entryId, afterEntryId }),
+    setMode: (mode) => runner.run(`Play from: ${{ auto: 'Auto', master: 'Master only', requests: 'Requests only' }[mode]}`, 'queue.mode', { mode }),
+    setInterval: (periodMs) => runner.run(periodMs === null ? 'Use the default request interval' : `Request every ${periodMs / 60_000} min`, 'queue.interval', { periodMs }),
+    playNow: (entryId, title) => runner.run(`Play “${title}” now`, 'request.playNow', { entryId }),
     removeRequest: (entryId, title) => runner.run(`Remove request “${title}”`, 'request.remove', { entryId }),
     moveRequest: (entryId, afterEntryId, title) => runner.run(`Move request “${title}”`, 'request.move', { entryId, afterEntryId }),
     retry: (id) => void runner.retry(id),
@@ -62,6 +65,7 @@ export function AdminPage() {
       <AlertsBand snapshot={snapshot} link={live.link} external={live.externalChange} onAckExternal={live.ackExternal} />
       <NowPlayingPanel snapshot={snapshot} serverNow={serverNow} actions={actions} pendingVolume={pendingVolume} intents={intents}>
         <TurnPanel snapshot={snapshot} serverNow={serverNow} />
+        <QueueControls snapshot={snapshot} serverNow={serverNow} actions={actions} intents={intents} />
       </NowPlayingPanel>
       <AddBar actions={actions} lastAdd={lastAdd} nightOpen={snapshot.night?.status === 'open'} />
       <div className="adm-queues">

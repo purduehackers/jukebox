@@ -71,7 +71,7 @@ contract proposals must be sent to the coordinator named above, so the final
 combined push is reviewed rather than left as unrelated feature branches.
 
 
-## Integration review in progress
+## Integration review
 
 The link branch completed at `fc5c383` (commits `d554586`, `fc5c383`) and is merged
 locally into integration. Its routine suite passed 21 Python, five policy and 126
@@ -89,5 +89,26 @@ ordering. A controlled Firefox comparison then withheld private closed-night
 snapshots: baseline failed the immediate paused assertion, while integration's
 public-session stop bridge passed. The bridge preserves revision/time fencing;
 public data can stop audio but cannot grant it authority. The regression is added
-to the full player verifier. Full merged verification and combined push still
-await the queue-control branch.
+to the full player verifier. The queue-control branch `7e4e103` is now combined locally with link compatibility.
+The decision-log conflict retains both workstreams; the idle checkpoint report and
+public-session stop bridge coexist in the player. The attendee footer follows the
+configured mode/interval, and its not-started message no longer assumes 15 minutes.
+Combined routine checks passed 21 Python, five policy and 158 TypeScript tests
+with no skips, both typechecks and the production build.
+
+Combined Firefox 158.0.1 verification passed: 61 admin checks (desktop/390 px),
+17 player checks (including the public-close/private-feed regression),
+15 display checks (real audio analysis, seek/resume, QR decode and layouts), and
+five queue-control checks with a real worker and fixture audio. Three silent-idle
+checkpoints/resumes matched paused audio exactly; Play now resume was within
+0.171 seconds of the sampled position; a 60-second server interval fired at
+60.139 seconds. The display environment initially lacked its documented optional
+QR decoder; installing `scripts/requirements-display.txt` allowed the full rerun
+to pass. Evidence lives in integration's ignored `.local/` directory.
+
+Integration, PH ID and display branches share the combined verified merge.
+Tests used disposable state/ports and null audio sinks. No credentials/state were
+copied, the user's 5173/8980 processes were left running, and no production or DNS
+changes were made. Existing live-provider evidence and limitations above still
+apply; this integration rerun used fixture media and did not retest live providers
+or audible HDMI output.

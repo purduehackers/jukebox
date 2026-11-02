@@ -74,7 +74,7 @@ export function estimatePosition(snapshot: Snapshot, serverNow: number): Positio
 
 // ------------------------------------------------------------ request turn
 
-export type TurnKind = 'night_closed' | 'in_request' | 'not_started' | 'counting' | 'due' | 'elapsed_empty';
+export type TurnKind = 'night_closed' | 'in_request' | 'not_started' | 'counting' | 'due' | 'elapsed_empty' | 'master_only' | 'requests_only' | 'requests_idle';
 
 export interface TurnView {
   kind: TurnKind;
@@ -85,6 +85,9 @@ export interface TurnView {
   readyRequests: number;
   preparingRequests: number;
 }
+
+/** "15 min", "1.5 min": the interval as a person would say it. */
+export const formatMinutes = (ms: number) => `${Math.round((ms / 60_000) * 10) / 10} min`;
 
 export const formatClock = (ms: number) => {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -108,6 +111,15 @@ export function describeTurn(snapshot: Snapshot, serverNow: number): TurnView {
   if (!snapshot.night || snapshot.night.status !== 'open') {
     return { ...base, kind: 'night_closed', headline: 'Night not started', detail: 'Start the night to play music and take requests.' };
   }
+  if (schedule.mode === 'master') {
+    return { ...base, kind: 'master_only', headline: 'Master only', detail: `Request turns are off${ready + preparing ? `; ${ready + preparing} waiting` : ''}. “Play now” still plays one.` };
+  }
+  if (schedule.mode === 'requests') {
+    if (schedule.requestsIdle) {
+      return { ...base, kind: 'requests_idle', headline: 'Waiting for requests', detail: 'Nothing is playing. The next request starts as soon as it is ready.' };
+    }
+    return { ...base, kind: 'requests_only', headline: 'Requests only', detail: `${ready + preparing ? `${ready + preparing} more waiting. ` : 'Then silence until the next request. '}Master music resumes where it left off when you switch back.` };
+  }
   if (schedule.phase === 'request') {
     return { ...base, kind: 'in_request', headline: 'Request playing', detail: 'The playlist picks up where it left off when this ends.' };
   }
@@ -128,7 +140,7 @@ export function describeTurn(snapshot: Snapshot, serverNow: number): TurnView {
     return { ...base, kind: 'due', headline: 'Request up next', detail: reason };
   }
   if (remaining <= 0) {
-    return { ...base, kind: 'elapsed_empty', headline: 'No request ready', detail: `Playlist keeps going; next chance in ${POLICY.periodMs / 60_000} min.${preparing ? ` ${preparing} still loading.` : ''}` };
+    return { ...base, kind: 'elapsed_empty', headline: 'No request ready', detail: `Playlist keeps going; next chance in ${formatMinutes(schedule.periodMs)}.${preparing ? ` ${preparing} still loading.` : ''}` };
   }
   const current = snapshot.master?.find((m) => m.id === snapshot.nowPlaying?.entryId);
   const interrupt = !snapshot.nowPlaying ? null : current?.isMix ? 'This mix gets cut in and resumes later.' : 'Waits for this song to end.';
@@ -169,6 +181,7 @@ export type ErrorTone = 'conflict' | 'auth' | 'rejected' | 'transient';
 export function explainError(error: ApiError, type: string): { tone: ErrorTone; message: string } {
   switch (error.code) {
     case 'GUARD_MISMATCH':
+      if (type === 'request.playNow') return { tone: 'conflict', message: 'Nothing changed: a request is already playing. Move this one to the top of the queue to play it next.' };
       return { tone: 'conflict', message: 'Nothing changed: the item you targeted is no longer playing — another organizer or the schedule moved on. Review the current state and decide again.' };
     case 'NOT_FOUND':
       return { tone: 'conflict', message: 'Nothing changed: that entry is already gone or no longer in this queue — someone else may have changed it.' };
@@ -189,6 +202,8 @@ export function explainError(error: ApiError, type: string): { tone: ErrorTone; 
       return { tone: 'rejected', message: 'That link is not a supported source. Only single YouTube track or mix links work right now.' };
     case 'INVALID_SOURCE':
       return { tone: 'rejected', message: `${error.message} Playlists and albums cannot be imported yet; add single YouTube track or mix links.` };
+    case 'NOT_READY':
+      return { tone: 'conflict', message: 'That request is still loading. Try again in a moment.' };
     case 'NOTHING_PLAYABLE':
       return { tone: 'rejected', message: 'There is no playable master music. Add a master item and wait for it to become ready.' };
     case 'DURATION_REJECTED':

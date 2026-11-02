@@ -51,6 +51,7 @@ superseded by the intended jukebox hostname.
 
 - [Phase-3 Firefox player](PHASE-3-FINDINGS.md): pairing, activation, lease fencing,
   recovery evidence, measured acknowledgement/resume results, and venue gates.
+- [Queue playback controls proposal](proposals/queue-playback-controls.md): modes, Play now, request interval.
 - [Phase-2 contract and service](PHASE-2-CONTRACT.md): behavior table, typed
   commands/snapshots, authority/lease semantics, PH ID status, evidence, limitations.
 - [Phase-4B attendee queue](PHASE-4B-QUEUE.md): `/queue` page, preview-before-submit,

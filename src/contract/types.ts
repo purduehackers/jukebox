@@ -7,6 +7,9 @@ export const CONTRACT_VERSION = 1;
 export const POLICY = {
   /** Elapsed master playback before a request turn. Pause/buffering count. */
   periodMs: 15 * 60 * 1000,
+  /** Bounds for the admin-configurable request interval (`queue.interval`). */
+  periodMinMs: 60 * 1000,
+  periodMaxMs: 120 * 60 * 1000,
   /** Master tracks strictly longer than this are interruptible mixes. */
   mixThresholdSec: 360,
   /** Requests must be strictly shorter than this. */
@@ -131,6 +134,11 @@ export interface RequestEntryView {
 // ---- Playback ----
 export type Intent = 'playing' | 'paused';
 export type Phase = 'master' | 'request';
+/**
+ * Which queue plays. `auto` is the scheduled behavior (one request per turn, every interval);
+ * `master` never takes request turns; `requests` plays only requests, back to back.
+ */
+export type QueueMode = 'auto' | 'master' | 'requests';
 export type ObservedStatus =
   | 'loading'
   | 'playing'
@@ -178,8 +186,15 @@ export interface Snapshot {
     intent: Intent;
     /** Null until master playback starts in this night. */
     periodStartedAt: number | null;
+    /** Effective request interval (admin override, else the default). */
     periodMs: number;
-    /** A request is due but waiting (normal song end or deliberate pause). */
+    periodDefaultMs: number;
+    periodMinMs: number;
+    periodMaxMs: number;
+    mode: QueueMode;
+    /** `requests` mode with nothing ready: silent, waiting for the next request. */
+    requestsIdle: boolean;
+    /** A request is due but waiting (normal song end or deliberate pause). Always false outside `auto`. */
     turnDue: boolean;
     dueReason: 'song_end' | 'paused' | 'offline' | null;
   };
@@ -253,6 +268,11 @@ export interface CommandPayloads {
   'playback.seek': { entryId: string; positionSec: number };
   'playback.skip': { entryId: string };
   'playback.volume': { volume: number };
+  // Admin: queue control. `queue.mode` is an absolute, idempotent set; `periodMs: null` restores the default interval.
+  'queue.mode': { mode: QueueMode };
+  'queue.interval': { periodMs: number | null };
+  /** Start this ready request now, suspending the current master item at its position. */
+  'request.playNow': { entryId: string };
   // Admin: devices
   'device.pairing.create': { name: string };
   'device.revoke': { deviceId: string };
@@ -332,6 +352,7 @@ export type ErrorCode =
   | 'DEVICE_REVOKED'
   | 'PAIRING_INVALID'
   | 'NOTHING_PLAYABLE'
+  | 'NOT_READY'
   | 'INTERNAL';
 
 export interface ApiError {

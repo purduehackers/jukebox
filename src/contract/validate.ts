@@ -12,12 +12,15 @@ const idOrNull = (v: unknown) => v === null || id(v);
 const finite = (min: number, max: number) => (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
 const int = (v: unknown) => Number.isSafeInteger(v) && (v as number) >= 0;
 const optional = (check: (v: unknown) => boolean) => (v: unknown) => v === undefined || check(v);
+/** API character bound for submitted links (real navigation/share URLs are long); the source layer enforces its own byte bound. */
+export const MAX_URL = 2048;
+const MODES = ['auto', 'master', 'requests'];
 const STATUSES: ObservedStatus[] = ['loading', 'playing', 'paused', 'buffering', 'ended', 'error', 'needs_activation'];
 
 const SHAPES: { [T in CommandType]: Shape } = {
   'night.open': {},
   'night.close': {},
-  'master.add': { url: str(300) },
+  'master.add': { url: str(MAX_URL) },
   'master.remove': { entryId: id },
   'master.move': { entryId: id, afterEntryId: idOrNull },
   'request.remove': { entryId: id },
@@ -27,10 +30,14 @@ const SHAPES: { [T in CommandType]: Shape } = {
   'playback.seek': { entryId: id, positionSec: finite(0, 24 * 3600) },
   'playback.skip': { entryId: id },
   'playback.volume': { volume: finite(0, 1) },
+  'queue.mode': { mode: (v) => MODES.includes(v as string) },
+  // Wide sanity range here; the service enforces the configured policy bounds.
+  'queue.interval': { periodMs: (v) => v === null || (Number.isSafeInteger(v) && (v as number) >= 1000 && (v as number) <= 24 * 3600_000) },
+  'request.playNow': { entryId: id },
   'device.pairing.create': { name: str(60) },
   'device.revoke': { deviceId: id },
-  'request.submit': { url: str(300), expectRecordingKey: optional(str(200)) },
-  'request.preview': { url: str(300) },
+  'request.submit': { url: str(MAX_URL), expectRecordingKey: optional(str(200)) },
+  'request.preview': { url: str(MAX_URL) },
   'device.pair': { code: str(20) },
   'display.connect': { secret: (v) => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v) },
   'player.claim': { takeover: optional((v) => typeof v === 'boolean') },
@@ -64,6 +71,9 @@ export const COMMAND_ROLES: { [T in CommandType]: Role } = {
   'playback.seek': 'admin',
   'playback.skip': 'admin',
   'playback.volume': 'admin',
+  'queue.mode': 'admin',
+  'queue.interval': 'admin',
+  'request.playNow': 'admin',
   'device.pairing.create': 'admin',
   'device.revoke': 'admin',
   'request.submit': 'attendee',

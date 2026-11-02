@@ -195,10 +195,14 @@ export class PlayerController {
       return;
     }
     if (snapshot.desired && this.desired && snapshot.desired.epoch < this.desired.epoch) return;
+    const hadDesired = this.desired !== null;
     this.desired = snapshot.desired ?? null;
     if (!this.desired) {
       this.audio.pause(); publishAnalyser(null);
       this.update({ status: this.state.activated ? 'paused' : 'needs_activation' });
+      // Nothing to play (e.g. requests-only waiting): report the actual paused position now, so the
+      // suspended master's checkpoint is exact rather than up to one heartbeat old.
+      if (hadDesired) void this.report(); // transition only: report() refreshes, which re-enters this method
     }
     void this.reconcile();
   }
