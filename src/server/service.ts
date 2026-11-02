@@ -68,7 +68,7 @@ interface PlaybackRow {
   master_cursor: string | null; master_position: number; suspended: string | null; epoch: number; load_id: number;
   start_position: number; seek_seq: number; seek_epoch: number; volume: number; desired_at: number; generation: number;
   lease_device: string | null; lease_expires: number; observed: string | null; acked_epoch: number | null;
-  unconfirmed_noted: number; no_master: number;
+  unconfirmed_noted: number; no_master: number; autostart: number;
 }
 interface Suspended { itemId: string; positionSec: number; loadId: number }
 interface NightRow { id: string; status: 'open' | 'closed'; opened_at: number; closed_at: number | null }
@@ -82,7 +82,7 @@ interface Tx {
   touched: boolean;
 }
 
-const UNSTORED: CommandType[] = ['player.report', 'device.pair', 'request.preview'];
+const UNSTORED: CommandType[] = ['player.report', 'device.pair', 'display.connect', 'request.preview'];
 const NOT_REPLAYED: ErrorCode[] = ['REVISION_CONFLICT', 'UNAUTHENTICATED', 'FORBIDDEN', 'INTERNAL', 'IDEMPOTENCY_MISMATCH'];
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const PAIR_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -346,6 +346,7 @@ export class JukeboxService {
       case 'device.pairing.create': return this.pairingCreate(tx, p.name as string);
       case 'device.revoke': return this.deviceRevoke(tx, p.deviceId as string);
       case 'device.pair': return this.devicePair(tx, p.code as string);
+      case 'display.connect': return this.displayConnect(tx, p.secret as string);
       case 'player.claim': return this.claim(tx, (actor as { deviceId: string }).deviceId, p.takeover === true);
       case 'player.release': return this.release(tx, (actor as { deviceId: string }).deviceId, p.generation as number);
       case 'player.report': return this.report(tx, (actor as { deviceId: string }).deviceId, envelope.payload as PlayerReport);
@@ -506,6 +507,11 @@ export class JukeboxService {
   private schedule(tx: Tx) {
     const pb = tx.pb;
     if (pb.phase === 'master' && pb.current_id === null) {
+      if (pb.autostart && this.openNight() && this.nextMaster(pb.master_cursor, true)) {
+        pb.intent = 'playing';
+        pb.autostart = 0;
+        pb.period_started_at = tx.now;
+      }
       // Clear the exhausted-master alert once items become playable; stay paused until an organizer plays.
       if (pb.no_master && this.nextMaster(pb.master_cursor, true)) {
         pb.no_master = 0;
@@ -560,8 +566,12 @@ export class JukeboxService {
     if (this.openNight()) throw new CommandError('NIGHT_ALREADY_OPEN', 'A night session is already open');
     const id = randomUUID();
     this.db.prepare("insert into nights values(?, 'open', ?, null)").run(id, tx.now);
-    // A fresh period starts now if master is already playing, else on the first play.
-    tx.pb.period_started_at = tx.pb.intent === 'playing' && tx.pb.phase === 'master' ? tx.now : null;
+    // Starting a session starts its music, including when preparation finishes later.
+    tx.pb.intent = 'playing';
+    if (tx.pb.current_id === null) this.selectMaster(tx, true);
+    tx.pb.autostart = tx.pb.current_id === null ? 1 : 0;
+    tx.pb.period_started_at = tx.pb.current_id === null ? null : tx.now;
+    this.bumpEpoch(tx);
     this.emit(tx, 'night.opened', { nightId: id });
     return { nightId: id };
   }
@@ -570,6 +580,7 @@ export class JukeboxService {
     const night = this.openNight();
     if (!night) throw new CommandError('NIGHT_CLOSED', 'No night session is open');
     tx.pb.intent = 'paused';
+    tx.pb.autostart = 0;
     this.bumpEpoch(tx);
     if (tx.pb.phase === 'request') this.onRequestEnded(tx, 'archived');
     this.db.prepare("update requests set status = 'archived', finished_at = ? where night_id = ? and status in ('preparing','ready')")
@@ -632,6 +643,7 @@ export class JukeboxService {
   }
 
   private play(tx: Tx) {
+    tx.pb.autostart = 0;
     if (tx.pb.intent === 'playing') return {};
     tx.pb.intent = 'playing';
     if (tx.pb.current_id === null) this.selectMaster(tx, true);
@@ -643,6 +655,7 @@ export class JukeboxService {
   }
 
   private pause(tx: Tx) {
+    tx.pb.autostart = 0;
     if (tx.pb.intent === 'paused') return {};
     tx.pb.intent = 'paused';
     this.bumpEpoch(tx);
@@ -699,7 +712,7 @@ export class JukeboxService {
     this.db.prepare('update pairing_codes set used = 1 where code_hash = ?').run(row.code_hash);
     const deviceId = randomUUID();
     const secret = randomBytes(32).toString('base64url');
-    this.db.prepare('insert into devices values(?, ?, ?, ?, 0)').run(deviceId, row.name, hash(secret), tx.now);
+    this.db.prepare('insert into devices(id, name, token_hash, paired_at) values(?, ?, ?, ?)').run(deviceId, row.name, hash(secret), tx.now);
     this.emit(tx, 'device.paired', { deviceId, name: row.name });
     return { deviceId, token: `${deviceId}.${secret}` };
   }
@@ -722,6 +735,26 @@ export class JukeboxService {
 
   private leaseLive(pb: PlaybackRow, now: number) {
     return pb.lease_device !== null && pb.lease_expires > now;
+  }
+
+  private displayConnect(tx: Tx, secret: string) {
+    if (!this.openNight()) throw new CommandError('NIGHT_CLOSED', 'An admin needs to start a session');
+    const existing = this.db.prepare('select id, revoked from devices where automatic = 1 and token_hash = ?')
+      .get(hash(secret)) as { id: string; revoked: number } | undefined;
+    if (existing?.revoked) throw new CommandError('DEVICE_REVOKED', 'This display was disconnected by an admin');
+    if (this.leaseLive(tx.pb, tx.now)) {
+      if (existing?.id !== tx.pb.lease_device) throw new CommandError('LEASE_HELD', 'Sound is playing on another display', true);
+      // A lost connection response can be retried by this page only, without fencing itself.
+      tx.pb.lease_expires = tx.now + this.policy.leaseMs;
+      return { deviceId: existing.id, token: `${existing.id}.${secret}`, generation: tx.pb.generation, expiresAt: tx.pb.lease_expires };
+    }
+    const deviceId = existing?.id ?? randomUUID();
+    // Automatic registrations are transient: retain only the current one, not a row per refresh.
+    this.db.prepare('delete from devices where automatic = 1 and id != ?').run(deviceId);
+    if (!existing) this.db.prepare('insert into devices(id, name, token_hash, paired_at, automatic) values(?, ?, ?, ?, 1)')
+      .run(deviceId, 'Display browser', hash(secret), tx.now);
+    const lease = this.claim(tx, deviceId, false);
+    return { deviceId, token: `${deviceId}.${secret}`, ...lease };
   }
 
   private dropLease(tx: Tx) {

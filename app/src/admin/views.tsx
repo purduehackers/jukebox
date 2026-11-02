@@ -1,10 +1,11 @@
 // Presentational admin components. Props in, callbacks out: no fetching here, so every state
 // (offline display, unconfirmed command, conflicts) can be rendered from a fixture snapshot.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { DeviceView, MasterEntryView, RequestEntryView, Snapshot } from '../../../src/contract/types.ts';
-import { CONFIRMATION_LABEL, PLAYER_LABEL, describeTurn, estimatePosition, explainError, formatClock, moveAnchor, playerState, playingRequest, waitingRequests } from './derive.ts';
-import type { Direction } from './derive.ts';
+import type { MasterEntryView, RequestEntryView, Snapshot } from '../../../src/contract/types.ts';
+import { POLICY } from '../../../src/contract/types.ts';
+import { PLAYER_LABEL, describeTurn, estimatePosition, explainError, formatClock, moveAnchor, optimisticIntent, playerState, playingRequest, waitingRequests } from './derive.ts';
+import type { Direction, PlayerState } from './derive.ts';
 import type { Intent } from './intents.ts';
 import type { Access, Link } from './state.ts';
 
@@ -17,25 +18,27 @@ export interface Actions {
   replay(entryId: string): Done;
   seek(entryId: string, positionSec: number): Done;
   setVolume(volume: number): void;
+  beginVolume(): void;
+  commitVolume(): void;
   openNight(): Done;
   closeNight(expectedRevision: number): Done;
   addMaster(url: string): Done;
+  addRequest(url: string): Done;
   removeMaster(entryId: string, title: string): Done;
   moveMaster(entryId: string, afterEntryId: string | null, title: string): Done;
   removeRequest(entryId: string, title: string): Done;
   moveRequest(entryId: string, afterEntryId: string | null, title: string): Done;
-  createPairing(name: string): Done;
-  revokeDevice(deviceId: string, name: string): Done;
   retry(intentId: string): void;
-  dismiss(intentId: string): void;
 }
 
 const time = (sec: number | null) => (sec === null ? '–:––' : formatClock(sec * 1000));
 const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
-function Panel({ title, id, children, aside }: { title: string; id: string; children: ReactNode; aside?: ReactNode }) {
+type Tone = 'ok' | 'warn' | 'bad' | 'info' | 'dim';
+
+function Panel({ title, id, children, aside, className = '' }: { title: string; id: string; children: ReactNode; aside?: ReactNode; className?: string }) {
   return (
-    <section className="jb-panel adm-panel" aria-labelledby={id}>
+    <section className={`jb-panel adm-panel ${className}`} aria-labelledby={id}>
       <header className="adm-panel-head">
         <h2 id={id}>{title}</h2>
         {aside}
@@ -45,14 +48,14 @@ function Panel({ title, id, children, aside }: { title: string; id: string; chil
   );
 }
 
-const Badge = ({ tone, children }: { tone: 'ok' | 'warn' | 'bad' | 'info' | 'dim'; children: ReactNode }) => <span className={`adm-badge adm-${tone}`}>{children}</span>;
+const Tag = ({ tone, children }: { tone: Tone; children: ReactNode }) => <span className={`adm-tag adm-${tone}`}>{children}</span>;
 
 /** Two-step button: the first press arms it, the second performs the action. */
-export function ConfirmButton({ label, confirmLabel, warning, onConfirm, context, danger = true, disabled = false }: {
-  label: string; confirmLabel: string; warning?: string; onConfirm: (armedContext: number | undefined) => void; context?: number; danger?: boolean; disabled?: boolean;
+export function ConfirmButton({ label, confirmLabel, warning, onConfirm, context, danger = true, disabled = false, className = '' }: {
+  label: string; confirmLabel: string; warning?: string; onConfirm: (armedContext: number | undefined) => void; context?: number; danger?: boolean; disabled?: boolean; className?: string;
 }) {
   const [armed, setArmed] = useState<{ context: number | undefined } | null>(null);
-  if (!armed) return <button type="button" className="adm-btn" disabled={disabled} onClick={() => setArmed({ context })}>{label}</button>;
+  if (!armed) return <button type="button" className={`adm-btn ${className}`} disabled={disabled} onClick={() => setArmed({ context })}>{label}</button>;
   return (
     <span className="adm-confirm" role="group" aria-label={`Confirm: ${label}`}>
       {warning ? <span className="adm-warning">{warning}</span> : null}
@@ -65,13 +68,13 @@ export function ConfirmButton({ label, confirmLabel, warning, onConfirm, context
 // ------------------------------------------------------------------ access
 
 export function AccessGate({ access, onRetry }: { access: Exclude<Access, { state: 'admin' }>; onRetry: () => void }) {
-  if (access.state === 'loading') return <main className="jb-panel adm-gate" aria-busy="true"><p>Checking your session…</p></main>;
+  if (access.state === 'loading') return <main className="jb-panel adm-gate" aria-busy="true"><p>Checking your sign-in…</p></main>;
   if (access.state === 'signed_out') {
     return (
       <main className="jb-panel adm-gate">
         <h1>{access.expired ? 'Session expired' : 'Organizer sign-in'}</h1>
         <p>{access.expired
-          ? 'Your sign-in expired. Nothing you tried since then was applied. Sign in again to keep controlling the jukebox.'
+          ? 'Your sign-in expired. Nothing you tried since then was applied. Sign in again to keep going.'
           : 'Sign in with Purdue Hackers ID. Only organizers can control the jukebox.'}</p>
         <a className="adm-btn adm-primary" href="/auth/login?returnTo=/admin">Sign in</a>
       </main>
@@ -80,7 +83,7 @@ export function AccessGate({ access, onRetry }: { access: Exclude<Access, { stat
   return (
     <main className="jb-panel adm-gate">
       <h1>Organizer access required</h1>
-      <p>You are signed in as <strong>{access.name}</strong>, which does not have the organizer role. Ask a Purdue Hackers admin for access, or sign in with a different account.</p>
+      <p>You are signed in as <strong>{access.name}</strong>, which isn’t an organizer account. Ask a Purdue Hackers admin for access, or use a different account.</p>
       <button type="button" className="adm-btn" onClick={onRetry}>Check again</button>
       <a className="adm-btn" href="/auth/login?returnTo=/admin">Use a different account</a>
     </main>
@@ -89,16 +92,19 @@ export function AccessGate({ access, onRetry }: { access: Exclude<Access, { stat
 
 // --------------------------------------------------------- header + alerts
 
-export function Header({ name, link, linkError, onSignOut }: { name: string; link: Link; linkError: string | null; onSignOut: () => void }) {
+export function Header({ name, link, linkError, onSignOut, children }: { name: string; link: Link; linkError: string | null; onSignOut: () => void; children?: ReactNode }) {
+  const tone = link === 'live' ? 'ok' : link === 'connecting' ? 'info' : 'bad';
   return (
     <header className="adm-header">
-      <h1>Jukebox <span className="adm-dim">/ admin</span></h1>
+      <h1>Jukebox</h1>
+      {children}
       <div className="adm-header-meta">
-        <Badge tone={link === 'live' ? 'ok' : link === 'connecting' ? 'info' : 'bad'}>
-          {link === 'live' ? 'Live' : link === 'connecting' ? 'Connecting…' : `Reconnecting${linkError ? ` (${linkError})` : ''}`}
-        </Badge>
+        <span className={`adm-link adm-${tone}`} title={linkError ?? undefined}>
+          <span className="adm-dot" aria-hidden="true" />
+          {link === 'live' ? 'Live' : link === 'connecting' ? 'Connecting…' : 'Reconnecting…'}
+        </span>
         <span className="adm-dim">{name}</span>
-        <button type="button" className="adm-btn" onClick={onSignOut}>Sign out</button>
+        <button type="button" className="adm-btn adm-quiet" onClick={onSignOut}>Sign out</button>
       </div>
     </header>
   );
@@ -106,15 +112,16 @@ export function Header({ name, link, linkError, onSignOut }: { name: string; lin
 
 export function AlertsBand({ snapshot, link, external, onAckExternal }: { snapshot: Snapshot; link: Link; external: boolean; onAckExternal: () => void }) {
   const items: ReactNode[] = [];
-  if (link === 'reconnecting') items.push(<li key="link" className="adm-alert adm-bad">Connection to the jukebox service was lost. What you see may be out of date; commands will fail or retry until it returns.</li>);
+  if (link === 'reconnecting') items.push(<li key="link" className="adm-alert adm-bad">Connection to the jukebox service was lost. What you see may be out of date until it reconnects.</li>);
   for (const alert of snapshot.alerts) {
-    items.push(<li key={alert.code} className={`adm-alert ${alert.code === 'unconfirmed_command' || alert.code === 'player_offline' ? 'adm-bad' : 'adm-warn'}`} data-alert={alert.code}>{alert.message}</li>);
+    if (alert.code === 'unconfirmed_command') continue; // Delayed inline indicator owns acknowledgement feedback.
+    items.push(<li key={alert.code} className={`adm-alert ${alert.code === 'player_offline' ? 'adm-bad' : 'adm-warn'}`} data-alert={alert.code}>{alert.message}</li>);
   }
   if (external) {
     items.push(
       <li key="ext" className="adm-alert adm-info" data-alert="external_change">
-        A queue was changed by someone else (another organizer, or the schedule). The lists below are current.
-        <button type="button" className="adm-btn" onClick={onAckExternal}>Dismiss</button>
+        Someone else changed a queue. The lists are up to date.
+        <button type="button" className="adm-btn adm-quiet" onClick={onAckExternal}>OK</button>
       </li>,
     );
   }
@@ -129,106 +136,150 @@ export function NightPanel({ snapshot, actions }: { snapshot: Snapshot; actions:
   const waiting = waitingRequests(snapshot).length;
   const playing = playingRequest(snapshot);
   return (
-    <Panel title="Night session" id="adm-night" aside={<Badge tone={open ? 'ok' : 'dim'}>{open ? 'Open' : 'Closed'}</Badge>}>
-      <p className="adm-dim">
+    <div className="adm-night" id="adm-night" data-open={open}>
+      <span className="adm-night-state">
+        <span className={`adm-dot adm-${open ? 'ok' : 'dim'}`} aria-hidden="true" />
         {open
-          ? `Opened ${clockTime(snapshot.night!.openedAt)}. Requests are accepted; each person gets 3 per night.`
-          : snapshot.night
-            ? `Last night closed ${snapshot.night.closedAt ? clockTime(snapshot.night.closedAt) : ''}. Requests are closed; master music can still play.`
-            : 'No night has been opened yet. Requests stay closed until you open one.'}
-      </p>
+          ? `Night open since ${clockTime(snapshot.night!.openedAt)} · requests on (${POLICY.quotaPerNight} each)`
+          : 'Night not started'}
+      </span>
       {open ? (
         <ConfirmButton
-          label="Close night…"
-          confirmLabel="Close night now"
+          label="End night…"
+          confirmLabel="End night"
           context={snapshot.revision}
-          warning={`Closing pauses playback, closes submissions, and archives ${waiting} waiting request${waiting === 1 ? '' : 's'}${playing ? ` and stops the request playing now (“${playing.title}”)` : ''}. Quota is not refunded.`}
+          warning={`Stops the music, closes requests, and clears ${waiting} waiting request${waiting === 1 ? '' : 's'}${playing ? ` and “${playing.title}”` : ''}. Nobody gets requests back.`}
           onConfirm={(revision) => void actions.closeNight(revision ?? snapshot.revision)}
         />
       ) : (
-        <ConfirmButton label="Open night…" confirmLabel="Open night" danger={false} warning="Starts a new quota period: everyone gets 3 requests again." onConfirm={() => void actions.openNight()} />
+        <button type="button" className="adm-btn adm-primary" onClick={() => void actions.openNight()}>Start night</button>
       )}
-    </Panel>
+    </div>
   );
 }
 
 // ------------------------------------------------------------- now playing
 
-export function NowPlayingPanel({ snapshot, serverNow, actions, pendingVolume }: { snapshot: Snapshot; serverNow: number; actions: Actions; pendingVolume: number | null }) {
+const STATE_TONE: Record<PlayerState, Tone> = { playing: 'ok', paused: 'dim', buffering: 'warn', loading: 'warn', needs_activation: 'warn', offline: 'bad', error: 'bad', no_display: 'bad', ended: 'dim' };
+
+/** One line answering "is the room hearing what I asked for?", with the fix when it isn't. */
+function displayStatus(snapshot: Snapshot, state: PlayerState): { tone: Tone; hint: string | null } {
+  if (state === 'no_display') return { tone: 'bad', hint: 'Open /display on the laptop. It connects automatically.' };
+  if (state === 'offline') return { tone: 'bad', hint: 'The display stopped reporting. Times shown are its last report.' };
+  if (state === 'needs_activation') return { tone: 'warn', hint: 'Click “Enable sound” on the display.' };
+  if (state === 'error') return { tone: 'bad', hint: snapshot.playback.observed?.error ?? null };
+  return { tone: STATE_TONE[state], hint: null };
+}
+
+/** No feedback for normal round trips; the reserved icon appears only after a sustained delay. */
+function DisplayWait({ waiting }: { waiting: boolean }) {
+  const [delayed, setDelayed] = useState(false);
+  useEffect(() => {
+    setDelayed(false);
+    if (!waiting) return;
+    const timer = setTimeout(() => setDelayed(true), 15_000);
+    return () => clearTimeout(timer);
+  }, [waiting]);
+  return (
+    <span className="adm-display-wait" role="status" hidden={!waiting || !delayed} title="Still waiting for the display. Check its connection.">
+      <span className="adm-spinner" aria-hidden="true" />
+      <span className="adm-sr">Still waiting for the display. Check its connection.</span>
+    </span>
+  );
+}
+
+export function NowPlayingPanel({ snapshot, serverNow, actions, pendingVolume, intents = [], children }: { intents?: readonly Intent[]; snapshot: Snapshot; serverNow: number; actions: Actions; pendingVolume: number | null; children?: ReactNode }) {
   const now = snapshot.nowPlaying;
   const state = playerState(snapshot);
   const { confirmation } = snapshot.playback;
   const position = estimatePosition(snapshot, serverNow);
-  const playing = snapshot.schedule.intent === 'playing';
+  const transportIntent = optimisticIntent(snapshot, intents, ['playback.play', 'playback.pause']);
+  const seekIntent = optimisticIntent(snapshot, intents, ['playback.seek']);
+  const volumeIntent = optimisticIntent(snapshot, intents, ['playback.volume']);
+  const playing = transportIntent ? transportIntent.type === 'playback.play' : snapshot.schedule.intent === 'playing';
+  const seek = seekIntent?.payload as { entryId: string; positionSec: number } | undefined;
+  const localPosition = seek?.entryId === now?.entryId ? seek?.positionSec : undefined;
   const [dragging, setDragging] = useState<number | null>(null);
-  const shownPosition = dragging ?? position.positionSec ?? 0;
-  const volume = pendingVolume ?? snapshot.playback.volume;
-  const tone: Record<string, 'ok' | 'warn' | 'bad' | 'dim'> = { playing: 'ok', paused: 'dim', buffering: 'warn', loading: 'warn', needs_activation: 'warn', offline: 'bad', error: 'bad', no_display: 'bad', ended: 'dim' };
-  const confTone = { none: 'dim', requested: 'warn', confirmed: 'ok', unconfirmed: 'bad' } as const;
+  const shownPosition = dragging ?? localPosition ?? position.positionSec ?? 0;
+  const volume = pendingVolume ?? (volumeIntent?.payload as { volume: number } | undefined)?.volume ?? snapshot.playback.volume;
   // A confirmation from a display that has since gone silent describes the past, not the present.
   const lapsed = confirmation === 'confirmed' && (state === 'offline' || state === 'no_display');
-  const confText = lapsed ? 'Last change was confirmed; display now silent' : CONFIRMATION_LABEL[confirmation].label;
+  const status = displayStatus(snapshot, state);
+  const request = now?.kind === 'request' ? snapshot.requests.find((r) => r.id === now.entryId) : undefined;
+  const caveat = position.basis === 'stale' ? 'last known' : null;
+  const canSeek = !!now && position.positionSec !== null;
+  const commitSeek = () => { if (now && dragging !== null) { void actions.seek(now.entryId, dragging); setDragging(null); } };
+
   return (
-    <Panel title="Now playing" id="adm-now" aside={now ? <Badge tone={now.kind === 'master' ? 'info' : 'warn'}>{now.kind === 'master' ? 'Master' : 'Request'}</Badge> : null}>
-      {now ? (
-        <>
-          <p className="adm-title" data-testid="now-title">{now.title}</p>
-          <p className="adm-dim">{now.artist ?? 'Unknown artist'}</p>
-          {snapshot.suspendedMaster ? <p className="adm-dim">Master “{snapshot.suspendedMaster.title}” is suspended at {time(snapshot.suspendedMaster.positionSec)} and resumes after this request.</p> : null}
-        </>
-      ) : <p className="adm-dim">Nothing is loaded. Add a master item and press Play.</p>}
-
-      <div className="adm-status-row">
-        <Badge tone={tone[state] ?? 'dim'}><span data-testid="player-state">{PLAYER_LABEL[state]}</span></Badge>
-        <Badge tone={lapsed ? 'warn' : confTone[confirmation]}><span data-testid="confirmation">{confText}</span></Badge>
-        <Badge tone={playing ? 'ok' : 'dim'}>{playing ? 'Intent: playing' : 'Intent: paused'}</Badge>
-      </div>
-      {lapsed ? null : confirmation === 'confirmed' ? <p className="adm-dim adm-small">{CONFIRMATION_LABEL[confirmation].detail}</p> : confirmation !== 'none' ? <p className="adm-note">{CONFIRMATION_LABEL[confirmation].detail}</p> : null}
-      {state === 'needs_activation' ? <p className="adm-note">Firefox blocked autoplay. Someone at the display must press Activate; nothing can fix this remotely.</p> : null}
-      {state === 'error' && snapshot.playback.observed?.error ? <p className="adm-note adm-bad-text">Display error: {snapshot.playback.observed.error}</p> : null}
-      {state === 'offline' || state === 'no_display' ? <p className="adm-note">{state === 'offline' ? 'The display stopped reporting. Position below is the last report, not live.' : 'No paired display holds playback. Pair one below and open /display on it.'}</p> : null}
-
-      {now ? (
-        <div className="adm-position">
-          <label htmlFor="adm-seek">
-            Position <span data-testid="position">{time(position.positionSec === null && dragging === null ? null : shownPosition)}</span> / {time(position.durationSec)}
-            <span className="adm-dim"> · {position.remainingSec === null ? 'remaining unknown' : `${time(position.remainingSec)} left`}
-              {position.basis === 'stale' ? ' (last report, display offline)' : position.basis === 'unconfirmed' ? ' (not confirmed by display)' : position.basis === 'unknown' ? ' (no report yet)' : ''}</span>
-          </label>
-          <input
-            id="adm-seek" type="range" min={0} max={Math.max(1, Math.floor(position.durationSec ?? 1))} step={1}
-            value={Math.floor(shownPosition)} disabled={position.durationSec === null}
-            onChange={(e) => setDragging(Number(e.target.value))}
-            onPointerUp={() => { if (dragging !== null) { void actions.seek(now.entryId, dragging); setDragging(null); } }}
-            onKeyUp={() => { if (dragging !== null) { void actions.seek(now.entryId, dragging); setDragging(null); } }}
-          />
+    <section className="adm-section" aria-labelledby="adm-now">
+      <h2 id="adm-now" className="adm-section-title">Now playing</h2>
+      <div className="jb-panel adm-player">
+      <div className="adm-track">
+        <div className="adm-art" aria-hidden="true">
+          {now?.artworkUrl ? <img src={now.artworkUrl} alt="" /> : <span>♪</span>}
         </div>
-      ) : null}
+        <div className="adm-track-text">
+          {now ? (
+            <>
+              <span className={`adm-kind adm-${now.kind === 'master' ? 'info' : 'warn'}`}>{now.kind === 'master' ? 'Master queue' : 'Request'}</span>
+              <p className="adm-now-title" data-testid="now-title">{now.title}</p>
+              <p className="adm-dim">{now.artist ?? 'Unknown artist'}{request?.requester ? ` · requested by ${request.requester}` : ''}</p>
+              {snapshot.suspendedMaster ? <p className="adm-dim adm-small">“{snapshot.suspendedMaster.title}” resumes at {time(snapshot.suspendedMaster.positionSec)} after this.</p> : null}
+            </>
+          ) : <p className="adm-now-title adm-dim">Nothing playing. Add songs to the master queue.</p>}
+        </div>
+      </div>
 
-      <div className="adm-controls">
+      <div className="adm-progress">
+        <input
+          id="adm-seek" type="range" aria-label="Seek" min={0} max={Math.max(1, Math.floor(position.durationSec ?? 1))} step={1}
+          value={Math.floor(shownPosition)} disabled={!now || position.durationSec === null}
+          onChange={(e) => setDragging(Number(e.target.value))}
+          onPointerUp={commitSeek}
+          onKeyUp={commitSeek}
+          onBlur={commitSeek}
+        />
+        <div className="adm-times">
+          <span data-testid="position">{time(position.positionSec === null && dragging === null ? null : shownPosition)}</span>
+          {caveat ? <span className="adm-warning adm-small">{caveat}</span> : null}
+          <span>{time(position.durationSec)}</span>
+        </div>
+      </div>
+
+      <div className="adm-transport">
+        <button type="button" className="adm-btn adm-icon" aria-label="Restart song" title="Restart song" disabled={!now} onClick={() => now && void actions.replay(now.entryId)}>⏮</button>
+        <button type="button" className="adm-btn adm-icon" aria-label="Back 15 seconds" title="Back 15 s" disabled={!canSeek} onClick={() => now && void actions.seek(now.entryId, Math.max(0, shownPosition - 15))}>−15</button>
         {playing
-          ? <button type="button" className="adm-btn adm-primary" onClick={() => void actions.pause()}>Pause</button>
-          : <button type="button" className="adm-btn adm-primary" onClick={() => void actions.play()}>Play</button>}
-        <button type="button" className="adm-btn" disabled={!now} onClick={() => now && void actions.replay(now.entryId)}>Replay</button>
-        <button type="button" className="adm-btn" disabled={!now || position.positionSec === null} onClick={() => now && void actions.seek(now.entryId, Math.max(0, (position.positionSec ?? 0) - 15))}>−15 s</button>
-        <button type="button" className="adm-btn" disabled={!now || position.positionSec === null} onClick={() => now && void actions.seek(now.entryId, (position.positionSec ?? 0) + 15)}>+15 s</button>
+          ? <button type="button" className="adm-btn adm-primary adm-play" onClick={() => void actions.pause()}>Pause</button>
+          : <button type="button" className="adm-btn adm-primary adm-play" disabled={snapshot.night?.status !== 'open'} onClick={() => void actions.play()}>Play</button>}
+        <button type="button" className="adm-btn adm-icon" aria-label="Forward 15 seconds" title="Forward 15 s" disabled={!canSeek} onClick={() => now && void actions.seek(now.entryId, shownPosition + 15)}>+15</button>
         {now ? (
           <ConfirmButton
-            label="Skip…" confirmLabel="Skip now"
-            warning={now.kind === 'request' ? 'Skipping a request ends its turn without refunding the requester; master music resumes.' : 'Skips to the next master item. The 15-minute timer is not reset.'}
+            label="Skip…" confirmLabel="Skip"
+            warning={now.kind === 'request' ? 'Ends this request without giving it back; master music resumes.' : 'Jumps to the next master song. The request timer keeps going.'}
             onConfirm={() => void actions.skip(now.entryId)}
           />
-        ) : null}
+        ) : <button type="button" className="adm-btn" disabled>Skip…</button>}
+
+        <label className="adm-volume" htmlFor="adm-volume">
+          <span aria-hidden="true">Vol</span>
+          <input id="adm-volume" type="range" aria-label="Volume" min={0} max={100} step={1} value={Math.round(volume * 100)} onChange={(e) => actions.setVolume(Number(e.target.value) / 100)} onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); actions.beginVolume(); }} onPointerUp={() => actions.commitVolume()} onPointerCancel={() => actions.commitVolume()} onBlur={() => actions.commitVolume()} />
+          <span data-testid="volume">{Math.round(volume * 100)}%</span>
+
+        </label>
       </div>
 
-      <div className="adm-volume">
-        <label htmlFor="adm-volume">Volume <span data-testid="volume">{Math.round(volume * 100)}%</span>
-          <span className="adm-dim"> · {pendingVolume !== null ? 'sending…' : confirmation === 'confirmed' ? (lapsed ? 'last confirmed before the display went silent' : 'confirmed by display') : confirmation === 'none' ? 'saved' : confirmation === 'requested' ? 'requested, awaiting display' : 'unconfirmed by display'}</span>
-        </label>
-        <input id="adm-volume" type="range" min={0} max={100} step={1} value={Math.round(volume * 100)} onChange={(e) => actions.setVolume(Number(e.target.value) / 100)} />
-        <p className="adm-dim adm-small">This is the player volume in the browser, not the laptop’s HDMI/system volume.</p>
+      <div className={`adm-status adm-${status.tone}`}>
+        <span className="adm-dot" aria-hidden="true" />
+        <span data-testid="player-state">{PLAYER_LABEL[state]}</span>
+        <span data-testid="confirmation" data-confirmation={lapsed ? 'lapsed' : confirmation} hidden />
+        <DisplayWait key={snapshot.playback.desiredEpoch} waiting={confirmation === 'requested' || confirmation === 'unconfirmed'} />
+        {status.hint ? <span className="adm-status-hint">{status.hint}</span> : null}
       </div>
-    </Panel>
+
+      {children}
+      </div>
+    </section>
   );
 }
 
@@ -236,15 +287,11 @@ export function NowPlayingPanel({ snapshot, serverNow, actions, pendingVolume }:
 
 export function TurnPanel({ snapshot, serverNow }: { snapshot: Snapshot; serverNow: number }) {
   const turn = describeTurn(snapshot, serverNow);
-  const tone = { night_closed: 'dim', in_request: 'warn', not_started: 'dim', counting: 'info', due: 'warn', elapsed_empty: 'dim' } as const;
   return (
-    <Panel title="Next request turn" id="adm-turn" aside={<Badge tone={tone[turn.kind]}>{turn.kind.replace('_', ' ')}</Badge>}>
-      <p className="adm-title" data-testid="turn-headline">{turn.headline}</p>
-      <p data-testid="turn-detail">{turn.detail}</p>
-      <p className="adm-dim adm-small">
-        {turn.readyRequests} ready · {turn.preparingRequests} preparing. Elapsed time counts through pause, buffering and offline; seeking never moves it.
-      </p>
-    </Panel>
+    <div className="adm-turn" id="adm-turn" data-kind={turn.kind}>
+      <strong data-testid="turn-headline">{turn.headline}</strong>
+      <span className="adm-dim" data-testid="turn-detail">{turn.detail}</span>
+    </div>
   );
 }
 
@@ -257,68 +304,77 @@ function MoveButtons({ ids, index, onMove }: { ids: readonly string[]; index: nu
   };
   return (
     <>
-      <button type="button" className="adm-btn adm-icon" aria-label="Move up" disabled={index === 0} onClick={move('up')}>↑</button>
-      <button type="button" className="adm-btn adm-icon" aria-label="Move down" disabled={index === ids.length - 1} onClick={move('down')}>↓</button>
+      <button type="button" className="adm-btn adm-icon adm-quiet" aria-label="Move up" disabled={index === 0} onClick={move('up')}>↑</button>
+      <button type="button" className="adm-btn adm-icon adm-quiet" aria-label="Move down" disabled={index === ids.length - 1} onClick={move('down')}>↓</button>
     </>
   );
 }
+
+const REQUEST_TAG: Partial<Record<RequestEntryView['status'], [Tone, string]>> = { preparing: ['warn', 'loading'], playing: ['ok', 'playing'], failed: ['bad', 'failed'] };
 
 export function RequestQueuePanel({ snapshot, actions }: { snapshot: Snapshot; actions: Actions }) {
   const playing = playingRequest(snapshot);
   const waiting = waitingRequests(snapshot);
   const ids = waiting.map((r) => r.id);
-  const row = (r: RequestEntryView, index: number) => (
-    <li key={r.id} className="adm-row" data-entry={r.id}>
-      <div className="adm-row-main">
-        <span className="adm-title">{r.title}</span>
-        <span className="adm-dim">{r.artist ?? 'Unknown artist'} · {time(r.durationSec)} · from {r.requester ?? 'unknown'}</span>
-        {r.error ? <span className="adm-bad-text">{r.error}</span> : null}
-      </div>
-      <Badge tone={r.status === 'ready' ? 'ok' : r.status === 'playing' ? 'warn' : 'dim'}>{r.status}</Badge>
-      <div className="adm-row-actions">
-        {r.status !== 'playing' ? <MoveButtons ids={ids} index={index} onMove={(after) => void actions.moveRequest(r.id, after, r.title)} /> : null}
-        <ConfirmButton
-          label="Remove…" confirmLabel={r.status === 'playing' ? 'Remove and end turn' : 'Remove, no refund'}
-          warning={r.status === 'playing'
-            ? 'This request is playing now. Removing it ends its turn without a refund; master music resumes at its saved position and a fresh 15-minute period starts.'
-            : 'The requester’s allowance is not refunded.'}
-          onConfirm={() => void actions.removeRequest(r.id, r.title)}
-        />
-      </div>
-    </li>
-  );
+  const row = (r: RequestEntryView, index: number) => {
+    const tag = REQUEST_TAG[r.status];
+    return (
+      <li key={r.id} className={`adm-row${r.status === 'playing' ? ' adm-current' : ''}`} data-entry={r.id} data-status={r.status}>
+        <span className="adm-num">{index < 0 ? '▶' : index + 1}</span>
+        <div className="adm-row-main">
+          <span className="adm-row-title">{r.title}</span>
+          <span className="adm-dim adm-small">{r.artist ?? 'Unknown artist'} · {time(r.durationSec)} · from {r.requester ?? 'unknown'}</span>
+          {r.error ? <span className="adm-bad-text adm-small">{r.error}</span> : null}
+        </div>
+        {tag ? <Tag tone={tag[0]}>{tag[1]}</Tag> : null}
+        <div className="adm-row-actions">
+          {r.status !== 'playing' ? <MoveButtons ids={ids} index={index} onMove={(after) => void actions.moveRequest(r.id, after, r.title)} /> : null}
+          <ConfirmButton
+            className="adm-quiet"
+            label="Remove…" confirmLabel="Remove"
+            warning={r.status === 'playing' ? 'Stops this request now; master music resumes. They don’t get the request back.' : 'They don’t get the request back.'}
+            onConfirm={() => void actions.removeRequest(r.id, r.title)}
+          />
+        </div>
+      </li>
+    );
+  };
   return (
-    <Panel title="Request queue" id="adm-requests" aside={<Badge tone="dim">{waiting.length} waiting</Badge>}>
-      {playing ? <ul className="adm-list" aria-label="Playing request">{row(playing, -1)}</ul> : null}
-      {waiting.length ? <ul className="adm-list" aria-label="Waiting requests">{waiting.map(row)}</ul> : <p className="adm-dim">{snapshot.night?.status === 'open' ? 'No requests waiting.' : 'Requests are closed (no open night).'}</p>}
+    <Panel title="Requests queue" id="adm-requests" aside={<span className="adm-dim adm-small">{waiting.length} waiting</span>}>
+      {playing || waiting.length ? (
+        <ul className="adm-list" aria-label="Request items">
+          {playing ? row(playing, -1) : null}
+          {waiting.map(row)}
+        </ul>
+      ) : <p className="adm-empty">{snapshot.night?.status === 'open' ? 'No requests yet.' : 'Requests open when the night starts.'}</p>}
     </Panel>
   );
 }
 
-export function MasterQueuePanel({ snapshot, actions, lastAdd }: { snapshot: Snapshot; actions: Actions; lastAdd: Intent | null }) {
+const MASTER_TAG: Partial<Record<MasterEntryView['status'], [Tone, string]>> = { preparing: ['warn', 'loading'], failed: ['bad', 'failed'], unusable: ['bad', 'can’t play'] };
+
+export function MasterQueuePanel({ snapshot, actions }: { snapshot: Snapshot; actions: Actions }) {
   const master = snapshot.master ?? [];
   const ids = master.map((m) => m.id);
   const currentId = snapshot.schedule.phase === 'master' ? snapshot.nowPlaying?.entryId : snapshot.suspendedMaster?.entryId;
-  const [url, setUrl] = useState('');
   const row = (m: MasterEntryView, index: number) => {
     const isCurrent = m.id === currentId;
     const suspended = snapshot.suspendedMaster?.entryId === m.id;
+    const tag = MASTER_TAG[m.status] ?? (m.status === 'ready' ? null : (['dim', m.status] as [Tone, string]));
     return (
-      <li key={m.id} className="adm-row" data-entry={m.id}>
+      <li key={m.id} className={`adm-row${isCurrent ? ' adm-current' : ''}`} data-entry={m.id} data-status={m.status}>
+        <span className="adm-num">{isCurrent ? (suspended ? '❚❚' : '▶') : index + 1}</span>
         <div className="adm-row-main">
-          <span className="adm-title">{m.title}</span>
-          <span className="adm-dim">{m.artist ?? 'Unknown artist'} · {time(m.durationSec)}{m.isMix ? ' · mix (interruptible)' : ''}</span>
+          <span className="adm-row-title">{m.title}</span>
+          <span className="adm-dim adm-small">{m.artist ?? 'Unknown artist'} · {time(m.durationSec)}{m.isMix ? ' · mix' : ''}</span>
         </div>
-        <div className="adm-tags">
-          {isCurrent ? <Badge tone="info">{suspended ? 'suspended' : 'current'}</Badge> : null}
-          <Badge tone={m.status === 'ready' ? 'ok' : m.status === 'preparing' ? 'warn' : 'bad'}>{m.status}</Badge>
-        </div>
+        {tag ? <Tag tone={tag[0]}>{tag[1]}</Tag> : null}
         <div className="adm-row-actions">
           <MoveButtons ids={ids} index={index} onMove={(after) => void actions.moveMaster(m.id, after, m.title)} />
           <ConfirmButton
+            className="adm-quiet"
             label="Remove…" confirmLabel="Remove"
-            warning={suspended ? 'This mix is suspended while a request plays; removing it means the next master item plays after the request.'
-              : isCurrent ? 'This is the current master item; removing it jumps to the next one.' : undefined}
+            warning={suspended ? 'This mix is waiting to resume; the next song plays instead.' : isCurrent ? 'This is playing now; it jumps to the next song.' : undefined}
             onConfirm={() => void actions.removeMaster(m.id, m.title)}
           />
         </div>
@@ -326,93 +382,69 @@ export function MasterQueuePanel({ snapshot, actions, lastAdd }: { snapshot: Sna
     );
   };
   return (
-    <Panel title="Master queue" id="adm-master" aside={<Badge tone="dim">{master.length} items</Badge>}>
-      <form className="adm-add" onSubmit={(e) => {
-        e.preventDefault();
-        const value = url.trim();
-        if (!value) return;
-        void actions.addMaster(value).then((intent) => { if (intent.status === 'ok') setUrl(''); });
-      }}>
-        <label htmlFor="adm-add-url">Add a YouTube track or mix link</label>
-        <div className="adm-add-row">
-          <input id="adm-add-url" type="url" inputMode="url" placeholder="https://youtu.be/…" value={url} onChange={(e) => setUrl(e.target.value)} />
-          <button type="submit" className="adm-btn adm-primary" disabled={!url.trim()}>Add</button>
-        </div>
-        {lastAdd?.status === 'failed' && lastAdd.error ? <p className="adm-note adm-bad-text" role="alert" data-testid="add-error">{explainError(lastAdd.error, 'master.add').message}</p> : null}
-        <p className="adm-dim adm-small">
-          Supported: single YouTube tracks and mixes (audio only; video is never fetched). Not yet supported: Spotify and Apple Music links (no audio matching exists)
-          and playlist/album import (needs a contract change; see docs/jukebox/proposals/phase-4a.md).
-        </p>
-      </form>
-      {master.length ? <ul className="adm-list" aria-label="Master items">{master.map(row)}</ul> : <p className="adm-dim">The master queue is empty. Add music, then press Play.</p>}
+    <Panel title="Master queue" id="adm-master" aside={<span className="adm-dim adm-small">{master.length} song{master.length === 1 ? '' : 's'}</span>}>
+      {master.length ? <ul className="adm-list" aria-label="Master items">{master.map(row)}</ul> : <p className="adm-empty">Empty. Paste a link above and press Add to master.</p>}
     </Panel>
   );
 }
 
-// ----------------------------------------------------------------- devices
+// ------------------------------------------------------------------- add
 
-export function DevicesPanel({ devices, pairing, actions }: {
-  devices: DeviceView[];
-  pairing: { name: string; code: string; expiresAt: number } | null;
-  actions: Actions;
-}) {
-  const [name, setName] = useState('Wall Firefox');
+/** One link box feeding either queue. Organizer requests go through request.submit, so they use the organizer's own nightly allowance. */
+export function AddBar({ actions, lastAdd, nightOpen }: { actions: Actions; lastAdd: Intent | null; nightOpen: boolean }) {
+  const [url, setUrl] = useState('');
+  const value = url.trim();
+  const add = (target: 'master' | 'request') => {
+    if (!value) return;
+    void (target === 'master' ? actions.addMaster(value) : actions.addRequest(value)).then((intent) => { if (intent.status === 'ok') setUrl(''); });
+  };
   return (
-    <Panel title="Display devices" id="adm-devices">
-      <form className="adm-add" onSubmit={(e) => { e.preventDefault(); if (name.trim()) void actions.createPairing(name.trim()); }}>
-        <label htmlFor="adm-device-name">Device name</label>
-        <div className="adm-add-row">
-          <input id="adm-device-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
-          <button type="submit" className="adm-btn" disabled={!name.trim()}>New pairing code</button>
-        </div>
+    <section className="adm-section" aria-labelledby="adm-queue">
+      <h2 id="adm-queue" className="adm-section-title">Queue</h2>
+      <form className="jb-panel adm-add" onSubmit={(e) => { e.preventDefault(); add('master'); }}>
+      <label htmlFor="adm-add-url" className="adm-sr">YouTube link</label>
+      <div className="adm-add-row">
+        <input id="adm-add-url" type="url" inputMode="url" placeholder="Paste a YouTube link" value={url} onChange={(e) => setUrl(e.target.value)} />
+        <button type="submit" className="adm-btn adm-primary" disabled={!value}>Add to master</button>
+        <button type="button" className="adm-btn" disabled={!value || !nightOpen} title={nightOpen ? undefined : 'Start the night first'} onClick={() => add('request')}>Add to requests</button>
+      </div>
+      {lastAdd?.status === 'failed' && lastAdd.error ? <p className="adm-bad-text adm-small" role="alert" data-testid="add-error">{explainError(lastAdd.error, lastAdd.type).message}</p> : null}
+      <p className="adm-dim adm-small">YouTube songs and mixes only. Requests must be under {POLICY.requestMaxSec / 60} min and count toward your {POLICY.quotaPerNight} per night.</p>
       </form>
-      {pairing ? (
-        <p className="adm-pairing" role="status">
-          Enter this code on <strong>{pairing.name}</strong> within 10 minutes (until {clockTime(pairing.expiresAt)}):{' '}
-          <code data-testid="pairing-code">{pairing.code}</code>. It is shown once and works once.
-        </p>
-      ) : null}
-      {devices.length ? (
-        <ul className="adm-list" aria-label="Paired devices">
-          {devices.map((d) => (
-            <li key={d.id} className="adm-row">
-              <div className="adm-row-main"><span className="adm-title">{d.name}</span><span className="adm-dim">paired {clockTime(d.pairedAt)}</span></div>
-              <Badge tone={d.revoked ? 'bad' : d.holdsLease ? 'ok' : 'dim'}>{d.revoked ? 'revoked' : d.holdsLease ? 'plays audio' : 'idle'}</Badge>
-              {!d.revoked ? <ConfirmButton label="Revoke…" confirmLabel="Revoke device" warning={d.holdsLease ? 'This display is playing now; revoking silences the venue until another is paired.' : undefined} onConfirm={() => void actions.revokeDevice(d.id, d.name)} /> : null}
-            </li>
-          ))}
-        </ul>
-      ) : <p className="adm-dim">No paired displays.</p>}
-    </Panel>
+    </section>
   );
 }
 
 // ---------------------------------------------------------------- activity
 
-export function ActivityPanel({ intents, actions }: { intents: readonly Intent[]; actions: Actions }) {
-  if (!intents.length) return null;
+export function ActivityPanel({ intents, actions, hidden = false }: { intents: readonly Intent[]; actions: Actions; hidden?: boolean }) {
+  const visible = intents.filter((i) => i.type !== 'playback.volume' || i.status === 'failed');
   return (
-    <Panel title="Recent actions" id="adm-activity">
-      <ul className="adm-list" aria-label="Recent actions">
-        {intents.map((intent) => {
+    <section id="adm-activity" className="adm-section" aria-labelledby="adm-activity-title" hidden={hidden}>
+      <h2 id="adm-activity-title" className="adm-section-title">Action log</h2>
+      <div className="adm-activity">
+      {!visible.length ? <p className="adm-empty">No actions yet.</p> : null}
+      <ul className="adm-list" aria-label="Action log">
+        {visible.map((intent) => {
           const explained = intent.error ? explainError(intent.error, intent.type) : null;
+          const [tone, label]: [Tone, string] = intent.status === 'ok' ? ['ok', 'sent'] : intent.status === 'pending' ? ['warn', 'sending…'] : explained?.tone === 'conflict' ? ['warn', 'not applied'] : ['bad', 'failed'];
           return (
             <li key={intent.id} className="adm-row" data-status={intent.status} data-intent={intent.type}>
+              <time className="adm-action-time adm-dim" dateTime={new Date(intent.startedAt).toISOString()} title={new Date(intent.startedAt).toLocaleString([], { timeZone: 'America/Indiana/Indianapolis' })}>
+                {new Date(intent.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit', timeZone: 'America/Indiana/Indianapolis' })}
+              </time>
               <div className="adm-row-main">
                 <span>{intent.label}</span>
-                {intent.status === 'failed' && explained ? <span className={explained.tone === 'transient' ? 'adm-warning' : 'adm-bad-text'} role="alert">{explained.message}</span> : null}
-                {intent.status === 'ok' && intent.replayed ? <span className="adm-dim adm-small">Already applied earlier (duplicate delivery ignored).</span> : null}
+                {intent.status === 'failed' && explained ? <span className={`adm-small ${explained.tone === 'transient' ? 'adm-warning' : 'adm-bad-text'}`} role="alert">{explained.message}</span> : null}
+                {intent.status === 'ok' && intent.replayed ? <span className="adm-dim adm-small">Already applied earlier.</span> : null}
               </div>
-              <Badge tone={intent.status === 'ok' ? 'ok' : intent.status === 'pending' ? 'warn' : explained?.tone === 'conflict' ? 'warn' : 'bad'}>
-                {intent.status === 'ok' ? 'accepted' : intent.status === 'pending' ? 'sending…' : explained?.tone === 'conflict' ? 'not applied' : 'failed'}
-              </Badge>
-              {intent.status === 'failed' && intent.error?.retryable ? <button type="button" className="adm-btn" onClick={() => actions.retry(intent.id)}>Retry</button> : null}
-              {intent.status !== 'pending' ? <button type="button" className="adm-btn adm-icon" aria-label="Dismiss" onClick={() => actions.dismiss(intent.id)}>×</button> : null}
+              <Tag tone={tone}>{label}</Tag>
+              {intent.status === 'failed' && intent.error?.retryable ? <button type="button" className="adm-btn adm-quiet" onClick={() => actions.retry(intent.id)}>Retry</button> : null}
             </li>
           );
         })}
       </ul>
-      <p className="adm-dim adm-small">“Accepted” means the server took the command; the Now playing panel shows whether the display confirmed it.</p>
-    </Panel>
+      </div>
+    </section>
   );
 }

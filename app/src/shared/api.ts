@@ -55,7 +55,38 @@ export async function fetchMe(): Promise<{ role: Snapshot['role']; identity: { d
 export function subscribeSnapshots(onSnapshot: (snapshot: Snapshot) => void, onError: (message: string | null) => void, bearer?: string) {
   const controller = new AbortController();
   let latest = -1;
+  let latestTime = -1;
+  let fetching = false;
+  let lastSuccess = -Infinity;
   let backoff = 500;
+  const deliver = (snapshot: Snapshot) => {
+    if (controller.signal.aborted || snapshot.revision < latest || (snapshot.revision === latest && snapshot.serverTime < latestTime)) return;
+    latest = snapshot.revision;
+    latestTime = snapshot.serverTime;
+    lastSuccess = performance.now();
+    onSnapshot(snapshot);
+  };
+  // Render the initial (often tiny, empty-session) state immediately, even if a
+  // browser or development proxy buffers the first few SSE bytes.
+  const refresh = async () => {
+    if (fetching || controller.signal.aborted) return;
+    fetching = true;
+    try {
+      const res = await fetch('/api/v1/snapshot', {
+        credentials: 'same-origin', headers: bearer ? { authorization: `Bearer ${bearer}` } : {},
+        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(4000)]),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      deliver(await res.json() as Snapshot);
+      if (!controller.signal.aborted) onError(null);
+    } catch (error) {
+      if (!controller.signal.aborted && performance.now() - lastSuccess > 5000) onError((error as Error).message);
+    } finally { fetching = false; }
+  };
+  void refresh();
+  // Reconcile after a backend restart even when a browser/proxy leaves an old
+  // event-stream connection stalled. Polling reads the same authoritative state.
+  const poll = setInterval(() => void refresh(), 5000);
   void (async () => {
     while (!controller.signal.aborted) {
       try {
@@ -80,21 +111,20 @@ export function subscribeSnapshots(onSnapshot: (snapshot: Snapshot) => void, onE
             const data = block.split('\n').find((line) => line.startsWith('data: '));
             if (!data) continue;
             const snapshot = JSON.parse(data.slice(6)) as Snapshot;
-            if (snapshot.revision < latest) continue;
-            latest = snapshot.revision;
-            onSnapshot(snapshot);
+            deliver(snapshot);
           }
         }
         throw new Error('Stream closed');
       } catch (error) {
         if (controller.signal.aborted) return;
-        onError((error as Error).message);
+        if (performance.now() - lastSuccess > 5000) onError((error as Error).message);
+        void refresh();
         await sleep(backoff);
         backoff = Math.min(backoff * 2, 10_000);
       }
     }
   })();
-  return () => controller.abort();
+  return () => { clearInterval(poll); controller.abort(); };
 }
 
 export function useSnapshot(bearer?: string) {

@@ -30,7 +30,7 @@ export function displayModel(snapshot: Snapshot | null, now: number, disconnecte
       : snapshot.schedule.dueReason === 'paused' ? 'Waiting for organizer to resume'
       : snapshot.schedule.dueReason === 'offline' ? 'Waiting for playback device'
       : remaining === 0 ? 'Awaiting scheduler confirmation'
-      : (snapshot.nowPlaying?.durationSec ?? 0) > POLICY.mixThresholdSec ? 'Mix will pause, then resume' : 'Master song will finish first';
+      : (snapshot.nowPlaying?.durationSec ?? 0) > POLICY.mixThresholdSec ? '' : 'Master song will finish first';
   }
   return { status, confirmed, playing, progress, turn, detail,
     requests: snapshot?.requests.filter((entry) => entry.status === 'ready' || entry.status === 'preparing') ?? [] };

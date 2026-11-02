@@ -13,7 +13,7 @@ import { URLS } from './helpers.ts';
 import { ScriptedDisplay, organizer, startApp, startNight } from './admin-helpers.ts';
 
 // Loosely typed on purpose: the root tsconfig has no JSX; the app project type-checks the real components.
-type Views = Record<'AccessGate' | 'NowPlayingPanel' | 'TurnPanel' | 'RequestQueuePanel' | 'MasterQueuePanel' | 'AlertsBand' | 'NightPanel' | 'DevicesPanel' | 'ActivityPanel', ComponentType<any>>;
+type Views = Record<'AccessGate' | 'AddBar' | 'NowPlayingPanel' | 'TurnPanel' | 'RequestQueuePanel' | 'MasterQueuePanel' | 'AlertsBand' | 'NightPanel' | 'DevicesPanel' | 'ActivityPanel', ComponentType<any>>;
 type Actions = never;
 let vite: ViteDevServer;
 let views: Views;
@@ -53,25 +53,25 @@ test('now playing: requested vs confirmed vs unconfirmed vs offline are rendered
     const render = (snapshot: Snapshot, pendingVolume: number | null = null) =>
       html(createElement(views.NowPlayingPanel, { snapshot, serverNow: snapshot.serverTime, actions, pendingVolume }));
 
-    assert.match(render(await admin.snapshot()), /No display connected/);
-    assert.match(text(render(await admin.snapshot())), /Pair one below/);
+    assert.match(render(await admin.snapshot()), /Display not open/);
+    assert.match(text(render(await admin.snapshot())), /connects automatically/);
 
     const display = await ScriptedDisplay.pair(app, admin);
-    assert.match(render(await admin.snapshot()), /Display needs activation/);
-    assert.match(text(render(await admin.snapshot())), /Firefox blocked autoplay/);
+    assert.match(render(await admin.snapshot()), /Display needs a click/);
+    assert.match(text(render(await admin.snapshot())), /Enable sound/);
 
     assert.ok((await admin.raw('playback.play', {})).body.ok);
     let out = render(await admin.snapshot());
-    assert.match(out, /data-testid="confirmation">Requested</);
-    assert.match(text(out), /has not confirmed it yet/);
+    assert.match(out, /data-confirmation="requested"/);
+    assert.doesNotMatch(text(out), /Sending to display|hasn’t confirmed/);
     assert.match(out, /Hour Mix/);
-    assert.match(out, />Master</);
+    assert.match(out, />Master queue</);
 
     await display.report('playing', 42);
     out = render(await admin.snapshot());
-    assert.match(out, /Confirmed by display/);
-    assert.match(out, /Display playing/);
-    assert.match(text(out), /This does not prove the room can hear it/);
+    assert.match(out, /data-confirmation="confirmed"/);
+    assert.match(out, /data-testid="player-state">Playing</);
+    assert.doesNotMatch(text(out), /Sending to display/, 'a confirmed change is not shown as pending');
     assert.match(out, /Pause</, 'playing intent shows Pause');
     assert.match(out, /data-testid="position">0:42</);
 
@@ -79,13 +79,13 @@ test('now playing: requested vs confirmed vs unconfirmed vs offline are rendered
     assert.ok((await admin.raw('playback.seek', { entryId, positionSec: 100 })).body.ok);
     app.clock.advance(11_000);
     out = render(await admin.snapshot());
-    assert.match(out, /Unconfirmed</);
-    assert.match(text(out), /may not have happened/);
-    assert.match(text(out), /not confirmed by display/);
+    assert.match(out, /data-confirmation="unconfirmed"/);
+    assert.doesNotMatch(text(out), /may not have happened/);
+    assert.match(out, /class="adm-display-wait"[^>]*hidden/);
 
-    assert.match(text(render(await admin.snapshot(), 0.37)), /37% .*sending/, 'a slider value being sent is not shown as saved');
+    assert.match(text(render(await admin.snapshot(), 0.37)), /37%/, 'the local slider value is shown without moving the layout');
     await display.report('buffering', 100);
-    assert.match(render(await admin.snapshot()), /Display buffering/);
+    assert.match(render(await admin.snapshot()), /Buffering/);
     await display.report('error', 100);
     assert.match(text(render(await admin.snapshot())), /Display error/);
 
@@ -93,10 +93,10 @@ test('now playing: requested vs confirmed vs unconfirmed vs offline are rendered
     app.clock.advance(20_000);
     out = render(await admin.snapshot());
     assert.match(out, /Display offline/);
-    assert.match(out, /Last change was confirmed; display now silent/);
+    assert.match(out, /data-confirmation="lapsed"/);
     assert.doesNotMatch(out, />Confirmed by display</, 'a lapsed confirmation is not presented as current');
-    assert.match(text(out), /Position below is the last report, not live/);
-    assert.match(text(out), /last report, display offline/);
+    assert.match(text(out), /Times shown are its last report/);
+    assert.match(text(out), /last known/);
   } finally {
     await app.stop();
   }
@@ -113,24 +113,28 @@ test('alerts band, request turn, queues, and unsupported-source guidance', async
     const snap = await admin.snapshot();
 
     const turn = text(html(createElement(views.TurnPanel, { snapshot: snap, serverNow: snap.serverTime })));
-    assert.match(turn, /Master period ends in 1:00/);
+    assert.match(turn, /Next request in 1:00/);
     assert.match(turn, /1 ready request will take this turn/);
-    assert.match(turn, /Elapsed time counts through pause, buffering and offline/);
+    assert.match(turn, /This mix gets cut in/);
 
     const requests = html(createElement(views.RequestQueuePanel, { snapshot: snap, actions }));
     assert.match(requests, /Request One/);
+    assert.match(requests, />Requests queue</);
     assert.match(text(requests), /from alice/);
     assert.match(requests, /Remove…/);
 
-    const master = html(createElement(views.MasterQueuePanel, { snapshot: snap, actions, lastAdd: null }));
-    assert.match(text(master), /Spotify and Apple Music links \(no audio matching exists\)/);
-    assert.match(text(master), /playlist\/album import/);
-    assert.match(text(master), /mix \(interruptible\)/);
+    const master = html(createElement(views.MasterQueuePanel, { snapshot: snap, actions }));
+    const addBar = text(html(createElement(views.AddBar, { actions, lastAdd: null, nightOpen: true })));
+    assert.match(addBar, /Queue/);
+    assert.match(addBar, /Add to master/);
+    assert.match(addBar, /Add to requests/);
+    assert.match(addBar, /YouTube songs and mixes only/);
+    assert.match(text(master), /· mix/);
     assert.match(master, /Move up/);
 
     const failedAdd = { id: 'x', label: 'Add', type: 'master.add', payload: {}, status: 'failed', replayed: false, startedAt: 0, finishedAt: 1, attempts: 1,
       error: { code: 'SOURCE_UNSUPPORTED', message: 'Spotify/Apple Music matching is not implemented yet', retryable: false } } as const;
-    const withError = text(html(createElement(views.MasterQueuePanel, { snapshot: snap, actions, lastAdd: failedAdd })));
+    const withError = text(html(createElement(views.AddBar, { actions, lastAdd: failedAdd, nightOpen: true })));
     assert.match(withError, /cannot be played yet/);
 
     // Offline display + conflicts surface as alerts; an external queue change can be dismissed.
@@ -147,23 +151,16 @@ test('alerts band, request turn, queues, and unsupported-source guidance', async
   }
 });
 
-test('night and device panels; activity list explains failures and offers retry only when safe', async () => {
+test('session panel; activity list explains failures and offers retry only when safe', async () => {
   const app = await startApp();
   try {
     const admin = await organizer(app);
     const snapClosed = await admin.snapshot();
-    assert.match(text(html(createElement(views.NightPanel, { snapshot: snapClosed, actions }))), /No night has been opened yet/);
+    assert.match(text(html(createElement(views.NightPanel, { snapshot: snapClosed, actions }))), /Night not started/);
     await startNight(app, admin);
     const snap = await admin.snapshot();
     const night = html(createElement(views.NightPanel, { snapshot: snap, actions }));
-    assert.match(night, /Close night…/);
-
-    const pairing = { name: 'Wall Firefox', code: 'ABCD2345', expiresAt: app.clock.now() + 600_000 };
-    const devices = html(createElement(views.DevicesPanel, { devices: snap.devices!, pairing, actions }));
-    assert.match(devices, /data-testid="pairing-code">ABCD2345</);
-    assert.match(text(devices), /shown once and works once/);
-    assert.match(devices, /plays audio/);
-    assert.match(devices, /Revoke…/);
+    assert.match(night, /End night…/);
 
     const base = { type: 'playback.skip', payload: {}, replayed: false, startedAt: 0, finishedAt: 1, attempts: 1 } as const;
     const intents = [
@@ -178,7 +175,23 @@ test('night and device panels; activity list explains failures and offers retry 
     assert.equal((activity.match(/>Retry</g) ?? []).length, 1, 'only the retryable failure offers Retry');
     assert.match(text(activity), /Already applied earlier/);
     assert.match(text(activity), /sending…/);
+    assert.match(activity, /<time[^>]*dateTime="1970-01-01T00:00:00.000Z"/);
+    assert.match(activity, /<h2[^>]*>Action log</);
+    assert.doesNotMatch(activity, /<details|<summary/);
   } finally {
     await app.stop();
   }
+});
+
+
+test('routine volume changes do not clutter activity; failed volume changes remain actionable', () => {
+  const base = { id: 'volume', label: 'Set volume 40%', type: 'playback.volume', payload: { volume: .4 }, replayed: false, startedAt: 0, finishedAt: 1, attempts: 1 } as const;
+  for (const status of ['pending', 'ok'] as const) {
+    const out = html(createElement(views.ActivityPanel, { intents: [{ ...base, status, error: null }], actions }));
+    assert.match(text(out), /Action log.*No actions yet/);
+    assert.doesNotMatch(out, /data-intent=/);
+  }
+  const failed = html(createElement(views.ActivityPanel, { intents: [{ ...base, status: 'failed', error: { code: 'INTERNAL', message: 'Connection lost', retryable: true } }], actions }));
+  assert.match(text(failed), /Connection lost/);
+  assert.match(failed, />Retry</);
 });

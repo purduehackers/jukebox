@@ -1,35 +1,26 @@
-# Designated Firefox player
+# Session-driven Firefox player
 
-Phase 4C composes `<Player />` from `Player.tsx` exactly once in its display page.
-The current `DisplayPage` only adds this frame to the shared placeholder. Replace
-that composition during integration; do not mount a second audio source.
+`/display` owns one native audio element and a Web Audio analyser. It attempts
+sound activation when the page opens and shows **Enable sound** if Firefox blocks
+it. No pairing code, device claim, local storage setup, or admin action on the
+display is required. Autoplay permission cannot be granted by a remote admin.
 
-The frame opens silently. Pair using an admin-issued code, claim playback, then
-click **Activate audio locally** on the display. Pairing persists in localStorage;
-a lease and activation never persist. Reload requires claim/activation again.
-A normal claim never takes over a live tab or another device. Explicit same-device
-takeover fences the old generation and waits a full old lease before starting;
-heartbeat reports keep the new lease alive during that wait. Another device must
-wait for expiry or be authorized by admin revocation of the previous device.
+The page watches the shared session in the background. During an open session it
+uses `display.connect` to receive page-scoped player credentials and a lease. Only
+one display can hold that lease; other tabs remain silent and retry without
+stealing a live player. Refresh/checkpoint/release is automatic, with the normal
+15-second lease expiry as the fallback if unloading cannot reach the service.
+A session end immediately stops local audio and leaves the empty session screen.
+Browser sound activation survives session changes and reconnection in the same
+document; a refreshed document follows the browser's existing autoplay permission.
 
-`controller.ts` reconciles full desired snapshots, owns the single native audio
-and Web Audio chain, and publishes through `shared/audio-tap.ts`. The server owns
-scheduling, retry budgets, refunds, retention and checkpoints. The controller does
-not download provider media, calculate turns or mark requests played on load.
-Load/seek/play waits are bounded to eight seconds each; technical errors go to the
-service, which gives the specified two total load attempts. Autoplay denials report
-`needs_activation` rather than consuming a playback-failure attempt.
+Commands, checkpoints, bounded media retries, asset pinning, epoch acknowledgement
+and the independent lease watchdog remain authoritative. Admin and attendee pages
+contain no audio player. No source video is used. The controller publishes actual
+local analysis via `shared/audio-tap.ts`; remote display state does not fabricate
+a music visualization.
 
-Lease deadlines use both monotonic and wall clocks, conservatively from the start
-of each accepted claim/report request. A separate 100 ms watchdog silences expiry;
-SSE fencing and STALE_LEASE silence immediately when observed. Stale asynchronous
-media events cannot restart unowned playback. A service interruption may continue
-within the remaining lease; beyond it this tab stops and requires a new local
-claim/activation. A frozen/sleeping event loop can execute its silence check only
-when the browser resumes JavaScript; real laptop sleep/wake and HDMI remain venue
-gates. The browser cannot control OS/HDMI volume.
-
-Run `./scripts/check` and `.venv/bin/python scripts/verify-player.py`. The latter
-uses independent Firefox profiles and actual Python-worker fixture media. It
-retains production lease/heartbeat constants and injects due scheduling through a
-loopback-only test fixture, never through the production service.
+Verify with `./scripts/check`, `.venv/bin/python scripts/verify-player.py`, and
+`.venv/bin/python scripts/verify-display.py`. They use isolated local state,
+synthetic audio, and fresh Firefox profiles. HDMI output and physical wall checks
+remain venue tests.

@@ -100,7 +100,7 @@ test('night end pauses, closes submissions, archives pending requests, keeps mas
   await h.ok(h.admin, 'night.open', {});
   s = h.snap(h.alice);
   assert.deepEqual(s.quota, { used: 0, limit: 3, remaining: 3 });
-  assert.equal(s.schedule.periodStartedAt, null, 'period starts on first play of the new night');
+  assert.equal(s.schedule.periodStartedAt, h.clock.now(), 'starting a new session starts master music and its period');
 });
 
 test('quota spans midnight within one admin-managed night', async () => {

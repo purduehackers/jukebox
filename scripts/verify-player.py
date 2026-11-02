@@ -83,9 +83,6 @@ def main():
         d.set_window_size(1440, 1000)
         d.set_script_timeout(10)
         d.get(app + path)
-        if path == '/display':
-            until(lambda: d.find_elements(By.CSS_SELECTOR, '.display-device summary'))
-            d.find_element(By.CSS_SELECTOR, '.display-device summary').click()
         return d
 
     def click(d, id):
@@ -156,23 +153,13 @@ def main():
         song = cmd(admin, 'master.add', {'url': 'fixture:song'})['entryId']
         request = cmd(attendee, 'request.submit', {'url': 'fixture:request'})['entryId']
         until(lambda: all(x['status']=='ready' for x in snap(admin)['master']+snap(admin)['requests']), 90)
-        code = cmd(admin, 'device.pairing.create', {'name': 'Firefox player'})['code']
         player = browser('/display')
         report['browser'] = {k: player.capabilities.get(k) for k in ['browserName','browserVersion','moz:buildID','moz:geckodriverVersion','platformName','moz:headless']}
         assert report['browser']['browserName'] == 'firefox'
-        assert audio(player)['paused']
-        report['checks']['publicDisplayOpensSilent'] = True
-        player.find_element(By.ID, 'player-code').send_keys(code)
-        click(player, 'player-pair')
-        click(player, 'player-claim')
         until(lambda: audio(player)['generation'])
-        until(lambda: snap()['playback']['observed']['status']=='needs_activation')
+        until(lambda: player.find_elements(By.ID, 'player-activate'))
         assert audio(player)['paused']
-        cmd(admin, 'playback.play')
-        until(lambda: audio(player)['loadId'])
-        time.sleep(.3)
-        assert audio(player)['paused']
-        report['checks']['remotePlayCannotActivateFreshDocument'] = True
+        report['checks']['automaticallyConnectedButFirefoxAwaitsSoundPermission'] = True
         click(player, 'player-activate')
         playing(player)
         # Firefox WebDriver evaluation has its own module realm. Install a normal
@@ -236,17 +223,10 @@ def main():
         request_position = audio(player)['time']
         quota = snap(attendee)['quota']['used']
         player.refresh()
-        until(lambda: player.find_elements(By.CSS_SELECTOR, '.display-device summary'))
-        player.find_element(By.CSS_SELECTOR, '.display-device summary').click()
-        until(lambda: player.find_elements(By.ID,'player-claim'))
-        assert audio(player)['paused'] and snap()['nowPlaying']['entryId']==request2
-        # pagehide checkpoint/release is best effort; never implicitly take over.
-        time.sleep(15.2)
-        click(player, 'player-claim')
-        until(lambda: audio(player)['generation'])
+        until(lambda: audio(player)['generation'], 25)
         until(lambda: audio(player)['duration']==8)
         assert audio(player)['paused'] and abs(audio(player)['time']-request_position)<.35
-        click(player, 'player-activate')
+        if player.find_elements(By.ID, 'player-activate'): click(player, 'player-activate')
         cmd(admin, 'playback.play')
         playing(player, 'request')
         playing(player, 'master')
@@ -277,26 +257,13 @@ def main():
             held.rename(broken)
         report['checks']['missingAssetTwoAttemptsRefundAndReturn'] = True
         print('Passed missing asset failure/refund', flush=True)
-        # A second tab sharing storage cannot claim; an independently paired device
-        # cannot steal even with takeover:true. Both remain locally silent.
-        main_handle = player.current_window_handle
-        player.switch_to.new_window('tab')
-        player.get(app+'/display')
-        click(player,'player-claim')
-        time.sleep(.3)
-        assert audio(player)['paused'] and not audio(player)['generation']
-        player.close()
-        player.switch_to.window(main_handle)
+        # A second display connects in the background but cannot displace live audio.
         other = browser('/display')
-        code2 = cmd(admin,'device.pairing.create',{'name':'Second device'})['code']
-        other.find_element(By.ID,'player-code').send_keys(code2)
-        click(other,'player-pair')
-        click(other,'player-takeover')
-        time.sleep(.3)
+        until(lambda: 'another display' in other.find_element(By.TAG_NAME, 'body').text)
         assert audio(other)['paused'] and not audio(other)['generation']
         assert not audio(player)['paused']
-        report['checks']['secondTabAndDeviceCannotStealOrPlay'] = True
-        # Short service restart/reconnect retains authority and does not duplicate loads.
+        other.quit(); drivers.remove(other)
+        report['checks']['secondDisplayCannotStealOrPlay'] = True
         load_before = audio(player)['loadId']
         service.terminate(); service.wait(timeout=8)
         time.sleep(.5)
@@ -306,46 +273,24 @@ def main():
         until(lambda: snap()['playback']['confirmation']=='confirmed')
         assert audio(player)['loadId']==load_before
         report['checks']['shortReconnectKeepsLoad'] = True
-        # Actual socket/service loss beyond production lease must silence stale tab.
+        # Service loss silences the old lease; the same laptop reconnects itself.
         service.terminate(); service.wait(timeout=8)
         began=time.monotonic()
         until(lambda: audio(player)['paused'] and not audio(player)['generation'], 17)
         report['measurements'].append({'outageToSilenceObservedMs':round((time.monotonic()-began)*1000,2)})
         service=start(service_args)
         until(lambda: http(service_url+'/healthz'))
-        click(other,'player-claim')
-        until(lambda: audio(other)['generation'])
-        click(other,'player-activate')
-        playing(other)
+        playing(player)
+        report['checks']['leaseExpirySilencesThenAutomaticallyReconnectsWithoutAnotherClick'] = True
+        # Real session end clears the page and stops sound; next session resumes on this laptop.
+        cmd(admin, 'night.close')
+        until(lambda: player.find_elements(By.CSS_SELECTOR, '.display-idle[data-state=idle]'))
         assert audio(player)['paused']
-        report['checks']['leaseExpirySilencesStaleTabBeforeReplacement'] = True
-        # Explicit SAME-device takeover must wait out the disconnected old lease.
-        old_handle=other.current_window_handle
-        other.switch_to.new_window('tab')
-        other.get(app+'/display')
-        began=time.monotonic()
-        click(other,'player-takeover')
-        until(lambda: audio(other)['generation'])
-        click(other,'player-activate')
-        assert audio(other)['paused']
-        new_handle=other.current_window_handle
-        other.switch_to.window(old_handle)
-        until(lambda: audio(other)['paused'] and not audio(other)['generation'])
-        other.switch_to.window(new_handle)
-        playing(other)
-        delay=(time.monotonic()-began)*1000
-        assert delay>=15000
-        report['measurements'].append({'explicitTakeoverToPlayingMs':round(delay,2)})
-        report['checks']['sameDeviceTakeoverWaitsOldLeaseAndFencesOldTab']=True
-        # Declared synthetic transport response tests the STALE_LEASE path itself,
-        # independently of the real SSE generation fencing above.
-        other.execute_script("""window.originalFetch=window.fetch;window.fetch=(url,init)=>{
-          if(init?.body && JSON.parse(init.body).type==='player.report')return Promise.resolve(new Response(JSON.stringify({ok:false,error:{code:'STALE_LEASE',message:'Synthetic stale report',retryable:false}}),{status:409}));
-          return window.originalFetch(url,init);
-        };""")
-        until(lambda: audio(other)['paused'] and not audio(other)['generation'])
-        other.execute_script('window.fetch=window.originalFetch')
-        report['checks']['syntheticStaleLeaseReportSilencesLocalAudio']=True
+        assert not player.find_elements(By.CSS_SELECTOR, '.display-now,.display-request')
+        cmd(admin, 'night.open')
+        playing(player)
+        assert not player.find_elements(By.ID, 'player-activate')
+        report['checks']['endClearsDisplayThenStartResumesWithoutAnotherClick'] = True
         report['events'] = admin.execute_async_script("fetch('/api/v1/events?after=0').then(r=>r.json()).then(arguments[0])")['events']
         report['result']='passed'
     except Exception as error:

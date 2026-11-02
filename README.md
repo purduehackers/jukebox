@@ -3,9 +3,30 @@
 Audio-only music queue and venue player for Hack Night. Phase 1 contains a
 runnable local worker/cache and Firefox playback experiment. Phase 2 adds the
 shared typed contract and a durable local queue/scheduler/device-authority
-service. Production, a registered PH ID client, the real player, admin/attendee
-pages, and the wall display remain later phases.
+service. The local app includes the native Firefox player, admin controls, attendee requests,
+and an audio-reactive display. Production deployment, live PH ID sign-in, and
+physical venue checks remain pending.
 Intended production origin: `https://jukebox.purduehackers.com` (not deployed).
+
+## Run the complete local app
+
+In separate terminals:
+
+```sh
+./scripts/run-local --data .local/display-demo/worker
+./scripts/run-dev --worker http://127.0.0.1:8971 --data .local/display-demo/service
+```
+
+Open **http://127.0.0.1:5173/display in Firefox** and click **Enable sound** if
+Firefox asks. Open **http://127.0.0.1:5173/admin**, use the labelled local test
+sign-in with organizer checked, add master music, and click **Start session**.
+The display connects and plays automatically. Ending the session stops audio
+and shows an empty display asking the admin to start a session. No pairing codes
+or claim controls. The browser handles the one-player lock and reconnection in
+the background. `/queue` is the silent attendee request page.
+
+These paths reuse the saved display-demo state and cache. All services bind to
+loopback; this is local development, with fake sign-in rather than live PH ID.
 
 ## Run the phase-2 queue service
 

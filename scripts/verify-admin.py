@@ -118,20 +118,34 @@ def main():
         wait.until(lambda d: d.find_elements(By.XPATH, "//h1[contains(.,'Jukebox')]"))
         check('organizerAccess', True)
 
+        activity = driver.find_element(By.ID, 'adm-activity')
+        verify('activityLogInitiallyHidden', not activity.is_displayed())
+        toggle = driver.find_element(By.CSS_SELECTOR, '[aria-controls="adm-activity"]')
+        toggle.click()
+        verify('activityLogEmptyState', activity.is_displayed() and 'No actions yet.' in activity.text)
+        log_styles = driver.execute_script("const e=document.querySelector('.adm-activity');const s=getComputedStyle(e);return {border:s.borderTopWidth,animation:s.animationName,transition:s.transitionDuration};")
+        verify('plainLogWithoutAnimation', log_styles == {'border':'0px','animation':'none','transition':'0s'}, log_styles)
+        verify('activityToggleLabel', toggle.text == 'Hide activity log' and toggle.get_attribute('aria-expanded') == 'true')
+        toggle.click()
+
         def confirm(label, confirm_label):
             driver.find_element(By.XPATH, f"//button[normalize-space()='{label}']").click()
             driver.find_element(By.XPATH, f"//button[normalize-space()='{confirm_label}']").click()
 
-        confirm('Open night…', 'Open night')
-        wait.until(lambda d: 'Requests are accepted' in d.find_element(By.ID, 'adm-night').find_element(By.XPATH, '../..').text)
+        driver.find_element(By.XPATH, "//button[normalize-space()='Start night']").click()
+        wait.until(lambda d: 'Night open' in d.find_element(By.ID, 'adm-night').text)
         check('nightOpened', True)
+        verify('actionsDoNotOpenLog', not driver.find_element(By.ID, 'adm-activity').is_displayed())
+        driver.find_element(By.CSS_SELECTOR, '[aria-controls="adm-activity"]').click()
+        wait.until(lambda d: d.find_elements(By.CSS_SELECTOR, '#adm-activity time'))
+        check('timestampedActionLog', True)
 
         def add_master(source):
             field = driver.find_element(By.ID, 'adm-add-url')
             # Firefox's type=url rejects fixture: values during native form validation. Set React's
             # controlled value through the native setter/events, then submit via the visible Add button.
             driver.execute_script("const e=arguments[0],s=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;s.call(e,arguments[1]);e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));", field, source)
-            driver.find_element(By.XPATH, "//button[normalize-space()='Add']").click()
+            driver.find_element(By.XPATH, "//button[normalize-space()='Add to master']").click()
 
         add_master('fixture:master')
         wait.until(lambda d: d.find_elements(By.CSS_SELECTOR, '[aria-label="Master items"] li'))
@@ -143,17 +157,13 @@ def main():
         wait.until(lambda d: 'Playlists and albums cannot be imported yet' in d.find_element(By.CSS_SELECTOR, '[data-testid="add-error"]').text)
         playlist_error = driver.find_element(By.CSS_SELECTOR, '[data-testid="add-error"]').text
         evidence['checks']['playlistRejected'] = 'playlist' in playlist_error.lower()
-        evidence['details']['playlistRejected'] = {'visibleError': playlist_error, 'recentAction': driver.find_element(By.CSS_SELECTOR, '[aria-label="Recent actions"]').text.splitlines()[:4]}
+        evidence['details']['playlistRejected'] = {'visibleError': playlist_error, 'recentAction': driver.find_element(By.CSS_SELECTOR, '[aria-label="Action log"]').text.splitlines()[:4]}
 
-        wait.until(lambda d: any('ready' in row.text.lower() for row in d.find_elements(By.CSS_SELECTOR, '[aria-label="Master items"] li')))
+        wait.until(lambda d: any(row.get_attribute('data-status') == 'ready' for row in d.find_elements(By.CSS_SELECTOR, '[aria-label="Master items"] li')))
 
-        driver.find_element(By.XPATH, "//button[normalize-space()='New pairing code']").click()
-        wait.until(lambda d: d.find_elements(By.CSS_SELECTOR, '[data-testid="pairing-code"]'))
-        code = driver.find_element(By.CSS_SELECTOR, '[data-testid="pairing-code"]').text.strip()
-        paired = post(web, '/api/v1/commands', {'commandId': str(uuid.uuid4()), 'type': 'device.pair', 'payload': {'code': code}}, origin=web)
-        token = paired['result']['token']
-        claimed = post(web, '/api/v1/commands', {'commandId': str(uuid.uuid4()), 'type': 'player.claim', 'payload': {}}, token)
-        generation = claimed['result']['generation']
+        connected = post(web, '/api/v1/commands', {'commandId': str(uuid.uuid4()), 'type': 'display.connect', 'payload': {'secret': uuid.uuid4().hex + uuid.uuid4().hex}}, origin=web)
+        token = connected['result']['token']
+        generation = connected['result']['generation']
 
         def report_player(status='playing', position=None):
             snapshot = get_json(web, '/api/v1/snapshot', token)
@@ -162,20 +172,105 @@ def main():
             post(web, '/api/v1/commands', {'commandId': str(uuid.uuid4()), 'type': 'player.report', 'payload': {'generation': generation, 'epoch': desired['epoch'], 'loadId': desired['loadId'], 'status': status, 'positionSec': pos}}, token)
             return get_json(web, '/api/v1/snapshot', token)['desired']
 
-        driver.find_element(By.XPATH, "//button[normalize-space()='Play']").click()
+        # Starting the session has already requested playback.
         report_player()
         wait.until(lambda d: 'playing' in d.find_element(By.CSS_SELECTOR, '[data-testid="player-state"]').text.lower())
-        wait.until(lambda d: 'confirmed by display' in d.find_element(By.CSS_SELECTOR, '[data-testid="confirmation"]').text.lower())
+        wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '[data-testid="confirmation"]').get_attribute('data-confirmation') == 'confirmed')
         check('playConfirmed', True)
-        driver.find_element(By.XPATH, "//button[normalize-space()='+15 s']").click()
-        wait.until(lambda d: abs(report_player(position=15)['startPositionSec'] - 15) < .1)
-        check('seekTo15', True)
+
+        # Hold a real command before the network call: local toggles must work while it waits.
+        driver.execute_script("""
+          const original = window.fetch.bind(window);
+          window.__playbackHeld = true;
+          window.fetch = async (...args) => {
+            const body = args[1]?.body;
+            if (typeof body === 'string' && JSON.parse(body).type === 'playback.pause' && window.__playbackHeld) {
+              await new Promise(resolve => { window.__releasePlayback = () => { window.__playbackHeld = false; resolve(); }; });
+            }
+            return original(...args);
+          };
+        """)
+        driver.find_element(By.CSS_SELECTOR, '.adm-play').click()
+        wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '.adm-play').text == 'Play')
+        verify('pauseUiBeforeNetwork', get_json(web, '/api/v1/snapshot', token)['desired']['intent'] == 'playing')
+        driver.find_element(By.CSS_SELECTOR, '.adm-play').click()
+        verify('rapidPlayUiBeforeNetwork', driver.find_element(By.CSS_SELECTOR, '.adm-play').text == 'Pause')
+        driver.execute_script('window.__releasePlayback()')
+        wait.until(lambda d: not d.find_elements(By.CSS_SELECTOR, '[data-intent="playback.play"][data-status="pending"]'))
+        verify('rapidToggleOrder', get_json(web, '/api/v1/snapshot', token)['desired']['intent'] == 'playing')
+        report_player()
+        seek_start = int(driver.find_element(By.ID, 'adm-seek').get_attribute('value'))
+        driver.find_element(By.XPATH, "//button[@aria-label='Forward 15 seconds']").click()
+        wait.until(lambda d: seek_start + 15 <= get_json(web, '/api/v1/snapshot', token)['desired']['startPositionSec'] < seek_start + 17)
+        report_player()
+        check('seekForward15', True)
+        driver.execute_script("""
+          const original = window.fetch.bind(window);
+          window.fetch = async (...args) => {
+            const body = args[1]?.body;
+            if (typeof body === 'string' && JSON.parse(body).type === 'playback.volume') {
+              await new Promise(resolve => { window.__releaseVolume = resolve; });
+            }
+            return original(...args);
+          };
+        """)
         volume = driver.find_element(By.ID, 'adm-volume')
         current = int(volume.get_attribute('value'))
         for _ in range(abs(current - 40)): volume.send_keys(Keys.ARROW_LEFT if current > 40 else Keys.ARROW_RIGHT)
+        wait.until(lambda d: d.execute_script('return typeof window.__releaseVolume === "function"'))
+        verify('volumeUiBeforeNetwork', volume.get_attribute('value') == '40' and abs(get_json(web, '/api/v1/snapshot', token)['desired']['volume'] - .4) > .005)
+        time.sleep(2.1)  # Let the confirmed playback clock advance beyond its last report.
+        seek_before_volume = int(driver.find_element(By.ID, 'adm-seek').get_attribute('value'))
+        driver.execute_script('window.__releaseVolume()')
         wait.until(lambda d: abs(get_json(web, '/api/v1/snapshot', token)['desired']['volume'] - .4) < .005)
+        wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '[data-testid="confirmation"]').get_attribute('data-confirmation') == 'requested')
+        seek_after_volume = int(driver.find_element(By.ID, 'adm-seek').get_attribute('value'))
+        verify('volumeDoesNotRewindSeek', seek_after_volume >= seek_before_volume, {'before': seek_before_volume, 'after': seek_after_volume})
         check('volume40Percent', True)
-        driver.find_element(By.XPATH, "//button[normalize-space()='Replay']").click()
+        verify('volumeUiStaysAt40', volume.get_attribute('value') == '40')
+        verify('volumeDoesNotClutterActivity', not driver.find_elements(By.CSS_SELECTOR, '.adm-activity [data-intent="playback.volume"]'))
+        report_player()
+        driver.set_window_size(1366, 1000)
+        layout = driver.execute_script("""
+          const row = [...document.querySelector('.adm-add-row').children].map(e => { const r=e.getBoundingClientRect();return {top:r.top,height:r.height}; });
+          return {row, headings:[...document.querySelectorAll('h2')].map(e=>e.textContent)};
+        """)
+        verify('linkRowAligned', len({r['top'] for r in layout['row']}) == 1 and len({r['height'] for r in layout['row']}) == 1, layout)
+        verify('clearSectionHeadings', all(h in layout['headings'] for h in ['Now playing', 'Queue', 'Master queue', 'Requests queue']), layout)
+        log_layout = driver.execute_script("""
+          const log=document.querySelector('#adm-activity').getBoundingClientRect();
+          const queues=document.querySelector('.adm-queues').getBoundingClientRect();
+          const end=document.querySelector('.adm-night button').getBoundingClientRect();
+          const toggle=document.querySelector('[aria-controls="adm-activity"]').getBoundingClientRect();
+          return {belowQueues:log.top>=queues.bottom,buttonBesideEndNight:toggle.left>=end.right && Math.abs(toggle.top-end.top)<1};
+        """)
+        verify('logBelowQueuesAndToggleBesideEndNight', all(log_layout.values()), log_layout)
+        driver.find_element(By.CSS_SELECTOR, '[aria-controls="adm-activity"]').click()
+        verify('activityLogCanBeHidden', not driver.find_element(By.ID, 'adm-activity').is_displayed())
+        driver.save_screenshot(str(out.parent / 'admin-desktop.png'))
+
+        # Keep reporting the old epoch: the display is online but has not applied the new change.
+        old_desired = report_player()
+        driver.find_element(By.CSS_SELECTOR, '.adm-play').click()
+        wait.until(lambda d: get_json(web, '/api/v1/snapshot', token)['desired']['intent'] == 'paused')
+        wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '[data-testid="confirmation"]').get_attribute('data-confirmation') == 'requested')
+        player_height = driver.find_element(By.CSS_SELECTOR, '.adm-player').rect['height']
+        verify('normalUpdateIsQuiet', not driver.find_element(By.CSS_SELECTOR, '.adm-display-wait').is_displayed() and 'Sending to display' not in driver.find_element(By.TAG_NAME, 'body').text)
+        for index in range(4):
+            time.sleep(4)
+            post(web, '/api/v1/commands', {'commandId': str(uuid.uuid4()), 'type': 'player.report', 'payload': {'generation': generation, 'epoch': old_desired['epoch'], 'loadId': old_desired['loadId'], 'status': 'playing', 'positionSec': old_desired['startPositionSec']}}, token)
+            if index < 3:
+                verify(f'noSpinnerBefore15Seconds_{index}', not driver.find_element(By.CSS_SELECTOR, '.adm-display-wait').is_displayed())
+        wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '.adm-display-wait').is_displayed())
+        verify('delayedSpinnerWithoutLayoutShift', abs(driver.find_element(By.CSS_SELECTOR, '.adm-player').rect['height'] - player_height) < 1)
+        verify('noDuplicateUnconfirmedBanner', not driver.find_elements(By.CSS_SELECTOR, '[data-alert="unconfirmed_command"]'))
+        report_player('paused')
+        wait.until(lambda d: not d.find_element(By.CSS_SELECTOR, '.adm-display-wait').is_displayed())
+        check('spinnerClearsOnAcknowledgement', True)
+        driver.find_element(By.CSS_SELECTOR, '.adm-play').click()
+        wait.until(lambda d: get_json(web, '/api/v1/snapshot', token)['desired']['intent'] == 'playing')
+        report_player()
+        driver.find_element(By.XPATH, "//button[@aria-label='Restart song']").click()
         wait.until(lambda d: abs(get_json(web, '/api/v1/snapshot', token)['desired']['startPositionSec']) < .1)
         check('replayFromZero', True)
 
@@ -201,7 +296,7 @@ def main():
         state = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)['state'][0]
         with opener.open(web + '/auth/callback?state=' + urllib.parse.quote(state) + '&sub=bob', timeout=5) as response: pass
         post(web, '/api/v1/commands', {'commandId': str(uuid.uuid4()), 'type': 'request.submit', 'payload': {'url': 'fixture:request'}}, origin=web, opener=opener)
-        wait.until(lambda d: any('bob' in li.text and 'ready' in li.text.lower() for li in d.find_elements(By.CSS_SELECTOR, 'section[aria-labelledby="adm-requests"] li')))
+        wait.until(lambda d: any('bob' in li.text and li.get_attribute('data-status') == 'ready' for li in d.find_elements(By.CSS_SELECTOR, 'section[aria-labelledby="adm-requests"] li')))
         check('requestFromBobVisible', True)
 
         deadline = time.monotonic() + 30
@@ -215,7 +310,7 @@ def main():
         # iframe: its layout viewport (media queries, overflow) is exactly a phone's. Same session cookie.
         driver.execute_script("const f=document.createElement('iframe');f.id='phone';f.style.cssText='position:fixed;left:0;top:0;width:390px;height:844px;border:0;z-index:9999;background:#171717';f.src='/admin';document.body.appendChild(f)")
         driver.switch_to.frame('phone')
-        wait.until(lambda d: 'Night session' in d.page_source)
+        wait.until(lambda d: d.find_elements(By.ID, 'adm-night'))
         time.sleep(1)
         metrics = driver.execute_script('''
           const visible=e=>!!(e.offsetWidth||e.offsetHeight||e.getClientRects().length);

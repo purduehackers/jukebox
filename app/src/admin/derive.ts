@@ -1,5 +1,6 @@
 // Pure view-model helpers for /admin. No React, no I/O: unit-tested against the real service.
 import type { ApiError, MasterEntryView, RequestEntryView, Snapshot } from '../../../src/contract/types.ts';
+import type { Intent } from './intents.ts';
 import { POLICY } from '../../../src/contract/types.ts';
 
 /** Server wall-clock "now", extrapolated from when the snapshot was received. */
@@ -19,14 +20,14 @@ export function playerState(snapshot: Snapshot): PlayerState {
 }
 
 export const PLAYER_LABEL: Record<PlayerState, string> = {
-  no_display: 'No display connected',
+  no_display: 'Display not open',
   offline: 'Display offline',
-  needs_activation: 'Display needs activation',
-  loading: 'Display loading',
-  buffering: 'Display buffering',
-  playing: 'Display playing',
-  paused: 'Display paused',
-  ended: 'Display track ended',
+  needs_activation: 'Display needs a click',
+  loading: 'Loading',
+  buffering: 'Buffering',
+  playing: 'Playing',
+  paused: 'Paused',
+  ended: 'Song ended',
   error: 'Display error',
 };
 
@@ -34,10 +35,10 @@ export type Confirmation = Snapshot['playback']['confirmation'];
 
 /** Plain-language distinction between accepted, acknowledged by the player, and unacknowledged. */
 export const CONFIRMATION_LABEL: Record<Confirmation, { label: string; detail: string }> = {
-  none: { label: 'Nothing to confirm', detail: 'Nothing is loaded for the display.' },
-  requested: { label: 'Requested', detail: 'The server accepted this change; the display has not confirmed it yet.' },
-  confirmed: { label: 'Confirmed by display', detail: 'The display acknowledged the latest change. This does not prove the room can hear it.' },
-  unconfirmed: { label: 'Unconfirmed', detail: `No acknowledgement from the display for over ${POLICY.ackTimeoutMs / 1000} s. The change may not have happened.` },
+  none: { label: '', detail: '' },
+  requested: { label: 'Sending to display…', detail: 'The display hasn’t confirmed it yet.' },
+  confirmed: { label: 'On the display', detail: 'The display confirmed it.' },
+  unconfirmed: { label: 'Display didn’t respond', detail: `No reply for ${POLICY.ackTimeoutMs / 1000} s, so the change may not have happened.` },
 };
 
 export interface PositionEstimate {
@@ -50,7 +51,8 @@ export interface PositionEstimate {
 
 /**
  * Estimate where playback is. The display reports every ~5 s, so a playing position is
- * extrapolated from its report time; anything not confirmed or offline is labelled, not hidden.
+ * extrapolated from its report time. A pending acknowledgement can be volume-only, so it
+ * must not reset the clock to the last heartbeat. Keep uncertainty separate from position.
  */
 export function estimatePosition(snapshot: Snapshot, serverNow: number): PositionEstimate {
   const duration = snapshot.nowPlaying?.durationSec ?? null;
@@ -61,11 +63,11 @@ export function estimatePosition(snapshot: Snapshot, serverNow: number): Positio
   let basis: PositionEstimate['basis'];
   let position = observed.positionSec;
   if (observed.status === 'offline') basis = 'stale';
-  else if (snapshot.playback.confirmation !== 'confirmed') basis = 'unconfirmed';
-  else if (observed.status === 'playing') {
-    position += Math.max(0, serverNow - observed.observedAt) / 1000;
-    basis = 'live';
-  } else basis = 'reported';
+  else {
+    const advancing = observed.status === 'playing' && snapshot.schedule.intent === 'playing';
+    if (advancing) position += Math.max(0, serverNow - observed.observedAt) / 1000;
+    basis = snapshot.playback.confirmation !== 'confirmed' ? 'unconfirmed' : advancing ? 'live' : 'reported';
+  }
   if (duration !== null) position = Math.min(position, duration);
   return { positionSec: position, durationSec: duration, remainingSec: duration === null ? null : Math.max(0, duration - position), basis };
 }
@@ -104,42 +106,38 @@ export function describeTurn(snapshot: Snapshot, serverNow: number): TurnView {
   const preparing = waiting.length - ready;
   const base = { readyRequests: ready, preparingRequests: preparing, periodRemainingMs: null as number | null };
   if (!snapshot.night || snapshot.night.status !== 'open') {
-    return { ...base, kind: 'night_closed', headline: 'No request turns', detail: 'Requests are closed until a night is opened. Master music can still play.' };
+    return { ...base, kind: 'night_closed', headline: 'Night not started', detail: 'Start the night to play music and take requests.' };
   }
   if (schedule.phase === 'request') {
-    return { ...base, kind: 'in_request', headline: 'A request is playing', detail: 'When it ends, the suspended master resumes and a fresh 15-minute master period starts.' };
+    return { ...base, kind: 'in_request', headline: 'Request playing', detail: 'The playlist picks up where it left off when this ends.' };
   }
   if (schedule.periodStartedAt === null) {
-    return { ...base, kind: 'not_started', headline: 'Timer not started', detail: 'The master period starts at the first Play of this night.' };
+    return { ...base, kind: 'not_started', headline: 'Request timer not started', detail: 'It starts once music is playing.' };
   }
   const remaining = schedule.periodStartedAt + schedule.periodMs - serverNow;
   const where = [
-    schedule.intent === 'paused' ? 'Playback is paused — the timer keeps running.' : null,
-    snapshot.playback.observed?.status === 'offline' ? 'The display is offline — turns are decided by the server and apply when it reconnects.' : null,
+    schedule.intent === 'paused' ? 'Paused — the timer keeps running.' : null,
+    snapshot.playback.observed?.status === 'offline' ? 'Display offline — the server keeps time and catches up when it reconnects.' : null,
   ].filter(Boolean).join(' ');
   if (schedule.turnDue) {
     const reason = {
-      song_end: 'Waiting for the current master song to finish; it is not interrupted.',
-      paused: 'Waiting for an organizer to press Play. A mix is interrupted at once; a normal song finishes first.',
-      offline: 'The display is offline; the request starts when it reconnects.',
+      song_end: 'Plays when this song ends.',
+      paused: 'Press Play to start it.',
+      offline: 'Plays when the display reconnects.',
     }[schedule.dueReason ?? 'song_end'];
-    return { ...base, kind: 'due', headline: 'Request turn is due', detail: reason };
+    return { ...base, kind: 'due', headline: 'Request up next', detail: reason };
   }
   if (remaining <= 0) {
-    return { ...base, kind: 'elapsed_empty', headline: 'Period elapsed, no ready request', detail: `The turn is empty, so the 15-minute period restarts now. ${preparing ? `${preparing} still preparing do not count.` : ''}`.trim() };
+    return { ...base, kind: 'elapsed_empty', headline: 'No request ready', detail: `Playlist keeps going; next chance in ${POLICY.periodMs / 60_000} min.${preparing ? ` ${preparing} still loading.` : ''}` };
   }
   const current = snapshot.master?.find((m) => m.id === snapshot.nowPlaying?.entryId);
-  const interrupt = current?.isMix
-    ? 'The current item is a mix, so a ready request interrupts it when the period ends.'
-    : 'A normal song finishes before the request starts.';
-  const consequence = ready
-    ? `${ready} ready request${ready === 1 ? '' : 's'} will take this turn.`
-    : 'No ready request yet: if none is ready when the period ends, the turn is empty and the period restarts.';
+  const interrupt = !snapshot.nowPlaying ? null : current?.isMix ? 'This mix gets cut in and resumes later.' : 'Waits for this song to end.';
+  const consequence = ready ? `${ready} ready request${ready === 1 ? '' : 's'} will take this turn.` : 'No ready request yet.';
   return {
     ...base,
     kind: 'counting',
     periodRemainingMs: remaining,
-    headline: `Master period ends in ${formatClock(remaining)}`,
+    headline: `Next request in ${formatClock(remaining)}`,
     detail: [consequence, interrupt, where].filter(Boolean).join(' '),
   };
 }
@@ -203,4 +201,14 @@ export function explainError(error: ApiError, type: string): { tone: ErrorTone; 
     default:
       return { tone: 'rejected', message: error.message };
   }
+}
+
+/** Local control feedback lasts until the authoritative snapshot catches up. Failures roll back. */
+export function optimisticIntent(snapshot: Snapshot, intents: readonly Intent[], types: readonly string[]): Intent | null {
+  const latest = intents.find((intent) => types.includes(intent.type));
+  if (!latest || latest.status === 'failed') return null;
+  if (latest.status === 'pending' || (latest.revision !== undefined && snapshot.revision < latest.revision)) return latest;
+  // A newer revision may be a volume change; it must never resurrect an old seek preview.
+  if (latest.type === 'playback.seek' && snapshot.revision === latest.revision && snapshot.playback.confirmation === 'requested') return latest;
+  return null;
 }

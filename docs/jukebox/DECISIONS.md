@@ -284,3 +284,27 @@ choices** open to revision: a read-only `request.preview` plus an `expectRecordi
 contract owner); match ambiguity is resolved by the attendee choosing a YouTube link, never silently; rough
 "about N minutes" estimates instead of an ETA; no self-withdrawal until its quota effect is decided.
 Still unverified: live PH ID, live Spotify/Apple/YouTube search, a physical phone scanning a QR.
+
+## Display simplification (2026-11-01)
+
+The user requested removing the “Mix will pause, then resume” caption, the entire
+next-master panel, and the local-preview phone-reachability notice from `/display`.
+This supersedes the earlier next-master presentation choice; the queue gets the
+freed sidebar space. Playback scheduling and QR destination behavior are unchanged.
+
+## Session-driven display (2026-11-01)
+
+The user rejected the manual display-pairing/claim workflow and requested a laptop
+that follows admin session start/end automatically, asking for browser sound
+permission on page open when needed. This supersedes the earlier pairing UI and
+master-outside-session behavior. No session: an empty display saying an admin
+needs to start one. Starting a session starts the prepared master (or waits for
+its preparation); ending clears the display and stops audio.
+
+Implementation choice: automatic page-scoped player credentials and a single
+background lease keep competing tabs from producing duplicate music. The first
+connected display plays; others stay silent and connect if it closes/expires.
+The page attempts Web Audio activation immediately, offers only **Enable sound**
+when blocked, and retains that activation through session changes/reconnects in
+the same document. A fresh document still follows Firefox's autoplay permission.
+The QR and now-playing strip share a grid row; QR size matches the artwork size.

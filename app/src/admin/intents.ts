@@ -25,6 +25,7 @@ export interface Intent {
   finishedAt: number | null;
   attempts: number;
   result?: unknown;
+  revision?: number;
 }
 
 const HISTORY = 12;
@@ -33,6 +34,7 @@ export class CommandRunner {
   private intents: Intent[] = [];
   private listeners = new Set<() => void>();
   private readonly send: Send;
+  private playbackTail: Promise<unknown> = Promise.resolve();
   private readonly now: () => number;
   private readonly newId: () => string;
 
@@ -62,9 +64,9 @@ export class CommandRunner {
       id, label, type, payload, expectedRevision: options.expectedRevision, status: 'pending', error: null, replayed: false,
       startedAt: this.now(), finishedAt: null, attempts: 0,
     };
-    this.intents = [intent, ...this.intents].slice(0, HISTORY);
+    this.intents = [intent, ...this.intents].filter((item, index) => index < HISTORY || item.status === 'pending');
     for (const listener of this.listeners) listener();
-    return this.dispatch(id);
+    return this.enqueue(id, type);
   }
 
   /**
@@ -75,12 +77,14 @@ export class CommandRunner {
     const intent = this.intents.find((i) => i.id === id);
     if (!intent || intent.status !== 'failed') return null;
     this.update(id, { status: 'pending', error: null });
-    return this.dispatch(id);
+    return this.enqueue(id, intent.type);
   }
 
-  dismiss(id: string) {
-    this.intents = this.intents.filter((i) => i.id !== id || i.status === 'pending');
-    for (const listener of this.listeners) listener();
+  private enqueue(id: string, type: CommandType): Promise<Intent> {
+    if (!type.startsWith('playback.')) return this.dispatch(id);
+    const dispatched = this.playbackTail.then(() => this.dispatch(id));
+    this.playbackTail = dispatched.catch(() => undefined);
+    return dispatched;
   }
 
   private async dispatch(id: string): Promise<Intent> {
@@ -93,9 +97,9 @@ export class CommandRunner {
       response = { ok: false, commandId: id, replayed: false, error: { code: 'INTERNAL', message: `Network error: ${(error as Error).message}`, retryable: true } };
     }
     this.update(id, response.ok
-      ? { status: 'ok', replayed: response.replayed, finishedAt: this.now(), result: response.result }
+      ? { status: 'ok', replayed: response.replayed, finishedAt: this.now(), result: response.result, revision: response.revision }
       : { status: 'failed', error: response.error, replayed: response.replayed, finishedAt: this.now() });
-    return this.intents.find((i) => i.id === id)!;
+    return this.intents.find((i) => i.id === id) ?? intent;
   }
 }
 
@@ -109,59 +113,69 @@ export interface Timers {
 
 const realTimers: Timers = { set: (cb, ms) => setTimeout(cb, ms), clear: (h) => clearTimeout(h as ReturnType<typeof setTimeout>), now: () => Date.now() };
 
-/**
- * Bounds volume-slider traffic: at most one command in flight, at most one send per
- * `minIntervalMs`, intermediate drag values coalesced, and the last value always delivered.
- * Each sent value is its own intent (own commandId), so ordering never relies on retries.
- */
+/** Debounce adjustments; serialize sends and retain only the latest queued value. */
 export class VolumeController {
   private target: number | null = null;
-  private lastSent: number | null = null;
-  private lastSentAt = -Infinity;
   private inFlight = false;
   private timer: unknown = null;
+  private ready = false;
+  private dragging = false;
   sent = 0;
   private readonly runner: CommandRunner;
   private readonly timers: Timers;
   private readonly minIntervalMs: number;
-  /** Notified whenever the pending (not yet delivered) value changes. */
   onPending: (pending: number | null) => void = () => undefined;
 
   constructor(runner: CommandRunner, options: { minIntervalMs?: number; timers?: Timers } = {}) {
     this.runner = runner;
-    this.minIntervalMs = options.minIntervalMs ?? 250;
+    this.minIntervalMs = options.minIntervalMs ?? 300;
     this.timers = options.timers ?? realTimers;
+  }
+
+  begin() {
+    this.dragging = true;
+    this.ready = false;
+    if (this.timer !== null) this.timers.clear(this.timer);
+    this.timer = null;
   }
 
   set(volume: number) {
     this.target = Math.round(Math.min(1, Math.max(0, volume)) * 100) / 100;
     this.onPending(this.target);
+    this.ready = false;
+    if (this.timer !== null) this.timers.clear(this.timer);
+    if (this.dragging) return;
+    this.timer = this.timers.set(() => { this.timer = null; this.flush(); }, this.minIntervalMs);
+  }
+
+  flush() {
+    this.dragging = false;
+    if (this.timer !== null) this.timers.clear(this.timer);
+    this.timer = null;
+    this.ready = true;
     this.pump();
   }
 
-  get pending() {
-    return this.target !== null;
+  dispose() {
+    if (this.timer !== null) this.timers.clear(this.timer);
+    this.timer = null;
+    this.target = null;
+    this.ready = false;
+    this.onPending = () => undefined;
   }
 
+  get pending() { return this.target !== null; }
+
   private pump() {
-    if (this.inFlight || this.timer !== null || this.target === null || this.target === this.lastSent) return;
-    const wait = this.lastSentAt + this.minIntervalMs - this.timers.now();
-    if (wait > 0) {
-      this.timer = this.timers.set(() => {
-        this.timer = null;
-        this.pump();
-      }, wait);
-      return;
-    }
+    if (this.inFlight || !this.ready || this.target === null) return;
     const value = this.target;
+    this.ready = false;
     this.inFlight = true;
-    this.lastSentAt = this.timers.now();
     this.sent++;
-    void this.runner.run(`Set volume ${Math.round(value * 100)}%`, 'playback.volume', { volume: value }).then((intent) => {
+    void this.runner.run(`Set volume ${Math.round(value * 100)}%`, 'playback.volume', { volume: value }).then(() => {
       this.inFlight = false;
-      if (intent.status === 'ok') this.lastSent = value;
-      if (this.target === value) {
-        this.target = null; // delivered, or failed and not superseded: the error shows in the activity list
+      if (this.target === value && this.timer === null) {
+        this.target = null;
         this.onPending(null);
       }
       this.pump();

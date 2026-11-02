@@ -11,16 +11,26 @@ export interface PlayerState {
   epoch: number;
   activated: boolean;
   message: string;
+  connection: 'waiting' | 'connecting' | 'connected' | 'elsewhere' | 'error';
 }
 
 const WAIT_MS = 8000;
 const position = (audio: HTMLAudioElement) => Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
 
-/** One controller per mounted playback frame. Nothing claims or activates on mount. */
+// React may reuse a media element during development remounts. It can have only
+// one MediaElementAudioSourceNode, so hand its graph to the replacement controller.
+const graphs = new WeakMap<HTMLAudioElement, { context: AudioContext; analyser: AnalyserNode; closeTimer?: ReturnType<typeof setTimeout> }>();
+
+/** One native audio player. Session discovery, connection and renewal are automatic. */
 export class PlayerController {
   readonly audio: HTMLAudioElement;
-  state: PlayerState = { status: 'needs_activation', generation: null, loadId: null, epoch: 0, activated: false, message: 'Claim this display, then activate audio locally.' };
-  private device: Device;
+  state: PlayerState = { status: 'needs_activation', generation: null, loadId: null, epoch: 0, activated: false, message: '', connection: 'waiting' };
+  private device: Device | null = null;
+  private sessionOpen = false;
+  private snapshotRevision = -1;
+  private snapshotTime = -1;
+  private nextConnectAt = 0;
+  private secret = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('');
   private changed: (state: PlayerState) => void;
   private context: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
@@ -29,26 +39,23 @@ export class PlayerController {
   private previous: PlayerReport['previous'];
   private deadline = 0;
   private wallDeadline = 0;
-  private safeStartAt = 0;
   private disposed = false;
   private busy = false;
   private reporting = false;
   private reportAgain = false;
   private claiming = false;
   private terminalSent = false;
-  private unsubscribe: () => void;
+  private unsubscribe: () => void = () => {};
   private timer: ReturnType<typeof setInterval>;
   private heartbeat: ReturnType<typeof setInterval>;
   private removers: (() => void)[] = [];
   private cancellation = new AbortController();
 
-  constructor(audio: HTMLAudioElement, device: Device, changed: (state: PlayerState) => void) {
+  constructor(audio: HTMLAudioElement, changed: (state: PlayerState) => void) {
     this.audio = audio;
-    this.device = device;
     this.changed = changed;
-    this.unsubscribe = subscribeSnapshots((s) => this.snapshot(s), (error) => {
-      if (error) this.update({ message: `Connection interrupted: ${error}. Playback stops when the lease expires.` });
-    }, device.token);
+    this.subscribe();
+    queueMicrotask(() => { if (!this.disposed) void this.activate(); });
     for (const name of ['playing', 'pause', 'waiting', 'stalled', 'ended', 'error'] as const) {
       const listener = () => {
         if (!this.live()) { this.audio.pause(); return; }
@@ -62,7 +69,7 @@ export class PlayerController {
       this.removers.push(() => audio.removeEventListener(name, listener));
     }
     const wake = () => {
-      if (!this.live()) this.halt('Lease expired or lost. Claim and activate this display again.');
+      if (this.state.generation !== null && !this.live()) this.halt('Reconnecting to the session…');
     };
     const hide = () => this.dispose();
     window.addEventListener('pageshow', wake);
@@ -70,8 +77,9 @@ export class PlayerController {
     window.addEventListener('pagehide', hide);
     this.removers.push(() => window.removeEventListener('pageshow', wake), () => document.removeEventListener('visibilitychange', wake), () => window.removeEventListener('pagehide', hide));
     this.timer = setInterval(() => {
-      if (this.state.generation !== null && !this.live()) this.halt('Playback lease expired. Claim and activate again.');
+      if (this.state.generation !== null && !this.live()) this.halt('Reconnecting to the session…');
       if (this.live() && !this.busy) void this.reconcile();
+      if (this.sessionOpen && this.state.generation === null && performance.now() >= this.nextConnectAt) void this.connect();
     }, 100);
     this.heartbeat = setInterval(() => void this.report(), POLICY.heartbeatMs);
   }
@@ -95,52 +103,82 @@ export class PlayerController {
     this.audio.pause();
     this.audio.removeAttribute('src');
     this.audio.load();
-    void this.context?.suspend();
     this.cancellation.abort();
     this.cancellation = new AbortController();
     publishAnalyser(null);
-    this.update({ generation: null, activated: false, status: 'needs_activation', message });
+    this.desired = null;
+    this.applied = null;
+    this.update({ generation: null, loadId: null, status: 'needs_activation', message, connection: 'waiting' });
   }
 
-  async claim(takeover = false) {
-    if (this.disposed || this.state.generation !== null || this.claiming) return;
+  private subscribe() {
+    this.unsubscribe();
+    this.unsubscribe = subscribeSnapshots((s) => this.snapshot(s), (error) => {
+      if (error) this.update({ message: 'Reconnecting to the session…' });
+    }, this.device?.token);
+  }
+
+  private async connect() {
+    if (this.disposed || !this.sessionOpen || this.state.generation !== null || this.claiming) return;
     this.claiming = true;
+    this.nextConnectAt = performance.now() + 2000;
+    this.update({ connection: 'connecting' });
     const start = performance.now(), wall = Date.now();
-    let response;
     try {
-      response = await this.bounded(sendCommand('player.claim', { takeover }, { bearer: this.device.token, attempts: 1 }));
-    } catch (error) {
-      if (!this.disposed) this.update({ message: `Claim could not be confirmed: ${String(error)}. Wait for expiry or explicitly take over this device.` });
-      return;
+      const response = await this.bounded(sendCommand('display.connect', { secret: this.secret }, { attempts: 1 }));
+      if (this.disposed) return;
+      if (!response.ok) {
+        if (response.error.code === 'DEVICE_REVOKED') this.nextConnectAt = Infinity;
+        this.update({ connection: response.error.code === 'LEASE_HELD' ? 'elsewhere' : 'error',
+          message: response.error.code === 'LEASE_HELD' ? 'Sound is playing on another display.' : response.error.message });
+        return;
+      }
+      const { deviceId, token, generation, expiresAt } = response.result;
+      this.device = { deviceId, token };
+      this.renew(start, wall);
+      this.wallDeadline = Math.min(this.wallDeadline, expiresAt);
+      this.applied = null;
+      this.desired = null;
+      this.previous = undefined;
+      this.terminalSent = false;
+      this.update({ generation, connection: 'connected', message: '' });
+      this.subscribe();
+      await this.refresh();
+    } catch {
+      if (!this.disposed) this.update({ connection: 'error', message: 'Could not connect. Retrying…' });
     } finally { this.claiming = false; }
-    if (this.disposed) return;
-    if (!response.ok) { this.update({ message: response.error.message }); return; }
-    this.renew(start, wall);
-    // A fenced tab may be disconnected. Let its entire old lease expire before
-    // takeover audio; server-side fencing alone cannot stop a disconnected speaker.
-    this.safeStartAt = takeover ? performance.now() + POLICY.leaseMs : 0;
-    this.applied = null;
-    this.desired = null;
-    this.previous = undefined;
-    this.terminalSent = false;
-    this.update({ generation: response.result.generation, activated: false, status: 'needs_activation', message: takeover ? 'Takeover claimed. Waiting out the previous tab’s lease before audio.' : 'Claimed. Activate audio on this display.' });
-    await this.refresh();
   }
 
   private async refresh() {
     const generation = this.state.generation;
     try {
-      const res = await fetch('/api/v1/snapshot', { headers: { authorization: `Bearer ${this.device.token}` }, signal: AbortSignal.timeout(4000) });
+      const res = await fetch('/api/v1/snapshot', { headers: { authorization: `Bearer ${this.device!.token}` }, signal: AbortSignal.timeout(4000) });
       if (this.disposed || generation !== this.state.generation) return;
-      if (!res.ok) { this.halt('Device authorization lost. Pair again.'); return; }
+      if (!res.ok) { this.halt('Reconnecting to the session…'); this.device = null; this.subscribe(); return; }
       this.snapshot(await res.json() as Snapshot);
     } catch { /* Lease watchdog remains independent of network waits. */ }
   }
 
   private snapshot(snapshot: Snapshot) {
-    if (this.state.generation === null || this.disposed) return;
-    if (!snapshot.lease || snapshot.lease.deviceId !== this.device.deviceId || snapshot.lease.generation !== this.state.generation || snapshot.lease.expiresAt <= snapshot.serverTime) {
-      this.halt('Playback authority moved or expired. This tab is silent.');
+    if (this.disposed) return;
+    if (snapshot.revision < this.snapshotRevision || (snapshot.revision === this.snapshotRevision && snapshot.serverTime < this.snapshotTime)) return;
+    this.snapshotRevision = snapshot.revision;
+    this.snapshotTime = snapshot.serverTime;
+    this.sessionOpen = snapshot.night?.status === 'open';
+    if (!this.sessionOpen) {
+      if (this.state.generation !== null) {
+        this.release();
+        this.halt('');
+      }
+      this.update({ connection: 'waiting', message: '' });
+      return;
+    }
+    if (this.state.generation === null) {
+      if (performance.now() >= this.nextConnectAt) void this.connect();
+      return;
+    }
+    if (!snapshot.lease || snapshot.lease.deviceId !== this.device!.deviceId || snapshot.lease.generation !== this.state.generation || snapshot.lease.expiresAt <= snapshot.serverTime) {
+      this.halt('Reconnecting to the session…');
       return;
     }
     if (snapshot.desired && this.desired && snapshot.desired.epoch < this.desired.epoch) return;
@@ -150,23 +188,43 @@ export class PlayerController {
   }
 
   async activate() {
-    if (!this.live()) return;
+    if (this.disposed) return;
     // Create/resume immediately in the local gesture, before any network await.
-    if (!this.context) {
-      this.context = new AudioContext();
-      const source = this.context.createMediaElementSource(this.audio);
-      this.analyser = this.context.createAnalyser();
-      this.analyser.fftSize = 2048;
-      source.connect(this.analyser);
-      this.analyser.connect(this.context.destination);
-    }
     try {
-      await this.bounded(this.context.resume());
-      if (!this.live()) return;
-      this.update({ activated: true, message: 'Audio activated. Browser volume does not change OS/HDMI volume.' });
+      if (!this.context) {
+        let graph = graphs.get(this.audio);
+        if (!graph) {
+          const context = new AudioContext();
+          const analyser = context.createAnalyser();
+          analyser.fftSize = 2048;
+          context.createMediaElementSource(this.audio).connect(analyser);
+          analyser.connect(context.destination);
+          graph = { context, analyser };
+          graphs.set(this.audio, graph);
+        }
+        clearTimeout(graph.closeTimer);
+        this.context = graph.context;
+        this.analyser = graph.analyser;
+        this.context.onstatechange = () => {
+          if (this.context?.state === 'running' && !this.disposed) {
+            this.update({ activated: true, message: '' });
+            void this.reconcile();
+          }
+        };
+      }
+      // Firefox may leave resume pending until a local gesture. Do not turn that
+      // permission wait into a media timeout/failure or consume a request allowance.
+      void this.context.resume().then(() => {
+        if (this.disposed) return;
+        this.update({ activated: this.context?.state === 'running', message: '' });
+        void this.reconcile();
+      }).catch(() => {
+        if (!this.disposed) this.update({ activated: false, status: 'needs_activation' });
+      });
+      this.update({ activated: this.context.state === 'running' });
       await this.reconcile();
-    } catch (error) {
-      if (this.live()) this.update({ activated: false, status: 'needs_activation', message: String(error) });
+    } catch {
+      this.update({ activated: false, status: 'needs_activation', message: 'Sound could not start. Try enabling it again.' });
     }
   }
 
@@ -202,7 +260,6 @@ export class PlayerController {
     if (!this.live() || this.busy || !this.desired) return;
     const desired = this.desired;
     const generation = this.state.generation;
-    if (this.applied?.epoch === desired.epoch && this.state.status === 'needs_activation' && performance.now() < this.safeStartAt) return;
     if (this.applied?.epoch === desired.epoch && (!this.state.activated || this.state.status !== 'needs_activation')) return;
     this.busy = true;
     this.update({ status: 'loading' });
@@ -227,7 +284,7 @@ export class PlayerController {
       this.update({ epoch: desired.epoch });
       // Never start an obsolete load or intent after an asynchronous load/seek.
       if (this.desired?.epoch !== desired.epoch) { this.audio.pause(); return; }
-      if (!this.state.activated || performance.now() < this.safeStartAt) {
+      if (!this.state.activated) {
         this.audio.pause();
         this.update({ status: 'needs_activation' });
       } else if (desired.intent === 'paused') {
@@ -268,13 +325,13 @@ export class PlayerController {
     };
     const start = performance.now(), wall = Date.now();
     try {
-      const response = await this.bounded(sendCommand('player.report', payload, { bearer: this.device.token, attempts: 1 }));
+      const response = await this.bounded(sendCommand('player.report', payload, { bearer: this.device!.token, attempts: 1 }));
       if (this.disposed || generation !== this.state.generation) return;
       if (!response.ok) {
         if (['STALE_LEASE', 'DEVICE_REVOKED', 'UNAUTHENTICATED'].includes(response.error.code)) this.halt(response.error.message);
         return;
       }
-      if (!this.live()) { this.halt('Report arrived after local lease expiry. Claim again.'); return; }
+      if (!this.live()) { this.halt('Reconnecting to the session…'); return; }
       this.renew(start, wall);
       if (this.previous === previous) this.previous = undefined;
       if (this.applied?.loadId === payload.loadId && this.state.epoch === payload.epoch && ['ended', 'error'].includes(status)) this.terminalSent = true;
@@ -289,10 +346,25 @@ export class PlayerController {
     }
   }
 
-  dispose() {
-    if (this.disposed) return;
+  private release() {
     const generation = this.state.generation;
     const finalPosition = position(this.audio);
+    if (generation !== null && this.device) {
+      // Preserve the actual final checkpoint before releasing on refresh. Ordered
+      // within one best-effort keepalive request chain; expiry remains the fallback.
+      const token = this.device.token;
+      const command = (type: string, payload: unknown) => fetch('/api/v1/commands', {
+        method: 'POST', keepalive: true, headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify({ commandId: crypto.randomUUID(), type, payload }),
+      });
+      const checkpoint = this.applied ? command('player.report', { generation, epoch: this.state.epoch, loadId: this.state.loadId ?? 0, status: this.state.status === 'ended' ? 'ended' : 'paused', positionSec: finalPosition, ...(this.previous ? { previous: this.previous } : {}) }) : Promise.resolve();
+      void checkpoint.then(() => command('player.release', { generation })).catch(() => {});
+    }
+  }
+
+  dispose() {
+    if (this.disposed) return;
+    this.release();
     this.disposed = true;
     this.audio.pause();
     this.cancellation.abort();
@@ -300,17 +372,9 @@ export class PlayerController {
     this.unsubscribe();
     clearInterval(this.timer); clearInterval(this.heartbeat);
     for (const remove of this.removers) remove();
-    void this.context?.close();
-    if (generation !== null) {
-      // Preserve the actual final checkpoint before releasing on refresh. Ordered
-      // within one best-effort keepalive request chain; expiry remains the fallback.
-      const command = (type: string, payload: unknown) => fetch('/api/v1/commands', {
-        method: 'POST', keepalive: true, headers: { 'content-type': 'application/json', authorization: `Bearer ${this.device.token}` },
-        body: JSON.stringify({ commandId: crypto.randomUUID(), type, payload }),
-      });
-      const checkpoint = this.applied ? command('player.report', { generation, epoch: this.state.epoch, loadId: this.state.loadId ?? 0, status: this.state.status === 'ended' ? 'ended' : 'paused', positionSec: finalPosition, ...(this.previous ? { previous: this.previous } : {}) }) : Promise.resolve();
-      void checkpoint.then(() => command('player.release', { generation })).catch(() => {});
-    }
+    if (this.context) this.context.onstatechange = null;
+    const graph = graphs.get(this.audio);
+    if (graph) graph.closeTimer = setTimeout(() => { void graph.context.close(); graphs.delete(this.audio); }, 0);
     this.audio.removeAttribute('src');
     this.audio.load();
   }
