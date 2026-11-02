@@ -38,7 +38,7 @@ export function canonicalizeUrl(input: unknown): SourceRef {
   let youtube: string | null = null;
   const youtubeHost = ['www.youtube.com', 'youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be'].includes(host);
   if (url.hash && (!youtubeHost || !/^#t=[0-9hms.]+$/.test(url.hash))) throw new PortError('INVALID_SOURCE', 'Unsupported link fragment');
-  const youtubeParams = (watch: boolean) => only([...YOUTUBE_CONTEXT, ...(watch ? ['v'] : [])]) && params.every(([k, value]) => k === 'v' || (value.length <= 512 && /^[A-Za-z0-9_ .%+,:=()@-]*$/.test(value)));
+  const youtubeParams = (watch: boolean) => only([...YOUTUBE_CONTEXT, ...(watch ? ['v'] : [])]) && params.every(([k, value]) => k === 'v' || (value.length <= 512 && /^[\p{L}\p{N}\p{M}\p{S}_ .%+,:=()@-]*$/u.test(value)));
   if (youtubeHost && host !== 'youtu.be' && url.pathname === '/watch' && youtubeParams(true)) {
     youtube = url.searchParams.get('v');
   } else if (host === 'youtu.be' && youtubeParams(false)) {

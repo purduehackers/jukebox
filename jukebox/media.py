@@ -3,6 +3,7 @@ import json
 import math
 import re
 import subprocess
+import unicodedata
 from urllib.parse import parse_qs, urlsplit
 
 MAX_DURATION = 4 * 3600
@@ -35,7 +36,7 @@ def validate_source(source):
     if not set(q) <= allowed or any(len(v) != 1 for v in q.values()):
         raise ValueError('Unsupported or duplicate YouTube parameters')
     for key, values in q.items():
-        if key != 'v' and (len(values[0]) > 512 or not re.fullmatch(r'[A-Za-z0-9_ .%+,:=()@-]*', values[0])):
+        if key != 'v' and (len(values[0]) > 512 or not all(unicodedata.category(c)[0] in ('L', 'N', 'M', 'S') or c in '_ .%+,:=()@-' for c in values[0])):
             raise ValueError('Invalid YouTube context parameter')
     if 'si' in q and not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', q['si'][0]):
         raise ValueError('Invalid sharing parameter')

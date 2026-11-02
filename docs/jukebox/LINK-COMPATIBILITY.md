@@ -112,7 +112,10 @@ user-selected direct YouTube link. No claim of semantic audio fingerprinting.
 
 Both URL validators reject credentials, explicit ports (including `:443`),
 lookalike/encoded hosts, backslashes/control characters, unsupported paths,
-duplicate query keys and non-time fragments. Only known context keys are accepted.
+duplicate query keys and non-time fragments. Only known context keys are accepted. Discarded context values allow bounded
+Unicode letters, numbers, marks and symbols (including non-Latin channel names);
+control/format characters remain rejected. Recording IDs and `si` tokens keep
+their exact ASCII validation.
 A shared JSON fixture covers both reported URLs, navigation, time, host/path
 tricks, real playlist-only rejection and a >300-character navigation URL. Canonical
 YouTube URLs reparse in both languages; all catalog canonical URLs reparse in TS.
