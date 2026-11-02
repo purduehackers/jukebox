@@ -5,6 +5,7 @@ Not part of routine automated tests. No personal profiles, cookies, or secrets.
 import argparse
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import socket
 import subprocess
@@ -32,6 +33,10 @@ def main():
             'hardware':'Headless Firefox on development Linux; HDMI/wall untested'}
     (ROOT/'.local').mkdir(exist_ok=True)
     driver=None
+    sink_name = f'jukebox_source_{os.getpid()}'
+    sink_module = subprocess.check_output(['pactl', 'load-module', 'module-null-sink', f'sink_name={sink_name}'], text=True).strip()
+    os.environ['PULSE_SINK'] = sink_name
+    report['audioOutput'] = 'dedicated null sink; user audio unchanged'
     with tempfile.TemporaryDirectory(prefix='source-',dir=ROOT/'.local') as tmp:
         with socket.socket() as sock:
             sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
@@ -125,6 +130,7 @@ def main():
             path=Path(args.output);path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(report,indent=2)+'\n')
             if driver: driver.quit()
             process.terminate();process.wait(timeout=10)
+            subprocess.run(['pactl', 'unload-module', sink_module], check=False)
 
 
 if __name__=='__main__': main()

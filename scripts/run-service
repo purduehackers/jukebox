@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Phase-2 queue service. Offline by default (fake media + fixture metadata).
-# Pass --worker http://127.0.0.1:8971 to use a running phase-1 worker (./scripts/run-local).
+# Queue service. Uses real audio worker at JUKEBOX_WORKER_URL or :8971.
+# Offline tests/demos must opt into --fixture-media or --fixture-matching.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 command -v node >/dev/null || { echo "Missing node (22.18+; tested on 26); see README.md" >&2; exit 1; }

@@ -10,12 +10,17 @@ Intended production origin: `https://jukebox.purduehackers.com` (not deployed).
 
 ## Run the complete local app
 
-In separate terminals:
-
 ```sh
-./scripts/run-local --data .local/display-demo/worker
-./scripts/run-dev --worker http://127.0.0.1:8971 --data .local/display-demo/service
+./scripts/run-dev --data .local/display-demo/service
 ```
+
+Real audio is the default: the script reuses the local worker on :8971 or starts
+one with isolated worker state at `.local/dev-worker`. An existing app on
+:5173/:8980 is left running and startup fails clearly. To manage the worker
+separately, run `./scripts/run-local --data .local/display-demo/worker`, then
+`./scripts/run-dev --worker http://127.0.0.1:8971 --data .local/display-demo/service`.
+See [link compatibility and live-source evidence](docs/jukebox/LINK-COMPATIBILITY.md)
+for supported URLs, catalog behavior, configuration, and isolated test ports.
 
 Open **http://127.0.0.1:5173/display in Firefox** and click **Enable sound** if
 Firefox asks. Open **http://127.0.0.1:5173/admin**, use the labelled local test
@@ -25,7 +30,7 @@ and shows an empty display asking the admin to start a session. No pairing codes
 or claim controls. The browser handles the one-player lock and reconnection in
 the background. `/queue` is the silent attendee request page.
 
-These paths reuse the saved display-demo state and cache. All services bind to
+The example reuses saved display-demo service state and the local worker cache. All services bind to
 loopback. Without PH ID configuration, the development script uses labelled fake
 sign-in. To use the registered PH ID client, follow [PH ID setup](docs/jukebox/PH-ID-SETUP.md).
 
@@ -41,7 +46,7 @@ wait up to 15 seconds for an old audio lease to expire.
 Requires Node 22.18+ (tested on 26.11.1). Run `npm ci` once for type checking.
 
 ```sh
-./scripts/run-service --dev-auth                  # offline: fake media, fixture metadata
+./scripts/run-service --dev-auth --fixture-media  # explicit offline fixtures, no audio
 ./scripts/run-local &                             # phase-1 worker on :8971, then:
 ./scripts/run-service --dev-auth --worker http://127.0.0.1:8971
 node scripts/smoke-service.ts                     # end-to-end smoke with owned fixtures
@@ -51,7 +56,7 @@ The service listens on `http://127.0.0.1:8980` (`--port`, `--data` for state).
 `--dev-auth` is a clearly labelled local fake sign-in (`/auth/login` → form; tick
 organizer for admin). PH ID uses `JUKEBOX_PHID_CLIENT_ID`, `JUKEBOX_PHID_REDIRECT_URI`,
 `JUKEBOX_SESSION_SECRET` (and optional `JUKEBOX_PHID_CLIENT_SECRET`, `JUKEBOX_PHID_BASE`);
-no Jukebox client is registered with PH ID yet, so live sign-in is untested.
+live local PH ID sign-in was verified on 2026-11-02; production remains unconfigured.
 API: `GET /api/v1/snapshot`, `GET /api/v1/stream` (SSE), `POST /api/v1/commands`,
 `GET /media/<id>` (same-origin proxy to the worker). Contract, behavior table,
 and limits: [Phase-2 contract](docs/jukebox/PHASE-2-CONTRACT.md).
@@ -87,12 +92,12 @@ The service binds to loopback only. Stop it with Ctrl+C.
 `fixture:song` is exactly 360 seconds of AAC for the normal-song boundary;
 `fixture:aac` is an 8-second AAC request. Fixture generation creates audio only.
 To try the real adapter, enter one HTTPS YouTube `/watch?v=…` or `youtu.be/…`
-link with the correct role. YouTube `si` share parameters are accepted and discarded. No cookies/accounts are used. Source access can fail;
+link with the correct role. Single-video watch/share/mobile/Music/Shorts/archived-live links accept common sharing, timestamp and radio/list context, then discard it. True playlist-only links remain unsupported. Full recording duration is enforced, starting at position zero. No cookies/accounts are used. Source access can fail;
 there is no video or alternate-recording fallback. Requests must be under 360s.
 
 The supplied master `https://youtu.be/TqTNaPB-4ow` and songs
 `https://youtu.be/BXtL6W0RXpg` / `https://youtu.be/lPeJMoms_Ag` passed real-source
-Firefox checks. Spotify remains a metadata/matching example, not playable media.
+Firefox checks. Spotify and Apple track metadata now match to bounded YouTube audio-only candidates; see the link compatibility report for live verification and limits.
 
 Preparation finishes before playback; this is a seekable completed-file cache,
 not a growing-file stream. It retains supported audio codecs (Opus/Vorbis, AAC,

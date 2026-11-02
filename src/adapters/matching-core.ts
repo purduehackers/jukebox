@@ -8,6 +8,7 @@ export interface CatalogTrack {
   album?: string;
   durationMs: number | null;
   isrc?: string;
+  provenance?: string;
 }
 
 export interface CatalogPort {
@@ -33,8 +34,8 @@ export const HARD_MARKERS = [
 export const SOFT_MARKERS = ['remaster', 'remastered', 'mono', 'stereo', 'explicit', 'clean', 'deluxe'] as const;
 
 export function normalizeText(value: string): string {
-  return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+  return value.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
 }
 
 export function detectMarkers(value: string, markers: readonly string[] = HARD_MARKERS): string[] {

@@ -47,6 +47,8 @@ superseded by the intended jukebox hostname.
 
 ## Documents
 
+- [Link compatibility](LINK-COMPATIBILITY.md): current YouTube URL normalization, real-worker startup, live Spotify/Apple metadata matching, research and measured limitations.
+
 - [Phase-3 Firefox player](PHASE-3-FINDINGS.md): pairing, activation, lease fencing,
   recovery evidence, measured acknowledgement/resume results, and venue gates.
 - [Phase-2 contract and service](PHASE-2-CONTRACT.md): behavior table, typed

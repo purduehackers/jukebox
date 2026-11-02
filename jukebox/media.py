@@ -3,6 +3,7 @@ import json
 import math
 import re
 import subprocess
+import unicodedata
 from urllib.parse import parse_qs, urlsplit
 
 MAX_DURATION = 4 * 3600
@@ -13,28 +14,44 @@ FIXTURES = {'fixture:master': (3600, 220), 'fixture:request': (4, 660),
 
 
 def validate_source(source):
+    if not isinstance(source, str) or len(source) > 2048:
+        raise ValueError('Use a single YouTube recording link')
+    source = source.strip()
     if source in FIXTURES:
         return source
-    if not isinstance(source, str) or len(source) > 300:
-        raise ValueError('Unsupported source; use a fixture or a single YouTube watch link')
+    if re.search(r'[\\\x00-\x20\x7f]', source) or re.match(r'https://[^/]*:', source):
+        raise ValueError('Use a plain HTTPS link without a port')
     p = urlsplit(source)
-    if p.scheme != 'https' or p.username or p.password or p.port or p.fragment:
-        raise ValueError('Only canonical HTTPS YouTube track links are supported')
+    hosts = ('youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be')
+    if p.scheme != 'https' or p.username or p.password or p.port or p.hostname not in hosts:
+        raise ValueError('Only HTTPS YouTube recording links are supported')
+    if p.fragment and not re.fullmatch(r't=[0-9hms.]+', p.fragment):
+        raise ValueError('Unsupported link fragment')
+    if re.match(r'https://([^/?#]+)', source, re.I).group(1).lower() != p.hostname:
+        raise ValueError('Use a plain provider hostname')
     q = parse_qs(p.query, keep_blank_values=True)
-    # YouTube's ordinary share links carry an opaque `si` attribution token.
-    # It is not media identity; accept only this narrow extra field and discard it.
-    if 'si' in q:
-        if len(q['si']) != 1 or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', q['si'][0]):
-            raise ValueError('Invalid sharing parameter')
-        del q['si']
-    if p.hostname in ('youtube.com', 'www.youtube.com') and p.path == '/watch' and set(q) == {'v'} and len(q['v']) == 1:
-        item = q['v'][0]
-    elif p.hostname == 'youtu.be' and not q:
+    context = {'si', 't', 'start', 'end', 'time_continue', 'list', 'index', 'start_radio', 'feature',
+               'pp', 'ab_channel', 'app', 'persist_app', 'lc'}
+    allowed = context | ({'v'} if p.path == '/watch' and p.hostname != 'youtu.be' else set())
+    if not set(q) <= allowed or any(len(v) != 1 for v in q.values()):
+        raise ValueError('Unsupported or duplicate YouTube parameters')
+    for key, values in q.items():
+        if key != 'v' and (len(values[0]) > 512 or not all(unicodedata.category(c)[0] in ('L', 'N', 'M', 'S') or c in '_ .%+,:=()@-' for c in values[0])):
+            raise ValueError('Invalid YouTube context parameter')
+    if 'si' in q and not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', q['si'][0]):
+        raise ValueError('Invalid sharing parameter')
+    if p.hostname != 'youtu.be' and p.path == '/watch':
+        item = q.get('v', [''])[0]
+    elif p.hostname == 'youtu.be':
         item = p.path[1:]
+    elif re.fullmatch(r'/(?:shorts|live)/[^/]+', p.path):
+        item = p.path.split('/')[2]
     else:
-        raise ValueError('Unsupported provider/path; playlists and metadata matching are deferred')
+        raise ValueError('Use a single recording; playlist-only links are unsupported')
     if not re.fullmatch(r'[a-zA-Z0-9_-]{11}', item):
         raise ValueError('Invalid YouTube item ID')
+    # Only this canonical URL crosses the process/provider boundary. Context never
+    # affects duration or playback: full recording, starting at position zero.
     return 'https://www.youtube.com/watch?v=' + item
 
 

@@ -105,6 +105,9 @@ export function readDisambiguation(details: ApiError['details']): Disambiguation
 
 export function describeError(error: ApiError): ErrorCopy {
   const base = ERROR_COPY[error.code] ?? ERROR_COPY.INTERNAL;
+  if (['worker_unavailable', 'catalog_configuration', 'catalog_unavailable', 'catalog_metadata'].includes(String(error.details?.kind))) {
+    return { title: error.details?.kind === 'worker_unavailable' ? 'Audio service needs attention' : 'Catalog needs attention', body: `${error.message} Nothing was added; your allowance is unchanged.`, tone: 'warn', retry: error.retryable, blocksLink: false };
+  }
   const disambiguation = error.code === 'SOURCE_UNAVAILABLE' ? readDisambiguation(error.details) : null;
   if (disambiguation) {
     const title = {
@@ -117,7 +120,7 @@ export function describeError(error: ApiError): ErrorCopy {
   }
   // Server wording is more specific for validation failures; fall back to ours for generic ones.
   const useServerMessage = error.code === 'INVALID_SOURCE' || error.code === 'SOURCE_UNSUPPORTED' || error.code === 'SOURCE_UNAVAILABLE';
-  const body = useServerMessage && error.message ? `${base.body} (${error.message})` : base.body;
+  const body = useServerMessage && error.message ? `${error.message} Nothing was added; your allowance is unchanged.` : base.body;
   return { ...base, body, retry: error.retryable };
 }
 

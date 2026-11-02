@@ -5,13 +5,17 @@ import { canonicalizeUrl } from '../core/sources.ts';
 import { PortError } from '../core/ports.ts';
 import type { JobState, MediaPort, SourcePort } from '../core/ports.ts';
 
+import { normalizeText, type Candidate, type CandidateSearchPort, type CatalogTrack } from './matching-core.ts';
+
 type Config = { baseUrl: string; resolveTimeoutMs?: number; requestTimeoutMs?: number };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-export class WorkerAdapter implements SourcePort, MediaPort {
+export class WorkerAdapter implements SourcePort, MediaPort, CandidateSearchPort {
   private readonly baseUrl: string;
   private readonly resolveTimeoutMs: number;
   private readonly requestTimeoutMs: number;
+  private readonly metadata = new Map<string, { until: number; value: ResolvedSource }>();
+  private readonly searches = new Map<string, { until: number; value: Candidate[] }>();
   constructor(config: Config) {
     this.baseUrl = config.baseUrl.replace(/\/$/, '');
     this.resolveTimeoutMs = config.resolveTimeoutMs ?? 45000;
@@ -35,23 +39,49 @@ export class WorkerAdapter implements SourcePort, MediaPort {
   }
   async resolve(ref: SourceRef, purpose: MediaPurpose): Promise<ResolvedSource> {
     if (ref.provider === 'spotify' || ref.provider === 'apple_music') {
-      throw new PortError('SOURCE_UNSUPPORTED', 'Spotify/Apple Music matching is not implemented yet');
+      throw new PortError('SOURCE_UNSUPPORTED', 'Catalog links must use the configured matching source');
     }
+    const cacheKey = `${purpose}:${ref.canonicalUrl}`;
+    const cached = this.metadata.get(cacheKey);
+    if (cached && cached.until > Date.now()) return structuredClone(cached.value);
     const source = ref.provider === 'fixture' ? `fixture:${ref.itemId}` : ref.canonicalUrl;
     let response: Response, body: any;
     try {
       ({ response, body } = await this.json('/api/resolve', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({source,kind:purpose}) }, this.resolveTimeoutMs));
     } catch (error) {
-      throw new PortError('SOURCE_UNAVAILABLE', error instanceof Error ? error.message : 'Worker resolve unavailable', true);
+      throw new PortError('SOURCE_UNAVAILABLE', 'The local audio worker is unreachable or timed out. Start scripts/run-local and check --worker / JUKEBOX_WORKER_URL.', true, { kind: 'worker_unavailable' });
     }
     if (!response.ok) throw this.workerError(body, response.status);
+    if (body.source !== source || typeof body.title !== 'string' || !Number.isFinite(body.duration) || body.duration <= 0 || typeof body.recordingKey !== 'string') throw new PortError('SOURCE_UNAVAILABLE', 'The audio worker returned incomplete recording metadata', true);
     const artworkUrl = typeof body.thumbnail === 'string' ? body.thumbnail : undefined;
     if (artworkUrl !== undefined) {
       try { const parsed = new URL(artworkUrl); if ((parsed.protocol !== 'http:' && parsed.protocol !== 'https:') || parsed.username || parsed.password) throw new Error(); }
       catch { throw new PortError('SOURCE_UNAVAILABLE', 'Worker returned an invalid artwork URL'); }
     }
-    return { ref, title:body.title, artist:body.artist ?? null, durationSec:body.duration, recordingKey:body.recordingKey,
+    const resolved: ResolvedSource = { ref, title:body.title, artist:body.artist ?? null, durationSec:body.duration, recordingKey:body.recordingKey,
       ...(artworkUrl ? { artworkUrl } : {}), selection:{source:body.source} };
+    if (this.metadata.size >= 128) this.metadata.delete(this.metadata.keys().next().value!);
+    this.metadata.set(cacheKey, { until: Date.now() + 60000, value: resolved });
+    return structuredClone(resolved);
+  }
+  async search(track: CatalogTrack): Promise<Candidate[]> {
+    const cacheKey = JSON.stringify([normalizeText(track.title), track.artists.map(normalizeText), track.durationMs]);
+    const cached = this.searches.get(cacheKey);
+    if (cached && cached.until > Date.now()) return structuredClone(cached.value);
+    const query = `${track.artists.join(' ')} ${track.title}`.slice(0, 300).replace(/[\u0000-\u001f]/g, ' ');
+    let response: Response, body: any;
+    try {
+      ({ response, body } = await this.json('/api/search', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query }) }, this.resolveTimeoutMs));
+    } catch {
+      throw new PortError('SOURCE_UNAVAILABLE', 'The local audio worker could not search YouTube. Check worker configuration and connectivity.', true, { kind: 'worker_unavailable' });
+    }
+    if (response.status === 404) throw new PortError('SOURCE_UNAVAILABLE', 'The audio worker does not support catalog search. Restart scripts/run-local from the current checkout or configure the current worker URL.', false, { kind: 'worker_unavailable' });
+    if (!response.ok) throw this.workerError(body, response.status);
+    if (!Array.isArray(body.candidates)) throw new PortError('SOURCE_UNAVAILABLE', 'The worker returned invalid search metadata', true);
+    const candidates: Candidate[] = body.candidates.slice(0, 10).filter((item: any) => typeof item?.url === 'string' && typeof item.title === 'string' && typeof item.channel === 'string' && Number.isFinite(item.durationSec) && item.durationSec > 0);
+    if (this.searches.size >= 128) this.searches.delete(this.searches.keys().next().value!);
+    this.searches.set(cacheKey, { until: Date.now() + 60000, value: candidates });
+    return structuredClone(candidates);
   }
   async prepare(source: ResolvedSource, purpose: MediaPurpose): Promise<{jobId:string}> {
     const selection = source.selection as {source?:unknown};

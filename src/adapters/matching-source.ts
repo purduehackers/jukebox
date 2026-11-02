@@ -32,6 +32,7 @@ export class MatchingSource implements SourcePort {
       if (track.durationMs === null || track.durationMs <= 0) {
         throw this.failure(track, [], 'no_match', 'The catalog has no usable duration, so no confident match is possible. Paste a YouTube link.');
       }
+      if (purpose === 'request' && track.durationMs >= 360000) throw new PortError('DURATION_REJECTED', 'The full catalog recording must be strictly under six minutes');
       const raw = await this.search.search(track);
       const findings: Finding[] = [];
       for (const candidate of raw.slice(0, 10)) {
@@ -79,12 +80,19 @@ export class MatchingSource implements SourcePort {
         reasons.push(`soft marker: ${marker}`);
       }
       const resolved = await this.inner.resolve(chosen.ref, purpose);
-      if (!durationMatches(resolved.durationSec, track.durationMs)) {
-        const altered: Finding = { ...chosen, durationOk: false, notes: [...chosen.notes, `prepared recording differs by ${Math.round(Math.abs(resolved.durationSec - track.durationMs / 1000))} s`] };
-        throw this.failure(track, [altered], 'version_mismatch', 'The matched recording duration differs from the catalog; paste the YouTube link of the version you want.');
+      const resolvedCandidate = { ...chosen.candidate, title: resolved.title, channel: resolved.artist ?? chosen.candidate.channel };
+      const titleArtistOk = candidateMatchesTitleArtist(track, resolvedCandidate);
+      const versionOk = detectMarkers(resolved.title).join('|') === detectMarkers(track.title).join('|');
+      const durationOk = durationMatches(resolved.durationSec, track.durationMs);
+      if (!durationOk || !titleArtistOk || !versionOk) {
+        const notes = [...chosen.notes];
+        if (!durationOk) notes.push(`resolved recording differs by ${Math.round(Math.abs(resolved.durationSec - track.durationMs / 1000))} s`);
+        if (!titleArtistOk || !versionOk) notes.push('resolved title, artist, or version changed since search');
+        const altered: Finding = { ...chosen, candidate: resolvedCandidate, durationOk, notes };
+        throw this.failure(track, [altered], 'version_mismatch', 'The resolved recording title, version, or duration differs from the catalog; paste the YouTube link of the version you want.');
       }
       const selection = isPlainObject(resolved.selection)
-        ? { ...resolved.selection, matchedFrom: ref.canonicalUrl, matchedUrl: chosen.candidate.url }
+        ? { ...resolved.selection, matchedFrom: ref.canonicalUrl, matchedUrl: chosen.candidate.url, catalog: { provider: track.provider, itemId: track.itemId, title: track.title, artists: track.artists, durationMs: track.durationMs, provenance: track.provenance ?? 'fixture', ...(track.isrc ? { isrc: track.isrc } : {}) } }
         : resolved.selection;
       return {
         ...resolved,
