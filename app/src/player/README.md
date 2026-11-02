@@ -8,7 +8,8 @@ The frame opens silently. Pair using an admin-issued code, claim playback, then
 click **Activate audio locally** on the display. Pairing persists in localStorage;
 a lease and activation never persist. Reload requires claim/activation again.
 A normal claim never takes over a live tab or another device. Explicit same-device
-takeover fences the old generation and waits a full old lease before starting;
+takeover fences the old generation. Every successful claim waits a full 15-second
+old lease before starting audio, including ordinary claims after admin revocation;
 heartbeat reports keep the new lease alive during that wait. Another device must
 wait for expiry or be authorized by admin revocation of the previous device.
 

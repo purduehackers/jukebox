@@ -1,6 +1,7 @@
 # Phase 3: designated playback browser
 
-Status: depends on phases 1 and 2. May overlap stage-4 UI work after contracts land.
+Status: implemented locally; see [findings and Firefox evidence](../PHASE-3-FINDINGS.md).
+Venue HDMI, audible output and actual laptop sleep/wake remain pending.
 
 ## Goal
 

@@ -22,6 +22,7 @@ import uuid
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.firefox.service import Service
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -61,6 +62,16 @@ def main():
     report = {'atUTC': datetime.now(timezone.utc).isoformat(), 'checks': {}, 'measurements': [],
               'hardware': 'Headless development Linux; HDMI, wall and audible checks pending',
               'autoplayPreferencesOverridden': False, 'leaseMs': 15000, 'heartbeatMs': 5000}
+    # Headless Firefox still uses the host sound server. Route only these owned
+    # browser processes to a dedicated null sink; never change the user's default.
+    sink_name = f'jukebox_verify_{os.getpid()}'
+    sink_module = subprocess.check_output([
+        'pactl', 'load-module', 'module-null-sink', f'sink_name={sink_name}',
+        'sink_properties=device.description=JukeboxVerification',
+    ], text=True).strip()
+    browser_env = {**os.environ, 'PULSE_SINK': sink_name}
+    report['audioOutput'] = {'routing': 'dedicated PulseAudio null sink', 'sink': sink_name,
+                             'systemDefaultChanged': False}
     drivers, children, logs = [], [], []
     temp = tempfile.TemporaryDirectory(prefix='jukebox-player-')
     work = Path(temp.name)
@@ -78,7 +89,7 @@ def main():
         options = Options()
         options.add_argument('-headless')
         options.binary_location = '/usr/bin/firefox'
-        d = webdriver.Firefox(options=options)
+        d = webdriver.Firefox(options=options, service=Service(env=browser_env))
         drivers.append(d)
         d.set_window_size(1440, 1000)
         d.set_script_timeout(10)
@@ -174,7 +185,18 @@ def main():
         assert audio(player)['paused']
         report['checks']['remotePlayCannotActivateFreshDocument'] = True
         click(player, 'player-activate')
+        assert audio(player)['paused']
+        report['checks']['ordinaryClaimWaitsPriorLeaseBeforeAudio'] = True
         playing(player)
+        # Check the sound server, not just the environment variable. Firefox's
+        # stream identifies its parent process, which Selenium owns.
+        sink_index = next(line.split()[0] for line in subprocess.check_output(
+            ['pactl', 'list', 'short', 'sinks'], text=True).splitlines() if line.split()[1]==sink_name)
+        def routed_stream():
+            streams = json.loads(subprocess.check_output(['pactl', '-f', 'json', 'list', 'sink-inputs'], text=True))
+            return any(str(s['sink'])==sink_index and s.get('properties', {}).get('application.process.id')==str(player.capabilities['moz:processID']) for s in streams)
+        until(routed_stream)
+        report['checks']['ownedFirefoxOutputVerifiedOnNullSink'] = True
         # Firefox WebDriver evaluation has its own module realm. Install a normal
         # page module so this observer shares the visualizer's actual singleton.
         player.execute_script("""const s=document.createElement('script');s.type='module';s.textContent=`
@@ -337,6 +359,21 @@ def main():
         assert delay>=15000
         report['measurements'].append({'explicitTakeoverToPlayingMs':round(delay,2)})
         report['checks']['sameDeviceTakeoverWaitsOldLeaseAndFencesOldTab']=True
+        # A delayed pre-claim snapshot from a separate fetch must not override
+        # the claim's revision or the newer SSE generation.
+        other.execute_script("""window.originalFetch=window.fetch;window.oldSnapshotDelivered=false;
+          window.fetch=(url,init)=>{
+            if(url==='/api/v1/snapshot' && !window.oldSnapshotDelivered){
+              window.oldSnapshotDelivered=true;
+              return Promise.resolve(new Response(JSON.stringify({revision:0,lease:null,desired:null})));
+            }
+            return window.originalFetch(url,init);
+          };""")
+        until(lambda: other.execute_script('return window.oldSnapshotDelivered'), 8)
+        time.sleep(.2)
+        assert audio(other)['generation'] and not audio(other)['paused']
+        other.execute_script('window.fetch=window.originalFetch')
+        report['checks']['delayedPreclaimSnapshotIgnored']=True
         # Declared synthetic transport response tests the STALE_LEASE path itself,
         # independently of the real SSE generation fencing above.
         other.execute_script("""window.originalFetch=window.fetch;window.fetch=(url,init)=>{
@@ -346,6 +383,42 @@ def main():
         until(lambda: audio(other)['paused'] and not audio(other)['generation'])
         other.execute_script('window.fetch=window.originalFetch')
         report['checks']['syntheticStaleLeaseReportSilencesLocalAudio']=True
+        # Re-pairing must replace the audio element: Firefox permits only one
+        # MediaElementAudioSourceNode binding per element, even after close().
+        cmd(admin, 'device.revoke', {'deviceId': next(d['id'] for d in snap(admin)['devices'] if d['holdsLease'])})
+        other.find_element(By.XPATH, "//button[contains(., 'Forget this browser')]").click()
+        code3 = cmd(admin, 'device.pairing.create', {'name': 'Re-paired browser'})['code']
+        other.find_element(By.ID, 'player-code').send_keys(code3)
+        click(other, 'player-pair')
+        click(other, 'player-claim')
+        until(lambda: audio(other)['generation'])
+        click(other, 'player-activate')
+        assert audio(other)['paused']
+        playing(other)
+        report['checks']['repairedBrowserCreatesFreshAudioGraph']=True
+        # Exhaust the usable master list with an actual newly-prepared broken
+        # asset. Terminal acknowledgement must not stop silent lease heartbeats.
+        for entry in snap(admin)['master']:
+            cmd(admin, 'master.remove', {'entryId': entry['id']})
+        idle_master = cmd(admin, 'master.add', {'url': 'fixture:request'})['entryId']
+        until(lambda: next(x for x in snap(admin)['master'] if x['id']==idle_master)['status']=='ready', 60)
+        asset = [a for a in http(worker_url+'/api/status')['assets'] if a['source']=='fixture:request'][-1]
+        broken = work/'worker'/'assets'/asset['id']/asset['file']
+        held = broken.with_suffix('.held')
+        broken.rename(held)
+        try:
+            cmd(admin, 'playback.play')
+            until(lambda: next(x for x in snap(admin)['master'] if x['id']==idle_master)['status']=='unusable', 25)
+            idle_generation = audio(other)['generation']
+            assert idle_generation and audio(other)['paused']
+            time.sleep(16)
+            assert audio(other)['generation']==idle_generation and audio(other)['paused']
+            assert snap()['playback']['observed']['status']=='paused'
+            events = admin.execute_async_script("fetch('/api/v1/events?after=0').then(r=>r.json()).then(arguments[0])")['events']
+            assert len([e for e in events if e['type']=='player.error' and e['data'].get('entryId')==idle_master])==2
+        finally:
+            held.rename(broken)
+        report['checks']['exhaustedMasterStaysSilentAndRenewsWithoutRepeatedErrors']=True
         report['events'] = admin.execute_async_script("fetch('/api/v1/events?after=0').then(r=>r.json()).then(arguments[0])")['events']
         report['result']='passed'
     except Exception as error:
@@ -375,6 +448,7 @@ def main():
                 except subprocess.TimeoutExpired: os.killpg(child.pid,signal.SIGKILL)
         for log in logs: log.close()
         temp.cleanup()
+        subprocess.run(['pactl', 'unload-module', sink_module], check=False)
     print(json.dumps({k:report[k] for k in ['result','browser','checks','measurements']},indent=2))
 
 

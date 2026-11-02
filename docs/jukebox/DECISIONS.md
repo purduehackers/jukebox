@@ -284,3 +284,18 @@ choices** open to revision: a read-only `request.preview` plus an `expectRecordi
 contract owner); match ambiguity is resolved by the attendee choosing a YouTube link, never silently; rough
 "about N minutes" estimates instead of an ETA; no self-withdrawal until its quota effect is decided.
 Still unverified: live PH ID, live Spotify/Apple/YouTube search, a physical phone scanning a QR.
+
+## Phase-3 implementation record (2026-10-30)
+
+The [designated Firefox player and measured findings](PHASE-3-FINDINGS.md) implement
+pairing, explicit claims, local activation, desired-state reconciliation, actual
+reports and local lease expiry. Shared contracts and server semantics are unchanged.
+**Implementation choice:** every successful claim waits a full 15-second lease
+before audio, even ordinary claims, to cover a disconnected player after admin
+revocation. Reports renew the new lease while waiting. The frame explains this
+startup delay. This extends the same-device takeover safety wait without granting
+other devices permission to steal a live lease.
+
+Firefox/local-worker recovery evidence is recorded separately from pending audible,
+HDMI, wall and actual laptop sleep/wake checks. Final display design remains phase
+4C; venue/server/production integration remains phase 5.

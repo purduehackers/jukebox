@@ -1,0 +1,745 @@
+{
+  "atUTC": "2026-10-31T02:41:05.046066+00:00",
+  "checks": {
+    "publicDisplayOpensSilent": true,
+    "remotePlayCannotActivateFreshDocument": true,
+    "ordinaryClaimWaitsPriorLeaseBeforeAudio": true,
+    "ownedFirefoxOutputVerifiedOnNullSink": true,
+    "separateAdminAttendeeProfilesSilent": true,
+    "suspendedMasterPinned": true,
+    "oneRequestNativeEndedThenMixResumed": true,
+    "normalSongEndedBeforeRequest": true,
+    "refreshMidRequestRestoredWithoutDoubleCharge": true,
+    "missingAssetTwoAttemptsRefundAndReturn": true,
+    "secondTabAndDeviceCannotStealOrPlay": true,
+    "shortReconnectKeepsLoad": true,
+    "leaseExpirySilencesStaleTabBeforeReplacement": true,
+    "sameDeviceTakeoverWaitsOldLeaseAndFencesOldTab": true,
+    "delayedPreclaimSnapshotIgnored": true,
+    "syntheticStaleLeaseReportSilencesLocalAudio": true,
+    "repairedBrowserCreatesFreshAudioGraph": true,
+    "exhaustedMasterStaysSilentAndRenewsWithoutRepeatedErrors": true
+  },
+  "measurements": [
+    {
+      "masterAnalysisRms": 0.0647004403236798
+    },
+    {
+      "command": "playback.pause",
+      "commandToServerObservedAckMs": 4714.98
+    },
+    {
+      "command": "playback.seek",
+      "commandToServerObservedAckMs": 409.63
+    },
+    {
+      "command": "playback.volume",
+      "commandToServerObservedAckMs": 96.64
+    },
+    {
+      "command": "playback.play",
+      "commandToServerObservedAckMs": 96.49
+    },
+    {
+      "requestAnalysisRms": 0.007481731097283291
+    },
+    {
+      "resumeRequestedSec": 1234.532,
+      "resumeActualSeekedSec": 1234.532,
+      "resumeErrorSec": 0.0
+    },
+    {
+      "outageToSilenceObservedMs": 12334.75
+    },
+    {
+      "explicitTakeoverToPlayingMs": 15237.15
+    }
+  ],
+  "hardware": "Headless development Linux; HDMI, wall and audible checks pending",
+  "autoplayPreferencesOverridden": false,
+  "leaseMs": 15000,
+  "heartbeatMs": 5000,
+  "audioOutput": {
+    "routing": "dedicated PulseAudio null sink",
+    "sink": "jukebox_verify_148249",
+    "systemDefaultChanged": false
+  },
+  "runtime": "isolated test service; production lease/heartbeat; injected scheduling anchor",
+  "browser": {
+    "browserName": "firefox",
+    "browserVersion": "158.0.1",
+    "moz:buildID": "20261020162120",
+    "moz:geckodriverVersion": "0.37.1",
+    "platformName": "linux",
+    "moz:headless": true
+  },
+  "events": [
+    {
+      "at": 1793414478125,
+      "data": {
+        "nightId": "b32b1ead-e1ad-4261-9c6f-7f17882bc303"
+      },
+      "revision": 1,
+      "seq": 1,
+      "type": "night.opened"
+    },
+    {
+      "at": 1793414478198,
+      "data": {
+        "entryId": "5d8fc25d-c093-4f81-b0e6-ac179a19df2a"
+      },
+      "revision": 2,
+      "seq": 2,
+      "type": "master.added"
+    },
+    {
+      "at": 1793414478230,
+      "data": {
+        "entryId": "5d8fc25d-c093-4f81-b0e6-ac179a19df2a"
+      },
+      "revision": 3,
+      "seq": 3,
+      "type": "media.preparing"
+    },
+    {
+      "at": 1793414478295,
+      "data": {
+        "entryId": "9cd0f008-ec85-4d7b-b736-cc09d438a978"
+      },
+      "revision": 4,
+      "seq": 4,
+      "type": "master.added"
+    },
+    {
+      "at": 1793414478311,
+      "data": {
+        "entryId": "9cd0f008-ec85-4d7b-b736-cc09d438a978"
+      },
+      "revision": 5,
+      "seq": 5,
+      "type": "media.preparing"
+    },
+    {
+      "at": 1793414478424,
+      "data": {
+        "entryId": "e25acc0a-6583-4bd0-b6d1-9d4150c14647"
+      },
+      "revision": 6,
+      "seq": 6,
+      "type": "request.submitted"
+    },
+    {
+      "at": 1793414478445,
+      "data": {
+        "entryId": "e25acc0a-6583-4bd0-b6d1-9d4150c14647"
+      },
+      "revision": 7,
+      "seq": 7,
+      "type": "media.preparing"
+    },
+    {
+      "at": 1793414526691,
+      "data": {
+        "entryId": "5d8fc25d-c093-4f81-b0e6-ac179a19df2a"
+      },
+      "revision": 8,
+      "seq": 8,
+      "type": "media.ready"
+    },
+    {
+      "at": 1793414536904,
+      "data": {
+        "entryId": "9cd0f008-ec85-4d7b-b736-cc09d438a978"
+      },
+      "revision": 9,
+      "seq": 9,
+      "type": "media.ready"
+    },
+    {
+      "at": 1793414537702,
+      "data": {
+        "entryId": "e25acc0a-6583-4bd0-b6d1-9d4150c14647"
+      },
+      "revision": 10,
+      "seq": 10,
+      "type": "media.ready"
+    },
+    {
+      "at": 1793414537809,
+      "data": {
+        "expiresAt": 1793415137809,
+        "name": "Firefox player"
+      },
+      "revision": 11,
+      "seq": 11,
+      "type": "device.pairing_created"
+    },
+    {
+      "at": 1793414544125,
+      "data": {
+        "deviceId": "d462ed5a-17f3-4f85-853f-8e242eb5f023",
+        "name": "Firefox player"
+      },
+      "revision": 12,
+      "seq": 12,
+      "type": "device.paired"
+    },
+    {
+      "at": 1793414544230,
+      "data": {
+        "deviceId": "d462ed5a-17f3-4f85-853f-8e242eb5f023",
+        "generation": 1
+      },
+      "revision": 13,
+      "seq": 13,
+      "type": "player.claimed"
+    },
+    {
+      "at": 1793414544326,
+      "data": {
+        "entryId": "5d8fc25d-c093-4f81-b0e6-ac179a19df2a"
+      },
+      "revision": 14,
+      "seq": 14,
+      "type": "master.loaded"
+    },
+    {
+      "at": 1793414544326,
+      "data": {},
+      "revision": 14,
+      "seq": 15,
+      "type": "playback.play"
+    },
+    {
+      "at": 1793414559514,
+      "data": {},
+      "revision": 17,
+      "seq": 16,
+      "type": "playback.pause"
+    },
+    {
+      "at": 1793414564236,
+      "data": {
+        "entryId": "5d8fc25d-c093-4f81-b0e6-ac179a19df2a",
+        "positionSec": 1234.5
+      },
+      "revision": 19,
+      "seq": 17,
+      "type": "playback.seek"
+    },
+    {
+      "at": 1793414564650,
+      "data": {
+        "volume": 0.17
+      },
+      "revision": 21,
+      "seq": 18,
+      "type": "playback.volume"
+    },
+    {
+      "at": 1793414564754,
+      "data": {},
+      "revision": 23,
+      "seq": 19,
+      "type": "playback.play"
+    },
+    {
+      "at": 1793414564839,
+      "data": {
+        "entryId": "e25acc0a-6583-4bd0-b6d1-9d4150c14647",
+        "suspendedMaster": {
+          "itemId": "5d8fc25d-c093-4f81-b0e6-ac179a19df2a",
+          "loadId": 1,
+          "positionSec": 1234.5
+        }
+      },
+      "revision": 25,
+      "seq": 20,
+      "type": "request.started"
+    },
+    {
+      "at": 1793414568975,
+      "data": {
+        "entryId": "e25acc0a-6583-4bd0-b6d1-9d4150c14647",
+        "kind": "request"
+      },
+      "revision": 27,
+      "seq": 21,
+      "type": "player.ended"
+    },
+    {
+      "at": 1793414568975,
+      "data": {
+        "entryId": "e25acc0a-6583-4bd0-b6d1-9d4150c14647",
+        "refunded": false
+      },
+      "revision": 27,
+      "seq": 22,
+      "type": "request.played"
+    },
+    {
+      "at": 1793414568975,
+      "data": {
+        "entryId": "5d8fc25d-c093-4f81-b0e6-ac179a19df2a",
+        "positionSec": 1234.532
+      },
+      "revision": 27,
+      "seq": 23,
+      "type": "master.resumed"
+    },
+    {
+      "at": 1793414568975,
+      "data": {},
+      "revision": 27,
+      "seq": 24,
+      "type": "turn.finished"
+    },
+    {
+      "at": 1793414569599,
+      "data": {
+        "entryId": "c84ea10f-3ed1-4782-94d0-acacb0f5c304"
+      },
+      "revision": 30,
+      "seq": 25,
+      "type": "request.submitted"
+    },
+    {
+      "at": 1793414569606,
+      "data": {
+        "entryId": "c84ea10f-3ed1-4782-94d0-acacb0f5c304"
+      },
+      "revision": 31,
+      "seq": 26,
+      "type": "media.preparing"
+    },
+    {
+      "at": 1793414570984,
+      "data": {
+        "entryId": "c84ea10f-3ed1-4782-94d0-acacb0f5c304"
+      },
+      "revision": 32,
+      "seq": 27,
+      "type": "media.ready"
+    },
+    {
+      "at": 1793414571043,
+      "data": {
+        "entryId": "5d8fc25d-c093-4f81-b0e6-ac179a19df2a"
+      },
+      "revision": 33,
+      "seq": 28,
+      "type": "master.skipped"
+    },
+    {
+      "at": 1793414571043,
+      "data": {
+        "entryId": "9cd0f008-ec85-4d7b-b736-cc09d438a978"
+      },
+      "revision": 33,
+      "seq": 29,
+      "type": "master.loaded"
+    },
+    {
+      "at": 1793414571670,
+      "data": {
+        "entryId": "9cd0f008-ec85-4d7b-b736-cc09d438a978",
+        "positionSec": 358.5
+      },
+      "revision": 35,
+      "seq": 30,
+      "type": "playback.seek"
+    },
+    {
+      "at": 1793414573238,
+      "data": {
+        "entryId": "9cd0f008-ec85-4d7b-b736-cc09d438a978",
+        "kind": "master"
+      },
+      "revision": 37,
+      "seq": 31,
+      "type": "player.ended"
+    },
+    {
+      "at": 1793414573238,
+      "data": {
+        "entryId": "c84ea10f-3ed1-4782-94d0-acacb0f5c304",
+        "suspendedMaster": null
+      },
+      "revision": 37,
+      "seq": 32,
+      "type": "request.started"
+    },
+    {
+      "at": 1793414573330,
+      "data": {},
+      "revision": 40,
+      "seq": 33,
+      "type": "playback.pause"
+    },
+    {
+      "at": 1793414588659,
+      "data": {
+        "deviceId": "d462ed5a-17f3-4f85-853f-8e242eb5f023"
+      },
+      "revision": 42,
+      "seq": 34,
+      "type": "player.offline"
+    },
+    {
+      "at": 1793414589119,
+      "data": {
+        "deviceId": "d462ed5a-17f3-4f85-853f-8e242eb5f023",
+        "generation": 2
+      },
+      "revision": 43,
+      "seq": 35,
+      "type": "player.claimed"
+    },
+    {
+      "at": 1793414589121,
+      "data": {
+        "epoch": 12
+      },
+      "revision": 44,
+      "seq": 36,
+      "type": "player.unconfirmed"
+    },
+    {
+      "at": 1793414589344,
+      "data": {},
+      "revision": 46,
+      "seq": 37,
+      "type": "playback.play"
+    },
+    {
+      "at": 1793414612189,
+      "data": {
+        "entryId": "c84ea10f-3ed1-4782-94d0-acacb0f5c304",
+        "kind": "request"
+      },
+      "revision": 49,
+      "seq": 38,
+      "type": "player.ended"
+    },
+    {
+      "at": 1793414612189,
+      "data": {
+        "entryId": "c84ea10f-3ed1-4782-94d0-acacb0f5c304",
+        "refunded": false
+      },
+      "revision": 49,
+      "seq": 39,
+      "type": "request.played"
+    },
+    {
+      "at": 1793414612189,
+      "data": {
+        "entryId": "5d8fc25d-c093-4f81-b0e6-ac179a19df2a"
+      },
+      "revision": 49,
+      "seq": 40,
+      "type": "master.loaded"
+    },
+    {
+      "at": 1793414612189,
+      "data": {},
+      "revision": 49,
+      "seq": 41,
+      "type": "turn.finished"
+    },
+    {
+      "at": 1793414612437,
+      "data": {
+        "entryId": "307fd1a8-1224-4b79-bb36-4e382c774662"
+      },
+      "revision": 52,
+      "seq": 42,
+      "type": "request.submitted"
+    },
+    {
+      "at": 1793414612445,
+      "data": {
+        "entryId": "307fd1a8-1224-4b79-bb36-4e382c774662"
+      },
+      "revision": 53,
+      "seq": 43,
+      "type": "media.preparing"
+    },
+    {
+      "at": 1793414613573,
+      "data": {
+        "entryId": "307fd1a8-1224-4b79-bb36-4e382c774662"
+      },
+      "revision": 54,
+      "seq": 44,
+      "type": "media.ready"
+    },
+    {
+      "at": 1793414613598,
+      "data": {
+        "entryId": "307fd1a8-1224-4b79-bb36-4e382c774662",
+        "suspendedMaster": {
+          "itemId": "5d8fc25d-c093-4f81-b0e6-ac179a19df2a",
+          "loadId": 6,
+          "positionSec": 0
+        }
+      },
+      "revision": 55,
+      "seq": 45,
+      "type": "request.started"
+    },
+    {
+      "at": 1793414613662,
+      "data": {
+        "entryId": "307fd1a8-1224-4b79-bb36-4e382c774662",
+        "error": "Error: Audio error 4: 404: Not Found",
+        "kind": "request"
+      },
+      "revision": 56,
+      "seq": 46,
+      "type": "player.error"
+    },
+    {
+      "at": 1793414613718,
+      "data": {
+        "entryId": "307fd1a8-1224-4b79-bb36-4e382c774662",
+        "error": "Error: Audio error 4: 404: Not Found",
+        "kind": "request"
+      },
+      "revision": 57,
+      "seq": 47,
+      "type": "player.error"
+    },
+    {
+      "at": 1793414613718,
+      "data": {
+        "entryId": "307fd1a8-1224-4b79-bb36-4e382c774662",
+        "refunded": true
+      },
+      "revision": 57,
+      "seq": 48,
+      "type": "request.failed"
+    },
+    {
+      "at": 1793414613718,
+      "data": {
+        "entryId": "5d8fc25d-c093-4f81-b0e6-ac179a19df2a",
+        "positionSec": 1.290666
+      },
+      "revision": 57,
+      "seq": 49,
+      "type": "master.resumed"
+    },
+    {
+      "at": 1793414613718,
+      "data": {},
+      "revision": 57,
+      "seq": 50,
+      "type": "turn.finished"
+    },
+    {
+      "at": 1793414623393,
+      "data": {
+        "expiresAt": 1793415223393,
+        "name": "Second device"
+      },
+      "revision": 60,
+      "seq": 51,
+      "type": "device.pairing_created"
+    },
+    {
+      "at": 1793414623743,
+      "data": {
+        "deviceId": "7d53d9a7-1d7a-484d-b836-48fca2356715",
+        "name": "Second device"
+      },
+      "revision": 61,
+      "seq": 52,
+      "type": "device.paired"
+    },
+    {
+      "at": 1793414639516,
+      "data": {
+        "deviceId": "7d53d9a7-1d7a-484d-b836-48fca2356715",
+        "generation": 3
+      },
+      "revision": 62,
+      "seq": 53,
+      "type": "player.claimed"
+    },
+    {
+      "at": 1793414639521,
+      "data": {
+        "epoch": 17
+      },
+      "revision": 63,
+      "seq": 54,
+      "type": "player.unconfirmed"
+    },
+    {
+      "at": 1793414655468,
+      "data": {
+        "deviceId": "7d53d9a7-1d7a-484d-b836-48fca2356715",
+        "generation": 4
+      },
+      "revision": 66,
+      "seq": 55,
+      "type": "player.claimed"
+    },
+    {
+      "at": 1793414680430,
+      "data": {
+        "deviceId": "7d53d9a7-1d7a-484d-b836-48fca2356715"
+      },
+      "revision": 69,
+      "seq": 56,
+      "type": "device.revoked"
+    },
+    {
+      "at": 1793414680590,
+      "data": {
+        "expiresAt": 1793415280590,
+        "name": "Re-paired browser"
+      },
+      "revision": 70,
+      "seq": 57,
+      "type": "device.pairing_created"
+    },
+    {
+      "at": 1793414680714,
+      "data": {
+        "deviceId": "e4aeb466-ac62-4c8b-b729-0d39b52b966f",
+        "name": "Re-paired browser"
+      },
+      "revision": 71,
+      "seq": 58,
+      "type": "device.paired"
+    },
+    {
+      "at": 1793414680803,
+      "data": {
+        "deviceId": "e4aeb466-ac62-4c8b-b729-0d39b52b966f",
+        "generation": 6
+      },
+      "revision": 72,
+      "seq": 59,
+      "type": "player.claimed"
+    },
+    {
+      "at": 1793414696023,
+      "data": {
+        "entryId": "9cd0f008-ec85-4d7b-b736-cc09d438a978"
+      },
+      "revision": 75,
+      "seq": 60,
+      "type": "master.loaded"
+    },
+    {
+      "at": 1793414696023,
+      "data": {
+        "entryId": "5d8fc25d-c093-4f81-b0e6-ac179a19df2a"
+      },
+      "revision": 75,
+      "seq": 61,
+      "type": "master.removed"
+    },
+    {
+      "at": 1793414696065,
+      "data": {},
+      "revision": 76,
+      "seq": 62,
+      "type": "alert.no_master_available"
+    },
+    {
+      "at": 1793414696065,
+      "data": {
+        "entryId": "9cd0f008-ec85-4d7b-b736-cc09d438a978"
+      },
+      "revision": 76,
+      "seq": 63,
+      "type": "master.removed"
+    },
+    {
+      "at": 1793414696119,
+      "data": {
+        "entryId": "1388a0e9-ccfa-4921-927a-b4c5be195d2d"
+      },
+      "revision": 77,
+      "seq": 64,
+      "type": "master.added"
+    },
+    {
+      "at": 1793414696295,
+      "data": {
+        "entryId": "1388a0e9-ccfa-4921-927a-b4c5be195d2d"
+      },
+      "revision": 78,
+      "seq": 65,
+      "type": "media.preparing"
+    },
+    {
+      "at": 1793414697493,
+      "data": {
+        "entryId": "1388a0e9-ccfa-4921-927a-b4c5be195d2d"
+      },
+      "revision": 79,
+      "seq": 66,
+      "type": "media.ready"
+    },
+    {
+      "at": 1793414697495,
+      "data": {},
+      "revision": 80,
+      "seq": 67,
+      "type": "alert.cleared"
+    },
+    {
+      "at": 1793414697536,
+      "data": {
+        "entryId": "1388a0e9-ccfa-4921-927a-b4c5be195d2d"
+      },
+      "revision": 81,
+      "seq": 68,
+      "type": "master.loaded"
+    },
+    {
+      "at": 1793414697536,
+      "data": {},
+      "revision": 81,
+      "seq": 69,
+      "type": "playback.play"
+    },
+    {
+      "at": 1793414700794,
+      "data": {
+        "entryId": "1388a0e9-ccfa-4921-927a-b4c5be195d2d",
+        "error": "Error: Audio error 4: 404: Not Found",
+        "kind": "master"
+      },
+      "revision": 82,
+      "seq": 70,
+      "type": "player.error"
+    },
+    {
+      "at": 1793414700856,
+      "data": {
+        "entryId": "1388a0e9-ccfa-4921-927a-b4c5be195d2d",
+        "error": "Error: Audio error 4: 404: Not Found",
+        "kind": "master"
+      },
+      "revision": 83,
+      "seq": 71,
+      "type": "player.error"
+    },
+    {
+      "at": 1793414700856,
+      "data": {},
+      "revision": 83,
+      "seq": 72,
+      "type": "alert.no_master_available"
+    }
+  ],
+  "result": "passed",
+  "finishedUTC": "2026-10-31T02:45:16.988605+00:00",
+  "verifiedImplementationCommit": "649475d835f780afc09899dd32f1dea675a74107"
+}

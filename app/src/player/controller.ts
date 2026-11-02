@@ -25,6 +25,7 @@ export class PlayerController {
   private context: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private desired: DesiredPlayback | null = null;
+  private latestRevision = -1;
   private applied: DesiredPlayback | null = null;
   private previous: PlayerReport['previous'];
   private deadline = 0;
@@ -115,15 +116,17 @@ export class PlayerController {
     } finally { this.claiming = false; }
     if (this.disposed) return;
     if (!response.ok) { this.update({ message: response.error.message }); return; }
+    this.latestRevision = response.revision;
     this.renew(start, wall);
-    // A fenced tab may be disconnected. Let its entire old lease expire before
-    // takeover audio; server-side fencing alone cannot stop a disconnected speaker.
-    this.safeStartAt = takeover ? performance.now() + POLICY.leaseMs : 0;
+    // A revoked/fenced tab may be disconnected. Even an ordinary claim can
+    // follow revocation, so wait out a full old lease for EVERY new claim.
+    // Server-side fencing alone cannot stop a disconnected speaker.
+    this.safeStartAt = performance.now() + POLICY.leaseMs;
     this.applied = null;
     this.desired = null;
     this.previous = undefined;
     this.terminalSent = false;
-    this.update({ generation: response.result.generation, activated: false, status: 'needs_activation', message: takeover ? 'Takeover claimed. Waiting out the previous tab’s lease before audio.' : 'Claimed. Activate audio on this display.' });
+    this.update({ generation: response.result.generation, activated: false, status: 'needs_activation', message: 'Claimed. Activate audio locally; playback waits 15 seconds for any previous lease to expire.' });
     await this.refresh();
   }
 
@@ -138,14 +141,19 @@ export class PlayerController {
   }
 
   private snapshot(snapshot: Snapshot) {
-    if (this.state.generation === null || this.disposed) return;
+    if (this.state.generation === null || this.disposed || snapshot.revision < this.latestRevision) return;
+    this.latestRevision = snapshot.revision;
     if (!snapshot.lease || snapshot.lease.deviceId !== this.device.deviceId || snapshot.lease.generation !== this.state.generation || snapshot.lease.expiresAt <= snapshot.serverTime) {
       this.halt('Playback authority moved or expired. This tab is silent.');
       return;
     }
     if (snapshot.desired && this.desired && snapshot.desired.epoch < this.desired.epoch) return;
     this.desired = snapshot.desired ?? null;
-    if (!this.desired) { this.audio.pause(); publishAnalyser(null); }
+    if (!this.desired) {
+      this.audio.pause();
+      publishAnalyser(null);
+      this.update({ status: this.state.activated ? 'paused' : 'needs_activation' });
+    }
     void this.reconcile();
   }
 
@@ -163,7 +171,9 @@ export class PlayerController {
     try {
       await this.bounded(this.context.resume());
       if (!this.live()) return;
-      this.update({ activated: true, message: 'Audio activated. Browser volume does not change OS/HDMI volume.' });
+      this.update({ activated: true, message: performance.now() < this.safeStartAt
+        ? 'Audio activated. Waiting for any previous lease to expire (up to 15 seconds).'
+        : 'Audio activated. Browser volume does not change OS/HDMI volume.' });
       await this.reconcile();
     } catch (error) {
       if (this.live()) this.update({ activated: false, status: 'needs_activation', message: String(error) });
@@ -217,6 +227,7 @@ export class PlayerController {
         await this.mediaEvent('loadedmetadata', () => { this.audio.src = desired.asset.url; this.audio.load(); });
       }
       if (seek) {
+        this.terminalSent = false;
         const target = Math.min(desired.startPositionSec, Math.max(0, this.audio.duration - .01));
         if (Math.abs(position(this.audio) - target) > .001) await this.mediaEvent('seeked', () => { this.audio.currentTime = target; });
         if (Math.abs(position(this.audio) - target) > .35) throw new Error('Seek exceeded 350ms tolerance');
@@ -238,7 +249,7 @@ export class PlayerController {
         await this.bounded(this.audio.play());
         if (!this.live() || this.desired?.epoch !== desired.epoch) { this.audio.pause(); return; }
         publishAnalyser(this.analyser);
-        this.update({ status: this.audio.paused ? 'paused' : 'playing' });
+        this.update({ status: this.audio.paused ? 'paused' : 'playing', message: 'Audio active. Browser volume does not change OS/HDMI volume.' });
       }
     } catch (error) {
       this.audio.pause();
@@ -253,12 +264,14 @@ export class PlayerController {
   }
 
   private async report() {
-    if (!this.live() || this.terminalSent) return;
+    if (!this.live()) return;
     if (this.reporting) { this.reportAgain = true; return; }
     this.reporting = true;
     const generation = this.state.generation!;
     const previous = this.previous;
-    const status = !this.busy && this.state.activated && !['error', 'needs_activation'].includes(this.state.status)
+    // Keep renewing a silent player's lease after a terminal acknowledgement,
+    // without replaying ended/error into the scheduler on every heartbeat.
+    const status = this.terminalSent ? this.state.activated ? 'paused' : 'needs_activation' : !this.busy && this.state.activated && !['error', 'needs_activation'].includes(this.state.status)
       ? this.audio.ended ? 'ended' : this.audio.paused ? 'paused' : this.audio.readyState < 3 ? 'buffering' : 'playing'
       : this.state.status;
     const payload: PlayerReport = {
@@ -277,7 +290,7 @@ export class PlayerController {
       if (!this.live()) { this.halt('Report arrived after local lease expiry. Claim again.'); return; }
       this.renew(start, wall);
       if (this.previous === previous) this.previous = undefined;
-      if (this.applied?.loadId === payload.loadId && this.state.epoch === payload.epoch && ['ended', 'error'].includes(status)) this.terminalSent = true;
+      if (this.state.loadId === payload.loadId && this.applied?.loadId === payload.loadId && this.state.epoch === payload.epoch && ['ended', 'error'].includes(status)) this.terminalSent = true;
       // Position-only reports do not emit SSE revisions; refresh the current desired
       // state after every acknowledgement, including terminal transitions.
       await this.refresh();
