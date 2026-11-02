@@ -152,6 +152,7 @@ export function useControls(live: Pick<Live, 'recheck' | 'markOwn'>): Controls {
     return response;
   }), []);
   const volume = useMemo(() => new VolumeController(runner), [runner]);
+  useEffect(() => () => volume.dispose(), [volume]);
   const intents = useSyncExternalStore(runner.subscribe, runner.getSnapshot);
   return { runner, volume, intents };
 }

@@ -20,6 +20,9 @@ function Artwork({ url }: { url?: string }) {
 
 /** Read-only presentation; receives public state and never claims audio authority. */
 export function DisplayView({ snapshot, error, now }: { snapshot: Snapshot | null; error: string | null; now: number }) {
+  if (!snapshot || snapshot.night?.status !== 'open') return <main className="display-idle" data-testid="display" data-state={snapshot ? 'idle' : 'connecting'}>
+    <div><h1>JUKEBOX</h1><p>{snapshot ? 'An admin needs to start a session.' : error ? 'Connecting to Jukebox…' : 'Waiting for the session…'}</p></div>
+  </main>;
   const model = displayModel(snapshot, now, !!error);
   const track = snapshot?.nowPlaying;
   const observed = snapshot?.playback.observed;
@@ -41,8 +44,9 @@ export function DisplayView({ snapshot, error, now }: { snapshot: Snapshot | nul
       </section>
     </div>
     <aside className="display-sidebar" aria-label="Request queue">
+      <div className="display-queue-panel">
       <h2 className="display-heading">QUEUE</h2>
-      <section className="display-turn" aria-label="Next request turn"><span>NEXT REQUEST TURN</span><strong>{model.turn}</strong><p>{model.detail}</p></section>
+      <section className="display-turn" aria-label="Next request turn"><span>NEXT REQUEST TURN</span><strong>{model.turn}</strong>{model.detail && <p>{model.detail}</p>}</section>
       {error && <p className="display-warning" role="alert">Connection lost · showing last known state</p>}
       {!error && model.status === 'offline' && <p className="display-warning">Playback device offline</p>}
       <div className="display-queue">
@@ -52,9 +56,7 @@ export function DisplayView({ snapshot, error, now }: { snapshot: Snapshot | nul
         {model.requests.length === 0 && <p className="display-empty">No requests waiting.<br />Scan below to add yours.</p>}
         {model.requests.length > 4 && <p className="display-more">+ {model.requests.length - 4} more requests</p>}
       </div>
-      <section className="display-next" aria-label="Next master track"><span>{snapshot?.suspendedMaster ? 'MASTER RESUMES' : 'NEXT MASTER'}</span>
-        <strong title={snapshot?.nextMaster?.title}>{snapshot?.nextMaster?.title ?? 'No master track available'}</strong>
-        <p>{snapshot?.nextMaster?.artist || (snapshot?.suspendedMaster ? `from ${duration(snapshot.suspendedMaster.positionSec)}` : 'Organizer queue')}</p></section>
+      </div>
       <RequestQr />
     </aside>
   </main>;
@@ -82,6 +84,6 @@ function LiveDisplay() {
     return () => clearInterval(timer);
   }, [clock]);
   return <><DisplayView snapshot={snapshot} error={error} now={now} />
-    <details className="display-device"><summary>Playback device setup</summary><Player /></details>
+    <Player />
   </>;
 }

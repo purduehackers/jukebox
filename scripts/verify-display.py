@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 4C evidence: actual Firefox, paired phase-3 player, real fixture audio.
+"""Phase 4C evidence: actual Firefox, automatic session player, real fixture audio.
 
 Uses isolated loopback service/worker and disposable Firefox profiles. No provider
 traffic, credentials, autoplay overrides, or production state. Screenshots and
@@ -98,38 +98,48 @@ def main():
         admin.find_element(By.NAME, 'roles').click()
         admin.find_element(By.TAG_NAME, 'button').click()
         until(lambda: '/admin' in admin.current_url)
+        display = browser('/display')
+        idle_began = time.monotonic()
+        until(lambda: display.execute_script("return document.querySelector('main')?.dataset.state==='idle'"), 5)
+        report['measurements']['idleAfterNavigationMs'] = round((time.monotonic()-idle_began)*1000, 2)
+        assert 'admin needs to start a session' in display.find_element(By.TAG_NAME, 'body').text.lower()
+        assert not display.find_elements(By.CSS_SELECTOR, '.display-now, .display-request, .display-device')
+        click(display, '#player-activate')
+        until(lambda: not display.find_elements(By.ID, 'player-activate'))
+        assert display.execute_script("return document.querySelector('audio').paused")
+        screenshot(display, 'idle.png')
+        report['checks']['idleBeforeSessionAndOneSoundPermission'] = True
         command(admin, 'night.open')
         master = command(admin, 'master.add', {'url': 'fixture:master'})['entryId']
         command(admin, 'request.submit', {'url': 'fixture:request'})
         until(lambda: all(x['status'] == 'ready' for x in http(app + '/api/v1/snapshot')['requests']), 90)
         # master readiness is reflected in public nextMaster.
         until(lambda: http(app + '/api/v1/snapshot')['nextMaster'], 90)
-        code = command(admin, 'device.pairing.create', {'name': 'Display verifier'})['code']
-        display = browser('/display')
         report['browser'] = {k: display.capabilities.get(k) for k in ['browserName', 'browserVersion', 'moz:headless', 'platformName']}
         assert report['browser']['browserName'] == 'firefox'
-        assert display.execute_script("return document.querySelectorAll('audio').length===1&&document.querySelectorAll('video').length===0&&document.querySelector('audio').paused")
-        report['checks']['oneSilentAudioElementNoVideo'] = True
-        click(display, '.display-device summary')
-        display.find_element(By.ID, 'player-code').send_keys(code)
-        click(display, '#player-pair'); click(display, '#player-claim')
-        until(lambda: display.find_element(By.ID, 'player-activate').is_enabled())
-        command(admin, 'playback.play')
-        until(lambda: display.find_element(By.CSS_SELECTOR, '[data-testid=player]').get_attribute('data-load-id'))
-        click(display, '#player-activate')
+        assert display.execute_script("return document.querySelectorAll('audio').length===1&&document.querySelectorAll('video').length===0")
+        assert not display.find_elements(By.ID, 'player-activate'), 'sound permission should survive session start'
+        report['checks']['sessionStartsMusicAutomaticallyWithoutPairing'] = True
         until(lambda: canvas(display)['bass'] > .1, 25)
         time.sleep(2)
         live = canvas(display)
         assert live['bad'] == 0 and live['on'] > 500
         report['measurements']['master'] = live
         report['checks']['realAudioDrivesBayerPurplePixels'] = True
-        click(display, '.display-device summary')
         until(lambda: display.execute_script("return document.fonts.check('30px PixelHackers')&&document.fonts.check('30px PolySans')&&document.fonts.check('30px Inconsolata')"))
         # Remain playing beyond stale-heartbeat cutoff: revision-only SSE used to fail here.
         time.sleep(16)
         assert canvas(display)['state'] == 'playing', canvas(display)
         report['checks']['positionHeartbeatsRemainLiveBeyondLeasePeriod'] = True
+        for width, height in [(1920, 1080), (1366, 768)]:
+            display.set_window_size(width, height + display.execute_script('return outerHeight-innerHeight'))
+            alignment = display.execute_script("""const a=document.querySelector('.display-now').getBoundingClientRect(),b=document.querySelector('.display-request').getBoundingClientRect(),q=document.querySelector('.display-qr').getBoundingClientRect(),art=document.querySelector('.display-artwork').getBoundingClientRect();return {strip:Math.abs(a.top-b.top),bottom:Math.abs(a.bottom-b.bottom),qrCenter:Math.abs((q.top+q.height/2)-(art.top+art.height/2)),overflow:document.documentElement.scrollWidth>innerWidth};""")
+            assert alignment['strip'] <= 1 and alignment['bottom'] <= 1 and alignment['qrCenter'] <= 1 and not alignment['overflow'], alignment
+            report['measurements'][f'alignment{width}'] = alignment
+            screenshot(display, f'layout-{width}.png')
+        display.set_window_size(1920, 1080 + display.execute_script('return outerHeight-innerHeight'))
         screenshot(display, 'master.png')
+        report['checks']['qrAndTrackShareStripAndVerticalCenter'] = True
         command(admin, 'playback.pause')
         until(lambda: canvas(display)['state'] == 'paused' and canvas(display)['bass'] == 0)
         paused = canvas(display)
@@ -160,13 +170,11 @@ def main():
         until(lambda: display.find_elements(By.CSS_SELECTOR, '.display-kind'))
         assert display.execute_script("return document.querySelector('audio').paused")
         assert display.find_element(By.CSS_SELECTOR, '.display-kind').text == 'REQUEST'
-        click(display, '.display-device summary')
-        # Old document release is best effort. Respect the production 15 s lease.
-        time.sleep(15.2)
-        click(display, '#player-claim'); click(display, '#player-activate')
+        until(lambda: display.find_element(By.CSS_SELECTOR, '[data-testid=player]').get_attribute('data-generation'), 25)
+        if display.find_elements(By.ID, 'player-activate'): click(display, '#player-activate')
         command(admin, 'playback.play')
         until(lambda: canvas(display)['treble'] > .001)
-        report['checks']['refreshRecoversSharedTrackAndRequiresExplicitActivation'] = True
+        report['checks']['refreshReconnectsAutomaticallyAndRespectsBrowserSoundPermission'] = True
         until(lambda: display.find_element(By.CSS_SELECTOR, '.display-kind').text == 'MASTER · MIX', 20)
         until(lambda: canvas(display)['bass'] > .01)
         assert display.execute_script("return document.querySelector('audio').currentTime") > 1234
@@ -180,6 +188,14 @@ def main():
         assert decoded and decoded.text == app + '/queue', decoded
         report['checks']['qrDecodesToReachableTestQueue'] = True
         report['measurements']['qrTarget'] = decoded.text
+        command(admin, 'night.close')
+        until(lambda: display.execute_script("return document.querySelector('main')?.dataset.state==='idle'"), 35)
+        until(lambda: display.execute_script("return document.querySelector('audio').paused"), 5)
+        assert not display.find_elements(By.CSS_SELECTOR, '.display-now, .display-request')
+        command(admin, 'night.open')
+        until(lambda: display.find_elements(By.CSS_SELECTOR, '[data-testid=visualizer]') and canvas(display)['bass'] > .01, 25)
+        assert not display.find_elements(By.ID, 'player-activate')
+        report['checks']['endClearsDisplayAndNextSessionStartsWithoutAnotherClick'] = True
         fixture = browser('/display?displayFixture=long_titles')
         until(lambda: fixture.find_elements(By.CSS_SELECTOR, '.display-fixture-control'))
         for state in ['long_titles', 'many_requests', 'empty', 'closed', 'paused', 'buffering', 'offline', 'needs_activation', 'due_song', 'due_paused', 'disconnected']:
@@ -197,6 +213,10 @@ def main():
     except Exception as error:
         report['result'] = 'failed'
         report['error'] = repr(error)
+        report['failurePages'] = []
+        for driver in drivers:
+            try: report['failurePages'].append(driver.execute_script("return {text:document.body.innerText,main:document.querySelector('main')?.outerHTML,html:document.body.innerHTML.slice(0,4000)}"))
+            except Exception: pass
         for i, driver in enumerate(drivers):
             try: driver.save_screenshot(str(output / f'failure-{i}.png'))
             except Exception: pass

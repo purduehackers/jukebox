@@ -3,9 +3,38 @@
 Audio-only music queue and venue player for Hack Night. Phase 1 contains a
 runnable local worker/cache and Firefox playback experiment. Phase 2 adds the
 shared typed contract and a durable local queue/scheduler/device-authority
-service. Production, a registered PH ID client, the real player, admin/attendee
-pages, and the wall display remain later phases.
+service. The local app includes the native Firefox player, admin controls, attendee requests,
+and an audio-reactive display. Live local PH ID sign-in has been verified;
+production deployment and physical venue checks remain pending.
 Intended production origin: `https://jukebox.purduehackers.com` (not deployed).
+
+## Run the complete local app
+
+In separate terminals:
+
+```sh
+./scripts/run-local --data .local/display-demo/worker
+./scripts/run-dev --worker http://127.0.0.1:8971 --data .local/display-demo/service
+```
+
+Open **http://127.0.0.1:5173/display in Firefox** and click **Enable sound** if
+Firefox asks. Open **http://127.0.0.1:5173/admin**, use the labelled local test
+sign-in with organizer checked, add master music, and click **Start night**.
+The display connects and plays automatically. Ending the session stops audio
+and shows an empty display asking the admin to start a session. No pairing codes
+or claim controls. The browser handles the one-player lock and reconnection in
+the background. `/queue` is the silent attendee request page.
+
+These paths reuse the saved display-demo state and cache. All services bind to
+loopback. Without PH ID configuration, the development script uses labelled fake
+sign-in. To use the registered PH ID client, follow [PH ID setup](docs/jukebox/PH-ID-SETUP.md).
+
+The consolidated working branch is `feat/jukebox-phid`; `feat/jukebox-integration`
+tracks the same combined baseline. Run the app from that checkout so the current
+admin/display/session changes and PH ID fixes are together. The display tuner is
+`/display?tune`. A closed night deliberately shows the empty session screen;
+start a night in `/admin` to show music and the visualizer. New display connections
+wait up to 15 seconds for an old audio lease to expire.
 
 ## Run the phase-2 queue service
 

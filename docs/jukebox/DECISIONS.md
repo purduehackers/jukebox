@@ -310,3 +310,47 @@ login. The user requested that future DNS/operator questions be retained;
 DNS target and approval procedure, HTTPS/ingress, durable storage, PH ID production
 callback/credential ownership, and rehearsal gates. No infrastructure choice,
 production change, or external outreach was made.
+
+## Display simplification (2026-11-01)
+
+The user requested removing the “Mix will pause, then resume” caption, the entire
+next-master panel, and the local-preview phone-reachability notice from `/display`.
+This supersedes the earlier next-master presentation choice; the queue gets the
+freed sidebar space. Playback scheduling and QR destination behavior are unchanged.
+
+## Session-driven display (2026-11-01)
+
+The user rejected the manual display-pairing/claim workflow and requested a laptop
+that follows admin session start/end automatically, asking for browser sound
+permission on page open when needed. This supersedes the earlier pairing UI and
+master-outside-session behavior. No session: an empty display saying an admin
+needs to start one. Starting a session starts the prepared master (or waits for
+its preparation); ending clears the display and stops audio.
+
+Implementation choice: automatic page-scoped player credentials and a single
+background lease keep competing tabs from producing duplicate music. The first
+connected display plays; others stay silent and connect if it closes/expires.
+The page attempts Web Audio activation immediately, offers only **Enable sound**
+when blocked, and retains that activation through session changes/reconnects in
+the same document. A fresh document still follows Firefox's autoplay permission.
+The QR and now-playing strip share a grid row; QR size matches the artwork size.
+
+
+## Consolidated local app (2026-11-02)
+
+The user authorized consolidating the uncommitted display/session/player work and
+all admin revisions from “Audio Visualizer Symmetry and Bounce” with the PH ID
+checkout, committing and pushing them. `feat/jukebox-phid` is the working app;
+`feat/jukebox-integration` follows the combined baseline. Preserve both the newer
+automatic session flow and prior phase-3 reliability fixes: stale snapshots cannot
+undo a connection; terminal acknowledgements retain silent heartbeats; reconnects
+reuse a valid audio graph; each new connection waits out a full old lease before
+playing. The latter can delay initial music by up to 15 seconds, with no pairing UI.
+See [PH ID setup](PH-ID-SETUP.md) for the separately verified live sign-in.
+
+
+Consolidation verification: `./scripts/check` passed 15 Python worker tests,
+5 policy tests, 108 TypeScript tests, both typechecks, and the production build.
+Isolated Firefox runs passed 16 player checks, 15 display checks, and 47 admin
+checks including the 390 px layout. Fixture browsers used dedicated null audio
+sinks; the user's current PH ID credentials and saved app data were not replaced.

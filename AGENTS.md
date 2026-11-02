@@ -9,8 +9,8 @@ Phase 1 includes a local Python audio worker/cache and minimal Firefox proof pag
 (`src/contract/`) and a durable local queue/scheduler/authority service
 (`src/server/`); read `docs/jukebox/PHASE-2-CONTRACT.md` before phase 3/4 work and
 propose contract/migration changes to the integration owner instead of forking them.
-There is no production app/deployment, live PH ID client, real player, or final
-display yet. Do not assume dashboard scripts exist here.
+There is a local player/admin/attendee/display app. Live local PH ID sign-in was
+verified on 2026-11-02; production deployment remains unconfigured. Do not assume dashboard scripts exist here.
 
 The user approved `docs/jukebox/APPROVAL-PLAN.md` on 2026-10-30, including its
 defaults and subsequent display/server clarifications. Phase 1 is authorized to
@@ -66,7 +66,7 @@ ask for the same product-plan approval again.
 - Shared queues/checkpoints must survive supported restarts and concurrent clients.
   Browser storage, module memory, or Edge Config alone is not queue authority.
 - Use stable command IDs, actual player acknowledgement, and explicit device
-  authority. A public display page must not silently claim venue playback.
+  authority. The display connects automatically during an admin-started session (2026-11-01 user decision); keep a single background player lease, with no pairing/claim UI. No session means an empty display. Ask locally to enable sound only when browser policy requires it.
 - Keep the suspended master mix's audio asset pinned while requests play. Delete
   unused assets with bounded cache/cleanup behavior, including failed jobs/crashes.
 - Use local source/auth/player fixtures and a test clock for routine verification.

@@ -104,3 +104,66 @@ added optional-field compatibility, URL credential rejection and migration upgra
 coverage; independently found and fixed the revision-only SSE freshness gap.
 Design, rendering, player integration and Firefox review stayed with the lead.
 No additional top-level threads or later phases were started.
+
+## Session-driven display update (2026-11-01)
+
+The user's revised flow replaces the manual pairing/claim panel with automatic
+background connection and an **Enable sound** prompt only when browser autoplay
+policy requires it. No session shows an empty “An admin needs to start a session”
+screen. Session start plays the ready master (or waits for preparation); end
+stops sound and clears presentation. The same document keeps its sound activation
+across sessions. Single-player leases, actual acknowledgement, native audio and
+real analysis are retained behind the scenes. Admin no longer shows pairing UI.
+
+Also removed by the user: mix-pause caption, next-master panel and loopback phone
+notice. QR and now-playing share the same grid row. QR dimensions match artwork:
+166px at 1920×1080, 130px in the compact laptop layout. Sidebar text scales with it.
+
+Verification on 2026-11-01: `./scripts/check` passed 15 Python worker tests,
+5 scheduling-policy tests, 98 TypeScript tests, both typechecks and the app build.
+`verify-display.py` passed 15 checks in Firefox 158.0.1 with unchanged autoplay
+preferences, including sound permission before session start, automatic start,
+stop/blank/restart, refresh, real analysis, QR decode and exact strip/QR centering
+at 1920×1080 and 1366×768. The idle state appeared 61ms after navigation in that run.
+The shared snapshot client now fetches initial state immediately and reconciles
+via a five-second poll alongside SSE, so session state recovers after an event
+stream stalls during a backend restart.
+
+`verify-player.py` then passed all 11 session/player checks, including competing
+displays, paused mid-request refresh without double charging, bounded technical
+failure/refund, backend restart and automatic recovery without another click.
+`verify-admin.py` passed 23 UI checks, including direct session start, silent
+remote controls, expired sign-in and a 390px mobile viewport. These are isolated
+Firefox tests; no claim of audible HDMI/venue hardware testing is made.
+
+## Unified waveform/flow rendering (2026-11-01)
+
+The user clarified that wisps should extend the waveform with matching weight,
+wide roots and thin tips; a separate *processing step* must not look like a second
+layer. They also identified bounce/thickness misalignment and requested simpler,
+faster code. The old smoke feedback buffer attached to the unbounced outline;
+repeated resampling softened it into a halo.
+
+The renderer now computes the measured envelope and its drift/bounce first,
+adds tapered curved extensions to that finished geometry, then applies one
+material and Bayer dithering. Roots inherit the finished edge's position; the
+bounce displacement falls off cubically toward independently morphing tips.
+Positive `wispSweep` goes right. There is no accumulated smoke, additive material,
+or final blur stack. Large buffers are reused. Flow geometry uses half-resolution
+distance samples; the band, final material and Bayer pattern use full resolution.
+
+The tuner replaces the old emit/advection/blend controls with `wispLength`,
+`wispWidth`, `wispTaper`, `wispSweep`, `wispCurl`, `wispSpacing`, `wispSpeed`, and
+`edgeSoftness`. Old URL keys for removed settings are ignored. `dither:0` still
+shows the underlying material. Reload `/display?tune` without an old `viz` query
+for the new defaults. The interior now shares one density/texture with the plumes,
+so roots no longer add a bright patch over the band.
+
+Verification: eight signal/display tests and the app typecheck pass. The isolated
+Firefox display workflow passed with real fixture audio; this does not establish
+venue/HDMI behavior. A regression checks that flow cannot brighten the fully
+filled interior or erase band pixels through bounce, and that silence clears it.
+
+Final headless Firefox 158 synthetic geometry benchmark at 667×388 render cells:
+60 warmed samples, 22 ms median / 31 ms p95 with dithering enabled. These are
+local render timings, not a whole-night or physical display frame-rate guarantee.

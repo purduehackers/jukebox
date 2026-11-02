@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CommandRunner, VolumeController } from '../app/src/admin/intents.ts';
 import type { Timers } from '../app/src/admin/intents.ts';
-import { describeTurn, estimatePosition, explainError, moveAnchor, playerState, queueSignature, waitingRequests } from '../app/src/admin/derive.ts';
+import { describeTurn, estimatePosition, explainError, moveAnchor, optimisticIntent, playerState, queueSignature, waitingRequests } from '../app/src/admin/derive.ts';
 import { sendCommand } from '../app/src/shared/api.ts';
 import { URLS } from './helpers.ts';
 import { ORIGIN, ScriptedDisplay, organizer, startApp, startNight } from './admin-helpers.ts';
@@ -187,30 +187,30 @@ test('seek, replay, and volume: guards, same-intent retries, and bounded slider 
     const late = await runner.run('Seek (late)', 'playback.seek', { entryId, positionSec: 30 });
     assert.equal(late.error?.code, 'GUARD_MISMATCH');
 
-    // Slider: a burst of 50 drag values with a manual clock sends two commands and ends on the last value.
+    // Fifty drag values wait until adjustment settles, then send only the final value.
     let t = 1_000_000;
-    const queue: { at: number; cb: () => void }[] = [];
-    const timers: Timers = { now: () => t, set: (cb, ms) => queue.push({ at: t + ms, cb }), clear: () => undefined };
+    const queue = new Map<number, { at: number; cb: () => void }>();
+    let timerId = 0;
+    const timers: Timers = { now: () => t, set: (cb, ms) => { queue.set(++timerId, { at: t + ms, cb }); return timerId; }, clear: (id) => { queue.delete(id as number); } };
     const volume = new VolumeController(runner, { minIntervalMs: 250, timers });
     const pendingSeen: (number | null)[] = [];
     volume.onPending = (value) => pendingSeen.push(value);
     for (let i = 1; i <= 50; i++) volume.set(i / 100);
     assert.equal(volume.pending, true);
-    await until(() => volume.sent === 1 && runner.getSnapshot().every((i) => i.status !== 'pending'));
-    assert.equal((await admin.snapshot()).playback.volume, 0.01, 'first value goes out immediately');
-    assert.equal(queue.length, 1, 'the remaining 49 values wait for one timer');
+    assert.equal(volume.sent, 0, 'dragging does not immediately send commands');
+    assert.equal(queue.size, 1, 'each adjustment replaces the debounce timer');
     t += 250;
-    queue.shift()!.cb();
-    await until(() => volume.sent === 2 && !volume.pending);
+    const fire = () => { const [id, timer] = queue.entries().next().value!; queue.delete(id); timer.cb(); };
+    fire();
+    await until(() => volume.sent === 1 && !volume.pending);
     assert.equal((await admin.snapshot()).playback.volume, 0.5, 'the last value always wins');
-    assert.equal(volume.sent, 2);
     assert.equal(pendingSeen.at(-1), null);
     const volumeEvents = ((await (await admin.fetch('/api/v1/events?after=0')).json()) as { events: { type: string }[] }).events.filter((e) => e.type === 'playback.volume');
-    assert.equal(volumeEvents.length, 2, 'the service saw 2 volume commands for 50 slider values');
+    assert.equal(volumeEvents.length, 1, 'the service saw one volume command for 50 slider values');
     // Out-of-range input never leaves the client.
     volume.set(7);
     t += 250;
-    queue.shift()!.cb();
+    fire();
     await until(() => !volume.pending);
     assert.equal((await admin.snapshot()).playback.volume, 1);
     void display;
@@ -378,13 +378,13 @@ test('turn description follows the scheduler for pause, offline, empty and due t
     snap = await admin.snapshot();
     turn = describeTurn(snap, snap.serverTime);
     assert.equal(turn.periodRemainingMs, 30_000);
-    assert.match(turn.detail, /paused — the timer keeps running/);
+    assert.match(turn.detail, /Paused — the timer keeps running/);
     app.clock.advance(31_000);
     await app.service.reconcile();
     snap = await admin.snapshot();
     turn = describeTurn(snap, snap.serverTime);
     assert.equal(turn.kind, 'due');
-    assert.match(turn.detail, /press Play/);
+    assert.match(turn.detail, /Press Play/);
   } finally {
     await app.stop();
   }
@@ -452,4 +452,101 @@ test('unsupported sources get specific, truthful explanations and nothing is add
   } finally {
     await app.stop();
   }
+});
+
+
+test('optimistic controls respond before network completion, reconcile by revision, and roll back failures', async () => {
+  const app = await startApp();
+  try {
+    const admin = await organizer(app);
+    await startNight(app, admin);
+    const before = await admin.snapshot();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const runner = new CommandRunner(async (type, payload, options) => {
+      await gate;
+      return admin.send(type, payload, options);
+    });
+    const paused = runner.run('Pause', 'playback.pause', {});
+    assert.equal(optimisticIntent(before, runner.getSnapshot(), ['playback.play', 'playback.pause'])?.type, 'playback.pause');
+    const played = runner.run('Play', 'playback.play', {});
+    assert.equal(optimisticIntent(before, runner.getSnapshot(), ['playback.play', 'playback.pause'])?.type, 'playback.play');
+    release();
+    const [pause, play] = await Promise.all([paused, played]);
+    assert.ok(pause.revision! < play.revision!, 'rapid toggles reach the server in click order');
+    assert.equal(optimisticIntent(before, runner.getSnapshot(), ['playback.play', 'playback.pause'])?.type, 'playback.play', 'old snapshots cannot undo local feedback');
+    assert.equal(optimisticIntent(await admin.snapshot(), runner.getSnapshot(), ['playback.play', 'playback.pause']), null);
+    await runner.run('Bad seek', 'playback.seek', { entryId: 'missing', positionSec: 12 });
+    assert.equal(optimisticIntent(before, runner.getSnapshot(), ['playback.seek']), null, 'rejected changes roll back');
+  } finally { await app.stop(); }
+});
+
+test('volume release flushes once, coalesces while sending, and cleans up scheduled work', async () => {
+  let release!: () => void;
+  const calls: number[] = [];
+  const runner = new CommandRunner(async (type, payload, options) => {
+    calls.push((payload as { volume: number }).volume);
+    await new Promise<void>((resolve) => { release = resolve; });
+    return { ok: true, commandId: options.commandId, revision: calls.length, replayed: false, result: {} } as never;
+  });
+  const volume = new VolumeController(runner);
+  volume.begin();
+  volume.set(.1);
+  volume.set(.2);
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  assert.deepEqual(calls, [], 'holding the slider never sends, even after the debounce interval');
+  volume.flush();
+  await until(() => calls.length === 1);
+  volume.set(.3);
+  volume.set(.7);
+  volume.flush();
+  assert.deepEqual(calls, [.2]);
+  release();
+  await until(() => calls.length === 2);
+  assert.deepEqual(calls, [.2, .7]);
+  release();
+  await until(() => !volume.pending);
+  volume.set(.7);
+  volume.flush();
+  await until(() => calls.length === 3);
+  release();
+  await until(() => !volume.pending);
+  assert.deepEqual(calls, [.2, .7, .7], 'setting the same value again still settles');
+  volume.set(.9);
+  volume.dispose();
+  assert.equal(volume.pending, false);
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  assert.equal(calls.length, 3, 'unmount cancels unsent work');
+});
+
+
+test('volume acknowledgements never rewind the running seek clock', async () => {
+  const app = await startApp();
+  try {
+    const admin = await organizer(app);
+    const display = await startNight(app, admin, [URLS.mix]);
+    const runner = new CommandRunner(admin.send);
+    const entryId = (await admin.snapshot()).nowPlaying!.entryId;
+    await runner.run('Seek', 'playback.seek', { entryId, positionSec: 120 });
+    await display.report('playing', 120);
+    app.clock.advance(4000);
+    const before = await admin.snapshot();
+    const positionBefore = estimatePosition(before, before.serverTime).positionSec;
+    assert.equal(positionBefore, 124);
+    assert.equal((await runner.run('Volume', 'playback.volume', { volume: .4 })).status, 'ok');
+    const pending = await admin.snapshot();
+    assert.equal(optimisticIntent(pending, runner.getSnapshot(), ['playback.seek']), null, 'volume cannot resurrect the previously acknowledged seek');
+    assert.equal(pending.playback.confirmation, 'requested');
+    assert.equal(estimatePosition(pending, pending.serverTime).positionSec, positionBefore, 'volume does not jump back to the 120-second heartbeat');
+    app.clock.advance(2000);
+    const later = await admin.snapshot();
+    assert.equal(estimatePosition(later, later.serverTime).positionSec, 126, 'the clock keeps advancing while volume awaits acknowledgement');
+    await display.report('playing', 126);
+    const confirmed = await admin.snapshot();
+    assert.equal(estimatePosition(confirmed, confirmed.serverTime).positionSec, 126, 'acknowledgement does not jump forward again');
+    assert.ok((await admin.raw('playback.pause', {})).body.ok);
+    app.clock.advance(2000);
+    const paused = await admin.snapshot();
+    assert.equal(estimatePosition(paused, paused.serverTime).positionSec, 126, 'pause still stops extrapolation');
+  } finally { await app.stop(); }
 });

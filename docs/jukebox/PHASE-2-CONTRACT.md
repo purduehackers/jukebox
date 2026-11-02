@@ -174,3 +174,25 @@ phase-1 audio-only preparation applies unchanged. Playlist imports are not imple
 - Existing-server evaluation, hosting, DNS, audible HDMI/wall checks remain later gates.
 - Admin rule and "preparing request at due time counts as empty" are implementation choices
   the user may revise.
+
+## Session/player revision (2026-11-01)
+
+The user's session-driven flow supersedes the pairing UI and music outside a
+session above. `night.open` starts the ready master, or durably arms a one-shot
+start once a master is prepared. An explicit pause or session end cancels that
+pending start. The display clears itself on session end.
+
+New public command `display.connect {secret}` accepts a 256-bit page-specific hex
+secret during an open night and atomically registers/claims the player. It cannot
+displace a live lease. Same-page retries recover a lost response without fencing
+themselves. The response includes device token, generation and expiry; only the
+secret hash is persisted, no response token is saved in the command journal.
+Automatic registration rows are bounded to the latest automatic player. Player
+credentials do not grant attendee/admin actions. Legacy pairing API remains
+compatible for service fixtures, but neither UI exposes it. The display's sound
+permission is the only local setup step when autoplay is blocked.
+
+Migration 3 appends `devices.automatic` and `playback.autostart`; prior migrations
+are unchanged. First connected display is the audio browser; another display
+waits for release/expiry. This is a local-first implementation, not a hardened
+public deployment.

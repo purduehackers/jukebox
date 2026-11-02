@@ -262,6 +262,8 @@ export interface CommandPayloads {
   'request.preview': { url: string };
   // Unauthenticated holder of a pairing code
   'device.pair': { code: string };
+  /** Display tab connects itself during an open session. Secret is unique to this page instance. */
+  'display.connect': { secret: string };
   // Paired player
   'player.claim': { takeover?: boolean };
   'player.release': { generation: number };
@@ -285,6 +287,7 @@ export interface PlayerReport {
 export interface CommandResults {
   'device.pairing.create': { code: string; expiresAt: number };
   'device.pair': { deviceId: string; token: string };
+  'display.connect': { deviceId: string; token: string; generation: number; expiresAt: number };
   'player.claim': { generation: number; expiresAt: number };
   'request.submit': { entryId: string; quota: { used: number; limit: number; remaining: number } };
   'request.preview': PreviewResult;

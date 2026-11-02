@@ -32,6 +32,7 @@ const SHAPES: { [T in CommandType]: Shape } = {
   'request.submit': { url: str(300), expectRecordingKey: optional(str(200)) },
   'request.preview': { url: str(300) },
   'device.pair': { code: str(20) },
+  'display.connect': { secret: (v) => typeof v === 'string' && /^[a-f0-9]{64}$/.test(v) },
   'player.claim': { takeover: optional((v) => typeof v === 'boolean') },
   'player.release': { generation: int },
   'player.report': {
@@ -68,6 +69,7 @@ export const COMMAND_ROLES: { [T in CommandType]: Role } = {
   'request.submit': 'attendee',
   'request.preview': 'attendee',
   'device.pair': 'public',
+  'display.connect': 'public',
   'player.claim': 'player',
   'player.release': 'player',
   'player.report': 'player',

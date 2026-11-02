@@ -130,6 +130,8 @@ const MIGRATIONS: string[] = [
   alter table master_items add column artwork_url text;
   alter table requests add column artwork_url text;
   `,
+  `alter table devices add column automatic integer not null default 0;
+   alter table playback add column autostart integer not null default 0;`,
 ];
 
 export function openDatabase(path: string): DatabaseSync {
