@@ -58,3 +58,14 @@ copied. Do not copy credentials or real session databases into commits. Preserve
 PH ID configuration and never silently replace real sign-in with fake sign-in.
 Use isolated ports/state for automated tests. Do not interrupt the user's existing
 5173/8980 processes without explaining a necessary restart.
+
+## Chat references
+
+- [Link compatibility: YouTube, Spotify and Apple Music](t3-thread://v1/mcp:509ee740-1362-4afe-ad3b-fcc85cf230ce)
+  uses Codex CLI Main / `gpt-6.1-sol`, high effort.
+- [Queue playback controls and timer](t3-thread://v1/mcp:24c48184-a2f6-4dd9-8425-1f344ee00724)
+  uses Claude / `claude-sonnet-5-5`, high effort (selection verified at launch).
+
+Both launched from the committed coordination baseline `f9de59b`. Completion and
+contract proposals must be sent to the coordinator named above, so the final
+combined push is reviewed rather than left as unrelated feature branches.
