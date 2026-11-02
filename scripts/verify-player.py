@@ -305,9 +305,49 @@ def main():
         playing(player)
         report['checks']['leaseExpirySilencesThenAutomaticallyReconnectsWithoutAnotherClick'] = True
         # Real session end clears the page and stops sound; next session resumes on this laptop.
+        # Hold ONLY the player's closed-night snapshots. The public display feed
+        # still arrives; its empty-night render must synchronously stop the audio.
+        player.execute_script("""
+          window.privateCloseHeld=0;
+          const pending=[];
+          let hold=true;
+          const originalRead=ReadableStreamDefaultReader.prototype.read;
+          const originalFetch=window.fetch;
+          const closed=s=>s?.role==='player' && s.night?.status==='closed';
+          const delay=value=>{window.privateCloseHeld++;return new Promise(resolve=>pending.push(()=>resolve(value)))};
+          ReadableStreamDefaultReader.prototype.read=function(...args){
+            return originalRead.apply(this,args).then(result=>{
+              if(hold && typeof result.value==='string'){
+                for(const line of result.value.split('\\n')){
+                  if(!line.startsWith('data: '))continue;
+                  try{if(closed(JSON.parse(line.slice(6))))return delay(result)}catch{}
+                }
+              }
+              return result;
+            });
+          };
+          window.fetch=async(url,init)=>{
+            const response=await originalFetch(url,init);
+            if(hold && url==='/api/v1/snapshot' && new Headers(init?.headers).has('authorization')){
+              try{if(closed(await response.clone().json()))return delay(response)}catch{}
+            }
+            return response;
+          };
+          window.releasePrivateClose=()=>{
+            hold=false;window.fetch=originalFetch;
+            ReadableStreamDefaultReader.prototype.read=originalRead;
+            for(const resolve of pending)resolve();
+          };
+        """)
+        # An already pending stream read predates the shim; let an open-night
+        # heartbeat consume it so the closed-night frame is actually intercepted.
+        time.sleep(5.5)
         cmd(admin, 'night.close')
         until(lambda: player.find_elements(By.CSS_SELECTOR, '.display-idle[data-state=idle]'))
         assert audio(player)['paused']
+        until(lambda: player.execute_script('return window.privateCloseHeld>0'), 8)
+        player.execute_script('window.releasePrivateClose()')
+        report['checks']['publicNightCloseStopsAudioWithPrivateCloseSnapshotsHeld'] = True
         assert not player.find_elements(By.CSS_SELECTOR, '.display-now,.display-request')
         cmd(admin, 'night.open')
         playing(player)

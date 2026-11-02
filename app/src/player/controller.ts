@@ -165,6 +165,13 @@ export class PlayerController {
     } catch { /* Lease watchdog remains independent of network waits. */ }
   }
 
+  /** The presentation also consumes authoritative public snapshots. A closed night
+   * must stop sound even when this controller's separate bearer stream is delayed.
+   * Reuse the same revision/time fences; public snapshots never grant playback. */
+  observeSession(snapshot: Snapshot | null) {
+    if (snapshot && snapshot.night?.status !== 'open') this.snapshot(snapshot);
+  }
+
   private snapshot(snapshot: Snapshot) {
     if (this.disposed) return;
     if (snapshot.revision < this.snapshotRevision || (snapshot.revision === this.snapshotRevision && snapshot.serverTime < this.snapshotTime)) return;

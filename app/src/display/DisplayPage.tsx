@@ -84,6 +84,6 @@ function LiveDisplay() {
     return () => clearInterval(timer);
   }, [clock]);
   return <><DisplayView snapshot={snapshot} error={error} now={now} />
-    <Player />
+    <Player snapshot={snapshot} />
   </>;
 }

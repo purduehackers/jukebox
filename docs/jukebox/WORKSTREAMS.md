@@ -69,3 +69,25 @@ Use isolated ports/state for automated tests. Do not interrupt the user's existi
 Both launched from the committed coordination baseline `f9de59b`. Completion and
 contract proposals must be sent to the coordinator named above, so the final
 combined push is reviewed rather than left as unrelated feature branches.
+
+
+## Integration review in progress
+
+The link branch completed at `fc5c383` (commits `d554586`, `fc5c383`) and is merged
+locally into integration. Its routine suite passed 21 Python, five policy and 126
+TypeScript tests, both typechecks/build, plus 47 Firefox admin checks. Actual source
+proof covered the reported mix and a matched Spotify/Apple recording as audio-only
+Opus 251 with Firefox analysis/seek/resume; a later network-script master admission
+hit intermittent upstream format unavailability. The full network app script is
+not recorded as a pass. Optional authenticated catalog API paths remain fixture
+verified only; public catalog paths were live-tested. Details are in
+[Link compatibility](LINK-COMPATIBILITY.md).
+
+An unchanged player verification exposed a closed-night display/audio race after
+reconnect. A baseline rerun measured closure but did not reproduce that exact
+ordering. A controlled Firefox comparison then withheld private closed-night
+snapshots: baseline failed the immediate paused assertion, while integration's
+public-session stop bridge passed. The bridge preserves revision/time fencing;
+public data can stop audio but cannot grant it authority. The regression is added
+to the full player verifier. Full merged verification and combined push still
+await the queue-control branch.

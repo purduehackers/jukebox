@@ -26,3 +26,11 @@ Verify with `./scripts/check`, `.venv/bin/python scripts/verify-player.py`, and
 `.venv/bin/python scripts/verify-display.py`. They use isolated local state,
 synthetic audio, and fresh Firefox profiles. HDMI output and physical wall checks
 remain venue tests.
+
+The display's public closed-session snapshot also stops the local controller in
+the same render commit as the empty-night screen. It uses the controller's existing
+revision/time fences and can only stop sound, never grant playback authority.
+This prevents the visual screen and native audio from diverging when the separate
+bearer stream is delayed after reconnect. The Firefox player verifier deliberately
+holds private closed-session snapshots while leaving the public feed live and
+keeps its immediate paused assertion.

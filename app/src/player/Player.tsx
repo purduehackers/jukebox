@@ -1,17 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { PlayerController } from './controller.ts';
 import type { PlayerState } from './controller.ts';
+import type { Snapshot } from '../shared/api.ts';
 
 /** The display connects itself; the only local control is browser sound permission. */
-export function Player() {
+export function Player({ snapshot }: { snapshot: Snapshot | null }) {
   const [state, setState] = useState<PlayerState | null>(null);
   const audio = useRef<HTMLAudioElement>(null);
   const controller = useRef<PlayerController | null>(null);
+  const latestSnapshot = useRef(snapshot);
+  latestSnapshot.current = snapshot;
+  // Apply the stop in the same commit that exposes the empty-night screen.
+  useLayoutEffect(() => { controller.current?.observeSession(snapshot); }, [snapshot]);
   useEffect(() => {
     const restore = (event: PageTransitionEvent) => { if (event.persisted) window.location.reload(); };
     window.addEventListener('pageshow', restore);
     const player = new PlayerController(audio.current!, setState);
     controller.current = player;
+    player.observeSession(latestSnapshot.current);
     return () => { window.removeEventListener('pageshow', restore); player.dispose(); controller.current = null; };
   }, []);
   const elsewhere = state?.connection === 'elsewhere';
