@@ -25,6 +25,15 @@ ask for the same product-plan approval again.
 branches must merge/rebase current main before continuing; uncommitted edits in
 another worktree are not inherited. Keep `.env.local` and `.local/` private.
 
+`/admin` and `/queue` now use the official Purdue Hackers component skill at
+`.claude/skills/purdue-hackers-ui/SKILL.md`, with dark mode and minimal copy.
+The display retains its existing dashboard identity; do not apply global UI
+resets or restyle it during admin/queue work. Preserve the removed helper copy.
+For normal local use, keep real PH ID and the audio worker. Fixture auth/media
+are for explicit tests or demos, not the default user-facing preview. Private
+configuration is not included in new worktrees; reuse the existing local config
+when authorized rather than silently switching to the fake sign-in form.
+
 ## Confirmed requirements
 
 - Intended hostname: `jukebox.purduehackers.com`; routes `/display`, `/admin`,

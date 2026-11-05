@@ -1,5 +1,15 @@
 # Decisions and question backlog
 
+## Official PH components for admin and attendee (2026-11-05)
+
+The user requested a new dark UI effort from consolidated `origin/main`, using
+the official https://components.purduehackers.com/ skill and React components.
+This supersedes the dashboard visual identity requirement for `/admin` and
+`/queue` only. Keep current copy and functionality, especially minimal attendee
+requests and organizer queue controls/loading guards. `/display`, its visualizer,
+player, and existing dashboard identity remain outside this redesign. Scope all
+new theme/reset styles to the two UI routes. No production changes or deployment.
+
 Approval recorded: the user said “i approve” on 2026-10-30 after reviewing the
 consolidated plan and adding the display/server/PH ID clarifications. The scope
 and defaults in [APPROVAL-PLAN.md](APPROVAL-PLAN.md) are adopted. Start phase 1;
@@ -435,3 +445,16 @@ historical sources, not the default baseline. The separate `feat/jukebox-ph-ui`
 redesign is not included in this promotion and must incorporate current main
 before integration. This is a source-code consolidation, with no deployment or
 credential/state publication.
+
+Admin copy cleanup (2026-11-05): remove the stale-time caption, offline status
+explanation, request-turn detail sentence, add-link guidance, mode explanation,
+and default-interval reset button per the user-highlighted screenshot.
+
+## Current dark UI promoted to main (2026-11-05)
+
+The user requested making the running dark PH-components UI, including the
+latest highlighted-copy removals, the consolidated main baseline for subsequent
+chats. The official component skill and scoped admin/queue styles are included;
+display/player/server behavior stays unchanged. Real PH ID configuration and
+service/worker state remain local and untracked. Typechecks and build pass; the
+13 focused admin/rendering checks passed after the copy cleanup.

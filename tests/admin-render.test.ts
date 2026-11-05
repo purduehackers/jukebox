@@ -111,8 +111,8 @@ test('now playing: requested vs confirmed vs unconfirmed vs offline are rendered
     assert.match(out, /Display offline/);
     assert.match(out, /data-confirmation="lapsed"/);
     assert.doesNotMatch(out, />Confirmed by display</, 'a lapsed confirmation is not presented as current');
-    assert.match(text(out), /Times shown are its last report/);
-    assert.match(text(out), /last known/);
+    assert.doesNotMatch(text(out), /Times shown are its last report/);
+    assert.doesNotMatch(text(out), /last known/);
   } finally {
     await app.stop();
   }
@@ -130,8 +130,8 @@ test('alerts band, request turn, queues, and unsupported-source guidance', async
 
     const turn = text(html(createElement(views.TurnPanel, { snapshot: snap, serverNow: snap.serverTime })));
     assert.match(turn, /Next request in 1:00/);
-    assert.match(turn, /1 ready request will take this turn/);
-    assert.match(turn, /This mix gets cut in/);
+    assert.doesNotMatch(turn, /1 ready request will take this turn/);
+    assert.doesNotMatch(turn, /This mix gets cut in/);
 
     const requests = html(createElement(views.RequestQueuePanel, { snapshot: snap, actions }));
     assert.match(requests, /Request One/);
@@ -144,8 +144,8 @@ test('alerts band, request turn, queues, and unsupported-source guidance', async
     assert.match(addBar, /Queue/);
     assert.match(addBar, /Add to master/);
     assert.match(addBar, /Add to requests/);
-    assert.match(addBar, /YouTube, Spotify, or Apple Music tracks/);
-    assert.match(addBar, /Master mixes welcome/);
+    assert.match(addBar, /YouTube, Spotify, or Apple Music track link/);
+    assert.doesNotMatch(addBar, /Master mixes welcome/);
     assert.match(text(master), /· mix/);
     assert.match(master, /Move up/);
 

@@ -36,12 +36,12 @@ async function scene() {
 const controls = (snapshot: ReturnType<typeof harness>['svc']['snapshot'] extends (...a: any) => infer S ? S : never, serverNow = snapshot.serverTime) =>
   html(createElement(views.QueueControls, { snapshot, serverNow, actions }));
 
-test('mode selector reflects the service mode and the interval; reset-to-default only when overridden', async () => {
+test('mode selector reflects the service mode and interval without extra helper controls', async () => {
   const { h } = await scene();
   let out = controls(h.snap());
   assert.match(out, /role="radiogroup"/);
   assert.match(out, /data-mode="auto"[^>]*aria-checked="true"|aria-checked="true"[^>]*data-mode="auto"/);
-  assert.match(text(out), /Master music, with one request every interval\. Now every 15 min\./);
+  assert.doesNotMatch(out, /data-testid="mode-help"/);
   assert.match(out, /id="adm-interval"[^>]*value="15"/);
   assert.doesNotMatch(text(out), /Use 15 min/);
   await h.ok(h.admin, 'queue.interval', { periodMs: 10 * MIN });
@@ -49,8 +49,8 @@ test('mode selector reflects the service mode and the interval; reset-to-default
   out = controls(h.snap());
   assert.match(out, /aria-checked="true"[^>]*data-mode="master"|data-mode="master"[^>]*aria-checked="true"/);
   assert.match(out, /value="10"/);
-  assert.match(text(out), /Use 15 min/);
-  assert.match(text(out), /Request turns are off\. Requests wait in the queue\./);
+  assert.doesNotMatch(text(out), /Use 15 min/);
+
 });
 
 test('Requests only is unavailable before the night starts', async () => {

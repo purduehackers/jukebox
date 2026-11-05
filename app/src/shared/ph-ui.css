@@ -1,0 +1,30 @@
+/* Official PH foundations without Tailwind Preflight. The build prefixes every
+   selector in this entry with .ph-ui, including imported theme and utilities. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "./ph.css";
+@import "../components/ph/dither-button.css";
+@source "../components/ph";
+@source "../admin";
+@source "../queue";
+
+@layer base {
+  .ph-ui { box-sizing: border-box; min-height: 100dvh; color-scheme: dark; }
+  *, ::before, ::after { box-sizing: border-box; border-width: 0; border-style: solid; }
+  h1, h2, h3, h4, p { margin: 0; }
+  button, input, select, textarea { font: inherit; color: inherit; border-radius: 0; }
+  button { background: transparent; }
+  a { color: inherit; }
+}
+
+/* DitherButton's official animation needs explicit disabled/press states. */
+.ph-dither-btn { transition: transform 150ms var(--ph-ease); }
+.ph-dither-btn:active { transform: scale(0.97); }
+.ph-dither-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+/* The legacy shell's unlayered anchor rule must not override PH Button links. */
+a.text-foreground { color: var(--foreground); }
+a.text-foreground:hover { color: var(--background); }
+@media (prefers-reduced-motion: reduce) {
+  .ph-dither-btn { transition: none; }
+}

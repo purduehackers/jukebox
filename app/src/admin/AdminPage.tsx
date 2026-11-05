@@ -1,9 +1,12 @@
 // Phase 4A: organizer controls at /admin. Composition only: data in state.ts, rules in derive.ts,
 // command identity in intents.ts, markup in views.tsx.
 import { useEffect, useMemo, useState } from 'react';
+import '../shared/ph-ui.css';
 import './admin.css';
 import { AccessGate, ActivityPanel, AddBar, AlertsBand, Header, MasterQueuePanel, NightPanel, NowPlayingPanel, QueueControls, RequestQueuePanel, TurnPanel } from './views.tsx';
 import type { Actions } from './views.tsx';
+import { Button } from '../components/ph/button.tsx';
+import { Card } from '../components/ph/card.tsx';
 import { useControls, useLive, useServerNow, useTicker } from './state.ts';
 
 export function AdminPage() {
@@ -44,7 +47,7 @@ export function AdminPage() {
   }), [runner, volume]);
 
   if (live.access.state !== 'admin' || !live.snapshot) {
-    if (live.access.state === 'admin') return <main className="jb-panel adm-gate" aria-busy="true"><p>Loading…</p></main>;
+    if (live.access.state === 'admin') return <main className="ph-ui dark adm-root" aria-busy="true"><div className="adm-shell"><Card className="adm-card adm-gate"><p>Loading…</p></Card></div></main>;
     return <AccessGate access={live.access} onRetry={live.recheck} />;
   }
   const snapshot = live.snapshot;
@@ -56,25 +59,30 @@ export function AdminPage() {
   };
 
   return (
-    <div className="adm-root">
-      <Header name={live.access.name} link={live.link} linkError={live.linkError} onSignOut={() => void signOut()}>
-        <NightPanel snapshot={snapshot} actions={actions} />
-        <button type="button" className="adm-btn" aria-expanded={showActivity} aria-controls="adm-activity" onClick={() => setShowActivity((shown) => !shown)}>
-          {showActivity ? 'Hide activity log' : 'Show activity log'}
-        </button>
-      </Header>
-      <AlertsBand snapshot={snapshot} link={live.link} external={live.externalChange} onAckExternal={live.ackExternal} />
-      <NowPlayingPanel snapshot={snapshot} serverNow={serverNow} actions={actions} pendingVolume={pendingVolume} intents={intents}>
-        <TurnPanel snapshot={snapshot} serverNow={serverNow} />
-      </NowPlayingPanel>
-      <AddBar actions={actions} lastAdd={lastAdd} nightOpen={snapshot.night?.status === 'open'}>
-        <QueueControls snapshot={snapshot} serverNow={serverNow} actions={actions} intents={intents} />
-      </AddBar>
-      <div className="adm-queues">
-        <MasterQueuePanel snapshot={snapshot} actions={actions} />
-        <RequestQueuePanel snapshot={snapshot} actions={actions} />
+    <div className="ph-ui dark adm-root">
+      <div className="adm-shell">
+        <Header name={live.access.name} link={live.link} linkError={live.linkError} onSignOut={() => void signOut()}>
+          <NightPanel snapshot={snapshot} actions={actions} />
+          <Button variant="outline" aria-expanded={showActivity} aria-controls="adm-activity" onClick={() => setShowActivity((shown) => !shown)}>
+            {showActivity ? 'Hide activity log' : 'Show activity log'}
+          </Button>
+        </Header>
+        <AlertsBand snapshot={snapshot} link={live.link} external={live.externalChange} onAckExternal={live.ackExternal} />
+        <NowPlayingPanel snapshot={snapshot} serverNow={serverNow} actions={actions} pendingVolume={pendingVolume} intents={intents}>
+          <TurnPanel snapshot={snapshot} serverNow={serverNow} />
+        </NowPlayingPanel>
+        <AddBar actions={actions} lastAdd={lastAdd} nightOpen={snapshot.night?.status === 'open'}>
+          <QueueControls snapshot={snapshot} serverNow={serverNow} actions={actions} intents={intents} />
+        </AddBar>
+        <div className="adm-queues">
+          <MasterQueuePanel snapshot={snapshot} actions={actions} />
+          <RequestQueuePanel snapshot={snapshot} actions={actions} />
+        </div>
+        <ActivityPanel intents={intents} actions={actions} hidden={!showActivity} />
+        <footer className="adm-credits">
+          Icons: <a href="https://github.com/hackernoon/pixel-icon-library" target="_blank" rel="noreferrer">HackerNoon Pixel Icon Library</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>
+        </footer>
       </div>
-      <ActivityPanel intents={intents} actions={actions} hidden={!showActivity} />
     </div>
   );
 }

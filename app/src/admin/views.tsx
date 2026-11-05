@@ -1,10 +1,18 @@
 // Presentational admin components. Props in, callbacks out: no fetching here, so every state
 // (offline display, unconfirmed command, conflicts) can be rendered from a fixture snapshot.
-import { useEffect, useState } from 'react';
+// Visuals are the official Purdue Hackers components (app/src/components/ph/*) in dark mode.
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { MasterEntryView, QueueMode, RequestEntryView, Snapshot } from '../../../src/contract/types.ts';
 import { POLICY } from '../../../src/contract/types.ts';
-import { PLAYER_LABEL, describeTurn, estimatePosition, explainError, formatClock, formatMinutes, moveAnchor, optimisticIntent, playerState, playingRequest, waitingRequests } from './derive.ts';
+import { Badge } from '../components/ph/badge.tsx';
+import { Button } from '../components/ph/button.tsx';
+import { Card } from '../components/ph/card.tsx';
+import { DitherButton } from '../components/ph/dither-button.tsx';
+import { Field } from '../components/ph/field.tsx';
+import { Icon } from '../components/ph/icon.tsx';
+import { Input } from '../components/ph/input.tsx';
+import { PLAYER_LABEL, describeTurn, estimatePosition, explainError, formatClock, moveAnchor, optimisticIntent, playerState, playingRequest, waitingRequests } from './derive.ts';
 import type { Direction, PlayerState } from './derive.ts';
 import type { Intent } from './intents.ts';
 import type { Access, Link } from './state.ts';
@@ -38,58 +46,85 @@ const time = (sec: number | null) => (sec === null ? '–:––' : formatClock(
 const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 type Tone = 'ok' | 'warn' | 'bad' | 'info' | 'dim';
+type BadgeColor = 'lime' | 'yellow' | 'orange' | 'pink' | 'outline';
+const TONE_BADGE: Record<Tone, BadgeColor> = { ok: 'lime', warn: 'yellow', bad: 'orange', info: 'pink', dim: 'outline' };
 
-function Panel({ title, id, children, aside, className = '' }: { title: string; id: string; children: ReactNode; aside?: ReactNode; className?: string }) {
+/** Disabled buttons ignore the pointer, so the reason lives on a wrapper that still receives hover. */
+function Tip({ title, children }: { title?: string; children: ReactNode }) {
+  return title ? <span className="adm-tip" title={title}>{children}</span> : <>{children}</>;
+}
+
+function Panel({ title, id, children, aside }: { title: string; id: string; children: ReactNode; aside?: ReactNode }) {
   return (
-    <section className={`jb-panel adm-panel ${className}`} aria-labelledby={id}>
-      <header className="adm-panel-head">
-        <h2 id={id}>{title}</h2>
-        {aside}
-      </header>
-      {children}
+    <section className="adm-panel" aria-labelledby={id}>
+      <Card className="adm-card">
+        <header className="adm-panel-head">
+          <h2 id={id} className="adm-headline adm-panel-title">{title}</h2>
+          {aside}
+        </header>
+        {children}
+      </Card>
     </section>
   );
 }
 
-const Tag = ({ tone, children }: { tone: Tone; children: ReactNode }) => <span className={`adm-tag adm-${tone}`}>{children}</span>;
+const Tag = ({ tone, children }: { tone: Tone; children: ReactNode }) => <Badge color={TONE_BADGE[tone]}>{children}</Badge>;
 
 /** Two-step button: the first press arms it, the second performs the action. */
-export function ConfirmButton({ label, confirmLabel, warning, onConfirm, context, danger = true, disabled = false, className = '', title }: {
-  label: string; confirmLabel: string; warning?: string; onConfirm: (armedContext: number | undefined) => void; context?: number; danger?: boolean; disabled?: boolean; className?: string; title?: string;
+export function ConfirmButton({ label, confirmLabel, warning, onConfirm, context, danger = true, disabled = false, quiet = false, title }: {
+  label: string; confirmLabel: string; warning?: string; onConfirm: (armedContext: number | undefined) => void; context?: number; danger?: boolean; disabled?: boolean; quiet?: boolean; title?: string;
 }) {
   const [armed, setArmed] = useState<{ context: number | undefined } | null>(null);
-  if (!armed) return <button type="button" className={`adm-btn ${className}`} disabled={disabled} title={title} onClick={() => setArmed({ context })}>{label}</button>;
+  if (!armed) {
+    return (
+      <Tip title={title}>
+        <Button variant={quiet ? 'ghost' : 'outline'} disabled={disabled} onClick={() => setArmed({ context })}>{label}</Button>
+      </Tip>
+    );
+  }
   return (
     <span className="adm-confirm" role="group" aria-label={`Confirm: ${label}`}>
       {warning ? <span className="adm-warning">{warning}</span> : null}
-      <button type="button" className={`adm-btn ${danger ? 'adm-danger' : 'adm-primary'}`} onClick={() => { setArmed(null); onConfirm(armed.context); }}>{confirmLabel}</button>
-      <button type="button" className="adm-btn" onClick={() => setArmed(null)}>Cancel</button>
+      <Button variant="solid" className={danger ? 'adm-danger' : undefined} onClick={() => { setArmed(null); onConfirm(armed.context); }}>{confirmLabel}</Button>
+      <Button variant="outline" onClick={() => setArmed(null)}>Cancel</Button>
     </span>
   );
 }
 
 // ------------------------------------------------------------------ access
 
+function Gate({ busy, children }: { busy?: boolean; children: ReactNode }) {
+  return (
+    <main className="ph-ui dark adm-root" aria-busy={busy || undefined}>
+      <div className="adm-shell">
+        <Card className="adm-card adm-gate">{children}</Card>
+      </div>
+    </main>
+  );
+}
+
 export function AccessGate({ access, onRetry }: { access: Exclude<Access, { state: 'admin' }>; onRetry: () => void }) {
-  if (access.state === 'loading') return <main className="jb-panel adm-gate" aria-busy="true"><p>Checking your sign-in…</p></main>;
+  if (access.state === 'loading') return <Gate busy><p>Checking your sign-in…</p></Gate>;
   if (access.state === 'signed_out') {
     return (
-      <main className="jb-panel adm-gate">
-        <h1>{access.expired ? 'Session expired' : 'Organizer sign-in'}</h1>
+      <Gate>
+        <h1 className="adm-headline adm-h1">{access.expired ? 'Session expired' : 'Organizer sign-in'}</h1>
         <p>{access.expired
           ? 'Your sign-in expired. Nothing you tried since then was applied. Sign in again to keep going.'
           : 'Sign in with Purdue Hackers ID. Only organizers can control the jukebox.'}</p>
-        <a className="adm-btn adm-primary" href="/auth/login?returnTo=/admin">Sign in</a>
-      </main>
+        <DitherButton href="/auth/login?returnTo=/admin">Sign in</DitherButton>
+      </Gate>
     );
   }
   return (
-    <main className="jb-panel adm-gate">
-      <h1>Organizer access required</h1>
+    <Gate>
+      <h1 className="adm-headline adm-h1">Organizer access required</h1>
       <p>You are signed in as <strong>{access.name}</strong>, but this sign-in doesn’t include organizer access. If your PH ID access changed recently, check again to refresh it.</p>
-      <a className="adm-btn adm-primary" href="/auth/login?returnTo=/admin">Check again</a>
-      <a className="adm-btn" href="/auth/login?returnTo=/admin">Use a different account</a>
-    </main>
+      <div className="adm-gate-actions">
+        <DitherButton href="/auth/login?returnTo=/admin">Check again</DitherButton>
+        <Button variant="outline" size="lg" href="/auth/login?returnTo=/admin">Use a different account</Button>
+      </div>
+    </Gate>
   );
 }
 
@@ -99,7 +134,7 @@ export function Header({ name, link, linkError, onSignOut, children }: { name: s
   const tone = link === 'live' ? 'ok' : link === 'connecting' ? 'info' : 'bad';
   return (
     <header className="adm-header">
-      <h1>Jukebox</h1>
+      <h1 className="adm-headline adm-h1">Jukebox</h1>
       {children}
       <div className="adm-header-meta">
         <span className={`adm-link adm-${tone}`} title={linkError ?? undefined}>
@@ -107,24 +142,26 @@ export function Header({ name, link, linkError, onSignOut, children }: { name: s
           {link === 'live' ? 'Live' : link === 'connecting' ? 'Connecting…' : 'Reconnecting…'}
         </span>
         <span className="adm-dim">{name}</span>
-        <button type="button" className="adm-btn adm-quiet" onClick={onSignOut}>Sign out</button>
+        <Button variant="ghost" onClick={onSignOut}>Sign out</Button>
       </div>
     </header>
   );
 }
 
+const AlertIcon = () => <Icon name="exclamation-triangle" className="adm-alert-icon" />;
+
 export function AlertsBand({ snapshot, link, external, onAckExternal }: { snapshot: Snapshot; link: Link; external: boolean; onAckExternal: () => void }) {
   const items: ReactNode[] = [];
-  if (link === 'reconnecting') items.push(<li key="link" className="adm-alert adm-bad">Connection to the jukebox service was lost. What you see may be out of date until it reconnects.</li>);
+  if (link === 'reconnecting') items.push(<li key="link" className="adm-alert adm-bad"><span className="adm-alert-text"><AlertIcon />Connection to the jukebox service was lost. What you see may be out of date until it reconnects.</span></li>);
   for (const alert of snapshot.alerts) {
     if (alert.code === 'unconfirmed_command') continue; // Delayed inline indicator owns acknowledgement feedback.
-    items.push(<li key={alert.code} className={`adm-alert ${alert.code === 'player_offline' ? 'adm-bad' : 'adm-warn'}`} data-alert={alert.code}>{alert.message}</li>);
+    items.push(<li key={alert.code} className={`adm-alert ${alert.code === 'player_offline' ? 'adm-bad' : 'adm-warn'}`} data-alert={alert.code}><span className="adm-alert-text"><AlertIcon />{alert.message}</span></li>);
   }
   if (external) {
     items.push(
       <li key="ext" className="adm-alert adm-info" data-alert="external_change">
-        Someone else changed a queue. The lists are up to date.
-        <button type="button" className="adm-btn adm-quiet" onClick={onAckExternal}>OK</button>
+        <span className="adm-alert-text">Someone else changed a queue. The lists are up to date.</span>
+        <Button variant="outline" onClick={onAckExternal}>OK</Button>
       </li>,
     );
   }
@@ -155,7 +192,7 @@ export function NightPanel({ snapshot, actions }: { snapshot: Snapshot; actions:
           onConfirm={(revision) => void actions.closeNight(revision ?? snapshot.revision)}
         />
       ) : (
-        <button type="button" className="adm-btn adm-primary" onClick={() => void actions.openNight()}>Start night</button>
+        <DitherButton onClick={() => void actions.openNight()}>Start night</DitherButton>
       )}
     </div>
   );
@@ -168,7 +205,6 @@ const STATE_TONE: Record<PlayerState, Tone> = { playing: 'ok', paused: 'dim', bu
 /** One line answering "is the room hearing what I asked for?", with the fix when it isn't. */
 function displayStatus(snapshot: Snapshot, state: PlayerState): { tone: Tone; hint: string | null } {
   if (state === 'no_display') return { tone: 'bad', hint: 'Open /display on the laptop. It connects automatically.' };
-  if (state === 'offline') return { tone: 'bad', hint: 'The display stopped reporting. Times shown are its last report.' };
   if (state === 'needs_activation') return { tone: 'warn', hint: 'Click “Enable sound” on the display.' };
   if (state === 'error') return { tone: 'bad', hint: snapshot.playback.observed?.error ?? null };
   return { tone: STATE_TONE[state], hint: null };
@@ -209,85 +245,84 @@ export function NowPlayingPanel({ snapshot, serverNow, actions, pendingVolume, i
   const lapsed = confirmation === 'confirmed' && (state === 'offline' || state === 'no_display');
   const status = displayStatus(snapshot, state);
   const request = now?.kind === 'request' ? snapshot.requests.find((r) => r.id === now.entryId) : undefined;
-  const caveat = position.basis === 'stale' ? 'last known' : null;
   const canSeek = !!now && position.positionSec !== null;
   const commitSeek = () => { if (now && dragging !== null) { void actions.seek(now.entryId, dragging); setDragging(null); } };
 
   return (
     <section className="adm-section" aria-labelledby="adm-now">
-      <h2 id="adm-now" className="adm-section-title">Now playing</h2>
-      <div className="jb-panel adm-player">
-      <div className="adm-track">
-        <div className="adm-art" aria-hidden="true">
-          {now?.artworkUrl ? <img src={now.artworkUrl} alt="" /> : <span>♪</span>}
-        </div>
-        <div className="adm-track-text">
-          {now ? (
-            <>
-              <span className={`adm-kind adm-${now.kind === 'master' ? 'info' : 'warn'}`}>{now.kind === 'master' ? 'Master queue' : 'Request'}</span>
-              <p className="adm-now-title" data-testid="now-title">{now.title}</p>
-              <p className="adm-dim">{now.artist ?? 'Unknown artist'}{request?.requester ? ` · requested by ${request.requester}` : ''}</p>
-              {snapshot.suspendedMaster ? <p className="adm-dim adm-small">“{snapshot.suspendedMaster.title}” resumes at {time(snapshot.suspendedMaster.positionSec)} after this.</p> : null}
-            </>
-          ) : snapshot.schedule.requestsIdle
-            ? <>
-                <span className="adm-kind adm-warn">Requests only</span>
-                <p className="adm-now-title adm-dim">Waiting for requests.</p>
-                {snapshot.suspendedMaster ? <p className="adm-dim adm-small">“{snapshot.suspendedMaster.title}” resumes at {time(snapshot.suspendedMaster.positionSec)} when you switch back.</p> : null}
+      <h2 id="adm-now" className="adm-headline adm-section-title">Now playing</h2>
+      <Card className="adm-card adm-player">
+        <div className="adm-track">
+          <div className={`adm-art${now?.artworkUrl ? '' : ' dither-field'}`} aria-hidden="true">
+            {now?.artworkUrl ? <img src={now.artworkUrl} alt="" /> : null}
+          </div>
+          <div className="adm-track-text">
+            {now ? (
+              <>
+                <p className="adm-headline adm-now-title" data-testid="now-title">{now.title}</p>
+                <p className="adm-meta">
+                  <Badge className="adm-kind" color={now.kind === 'master' ? 'purple' : 'yellow'}>{now.kind === 'master' ? 'Master queue' : 'Request'}</Badge>
+                  <span className="adm-dim">{now.artist ?? 'Unknown artist'}{request?.requester ? ` · requested by ${request.requester}` : ''}</span>
+                </p>
+                {snapshot.suspendedMaster ? <p className="adm-dim adm-small">“{snapshot.suspendedMaster.title}” resumes at {time(snapshot.suspendedMaster.positionSec)} after this.</p> : null}
               </>
-            : <p className="adm-now-title adm-dim">Nothing playing. Add songs to the master queue.</p>}
+            ) : snapshot.schedule.requestsIdle
+              ? <>
+                  <p className="adm-headline adm-now-title adm-dim">Waiting for requests.</p>
+                  <p className="adm-meta"><Badge className="adm-kind" color="yellow">Requests only</Badge></p>
+                  {snapshot.suspendedMaster ? <p className="adm-dim adm-small">“{snapshot.suspendedMaster.title}” resumes at {time(snapshot.suspendedMaster.positionSec)} when you switch back.</p> : null}
+                </>
+              : <p className="adm-headline adm-now-title adm-dim">Nothing playing. Add songs to the master queue.</p>}
+          </div>
         </div>
-      </div>
 
-      <div className="adm-progress">
-        <input
-          id="adm-seek" type="range" aria-label="Seek" min={0} max={Math.max(1, Math.floor(position.durationSec ?? 1))} step={1}
-          value={Math.floor(shownPosition)} disabled={!now || position.durationSec === null}
-          onChange={(e) => setDragging(Number(e.target.value))}
-          onPointerUp={commitSeek}
-          onKeyUp={commitSeek}
-          onBlur={commitSeek}
-        />
-        <div className="adm-times">
-          <span data-testid="position">{time(position.positionSec === null && dragging === null ? null : shownPosition)}</span>
-          {caveat ? <span className="adm-warning adm-small">{caveat}</span> : null}
-          <span>{time(position.durationSec)}</span>
-        </div>
-      </div>
-
-      <div className="adm-transport">
-        <button type="button" className="adm-btn adm-icon" aria-label="Restart song" title="Restart song" disabled={!now} onClick={() => now && void actions.replay(now.entryId)}>⏮</button>
-        <button type="button" className="adm-btn adm-icon" aria-label="Back 15 seconds" title="Back 15 s" disabled={!canSeek} onClick={() => now && void actions.seek(now.entryId, Math.max(0, shownPosition - 15))}>−15</button>
-        {playing
-          ? <button type="button" className="adm-btn adm-primary adm-play" onClick={() => void actions.pause()}>Pause</button>
-          : <button type="button" className="adm-btn adm-primary adm-play" disabled={snapshot.night?.status !== 'open'} onClick={() => void actions.play()}>Play</button>}
-        <button type="button" className="adm-btn adm-icon" aria-label="Forward 15 seconds" title="Forward 15 s" disabled={!canSeek} onClick={() => now && void actions.seek(now.entryId, shownPosition + 15)}>+15</button>
-        {now ? (
-          <ConfirmButton
-            label="Skip…" confirmLabel="Skip"
-            warning={now.kind === 'request' ? 'Ends this request without giving it back; master music resumes.' : 'Jumps to the next master song. The request timer keeps going.'}
-            onConfirm={() => void actions.skip(now.entryId)}
+        <div className="adm-progress">
+          <input
+            id="adm-seek" type="range" aria-label="Seek" min={0} max={Math.max(1, Math.floor(position.durationSec ?? 1))} step={1}
+            value={Math.floor(shownPosition)} disabled={!now || position.durationSec === null}
+            onChange={(e) => setDragging(Number(e.target.value))}
+            onPointerUp={commitSeek}
+            onKeyUp={commitSeek}
+            onBlur={commitSeek}
           />
-        ) : <button type="button" className="adm-btn" disabled>Skip…</button>}
+          <div className="adm-times">
+            <span data-testid="position">{time(position.positionSec === null && dragging === null ? null : shownPosition)}</span>
+            <span>{time(position.durationSec)}</span>
+          </div>
+        </div>
 
-        <label className="adm-volume" htmlFor="adm-volume">
-          <span aria-hidden="true">Vol</span>
-          <input id="adm-volume" type="range" aria-label="Volume" min={0} max={100} step={1} value={Math.round(volume * 100)} onChange={(e) => actions.setVolume(Number(e.target.value) / 100)} onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); actions.beginVolume(); }} onPointerUp={() => actions.commitVolume()} onPointerCancel={() => actions.commitVolume()} onBlur={() => actions.commitVolume()} />
-          <span data-testid="volume">{Math.round(volume * 100)}%</span>
+        <div className="adm-transport">
+          <Button variant="outline" className="adm-icon" icon="refresh" aria-label="Restart song" title="Restart song" disabled={!now} onClick={() => now && void actions.replay(now.entryId)} />
+          <Button variant="outline" className="adm-icon" aria-label="Back 15 seconds" title="Back 15 s" disabled={!canSeek} onClick={() => now && void actions.seek(now.entryId, Math.max(0, shownPosition - 15))}>−15</Button>
+          {playing
+            ? <DitherButton className="adm-play" onClick={() => void actions.pause()}>Pause</DitherButton>
+            : <DitherButton className="adm-play" disabled={snapshot.night?.status !== 'open'} onClick={() => void actions.play()}>Play</DitherButton>}
+          <Button variant="outline" className="adm-icon" aria-label="Forward 15 seconds" title="Forward 15 s" disabled={!canSeek} onClick={() => now && void actions.seek(now.entryId, shownPosition + 15)}>+15</Button>
+          {now ? (
+            <ConfirmButton
+              label="Skip…" confirmLabel="Skip"
+              warning={now.kind === 'request' ? 'Ends this request without giving it back; master music resumes.' : 'Jumps to the next master song. The request timer keeps going.'}
+              onConfirm={() => void actions.skip(now.entryId)}
+            />
+          ) : <Button variant="outline" disabled>Skip…</Button>}
 
-        </label>
-      </div>
+          <label className="adm-volume" htmlFor="adm-volume">
+            <span aria-hidden="true">Vol</span>
+            <input id="adm-volume" type="range" aria-label="Volume" min={0} max={100} step={1} value={Math.round(volume * 100)} onChange={(e) => actions.setVolume(Number(e.target.value) / 100)} onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); actions.beginVolume(); }} onPointerUp={() => actions.commitVolume()} onPointerCancel={() => actions.commitVolume()} onBlur={() => actions.commitVolume()} />
+            <span data-testid="volume">{Math.round(volume * 100)}%</span>
+          </label>
+        </div>
 
-      <div className={`adm-status adm-${status.tone}`}>
-        <span className="adm-dot" aria-hidden="true" />
-        <span data-testid="player-state">{PLAYER_LABEL[state]}</span>
-        <span data-testid="confirmation" data-confirmation={lapsed ? 'lapsed' : confirmation} hidden />
-        <DisplayWait key={snapshot.playback.desiredEpoch} waiting={confirmation === 'requested' || confirmation === 'unconfirmed'} />
-        {status.hint ? <span className="adm-status-hint">{status.hint}</span> : null}
-      </div>
+        <div className={`adm-status adm-${status.tone}`}>
+          <span className="adm-dot" aria-hidden="true" />
+          <span data-testid="player-state">{PLAYER_LABEL[state]}</span>
+          <span data-testid="confirmation" data-confirmation={lapsed ? 'lapsed' : confirmation} hidden />
+          <DisplayWait key={snapshot.playback.desiredEpoch} waiting={confirmation === 'requested' || confirmation === 'unconfirmed'} />
+          {status.hint ? <span className="adm-status-hint">{status.hint}</span> : null}
+        </div>
 
-      {children}
-      </div>
+        {children}
+      </Card>
     </section>
   );
 }
@@ -299,7 +334,6 @@ export function TurnPanel({ snapshot, serverNow }: { snapshot: Snapshot; serverN
   return (
     <div className="adm-turn" id="adm-turn" data-kind={turn.kind}>
       <strong data-testid="turn-headline">{turn.headline}</strong>
-      <span className="adm-dim" data-testid="turn-detail">{turn.detail}</span>
     </div>
   );
 }
@@ -338,40 +372,42 @@ export function QueueControls({ snapshot, serverNow, actions, intents = [] }: { 
   const valid = draft.trim() !== '' && Number.isInteger(minutes) && minutes >= minMinutes && minutes <= maxMinutes;
   const elapsedMs = mode === 'auto' && schedule.phase === 'master' && schedule.periodStartedAt !== null ? serverNow - schedule.periodStartedAt : null;
   const alreadyElapsed = valid && elapsedMs !== null && elapsedMs >= minutes * 60_000;
-  const overridden = schedule.periodMs !== schedule.periodDefaultMs;
 
   return (
     <div className="adm-qc" id="adm-queue-control">
       <div className="adm-qc-row">
         <div className="adm-seg" role="radiogroup" aria-label="Play from">
-          {MODES.map((m) => (
-            <button
-              key={m.mode} type="button" role="radio" aria-checked={mode === m.mode} data-mode={m.mode}
-              className={`adm-btn adm-seg-btn${mode === m.mode ? ' adm-selected' : ''}`}
-              disabled={m.mode === 'requests' && !open} title={m.mode === 'requests' && !open ? 'Start the night first' : m.help}
-              onClick={() => choose(m.mode)}
-            >{m.label}</button>
-          ))}
+          {MODES.map((m) => {
+            const unavailable = m.mode === 'requests' && !open;
+            return (
+              <Tip key={m.mode} title={unavailable ? 'Start the night first' : m.help}>
+                <Button
+                  variant="outline" role="radio" aria-checked={mode === m.mode} data-mode={m.mode}
+                  className={`adm-seg-btn${mode === m.mode ? ' adm-selected' : ''}`}
+                  onClick={() => choose(m.mode)}
+                  disabled={unavailable}
+                >{m.label}</Button>
+              </Tip>
+            );
+          })}
         </div>
         <form className="adm-interval" onSubmit={(e) => { e.preventDefault(); if (valid) void actions.setInterval(minutes * 60_000); }}>
-          <label htmlFor="adm-interval">Request every</label>
-          <input id="adm-interval" type="number" inputMode="numeric" min={minMinutes} max={maxMinutes} step={1} value={draft} onChange={(e) => setDraft(e.target.value)} aria-invalid={draft !== '' && !valid} />
-          <span aria-hidden="true">min</span>
-          <button type="submit" className="adm-btn" disabled={!valid || minutes === currentMinutes}>Set</button>
-          {overridden ? <button type="button" className="adm-btn adm-quiet" onClick={() => void actions.setInterval(null)}>Use {formatMinutes(schedule.periodDefaultMs)}</button> : null}
+          <Field label="Request every" htmlFor="adm-interval">
+            <div className="adm-interval-row">
+              <Input id="adm-interval" type="number" inputMode="numeric" min={minMinutes} max={maxMinutes} step={1} value={draft} onChange={(e) => setDraft(e.target.value)} aria-invalid={draft !== '' && !valid} />
+              <span aria-hidden="true">min</span>
+              <Button type="submit" variant="outline" disabled={!valid || minutes === currentMinutes}>Set</Button>
+            </div>
+          </Field>
         </form>
       </div>
-      <p className="adm-dim adm-small" data-testid="mode-help" aria-live="polite">
-        {MODES.find((m) => m.mode === mode)!.help}
-        {mode === 'auto' ? ` Now every ${formatMinutes(schedule.periodMs)}.` : ''}
-      </p>
       {!valid && draft !== '' ? <p className="adm-warning adm-small" role="alert">Use a whole number from {minMinutes} to {maxMinutes} minutes.</p> : null}
       {alreadyElapsed ? <p className="adm-warning adm-small" data-testid="interval-warning">{formatClock(elapsedMs!)} has already passed in this interval, so saving now makes the turn due right away{ready ? '' : ' (nothing is ready, so the timer just restarts)'}.</p> : null}
       {confirming ? (
         <div className="adm-confirm" role="group" aria-label="Confirm: Requests only">
           <span className="adm-warning">{interruption}</span>
-          <button type="button" className="adm-btn adm-danger" onClick={() => { setConfirming(false); void actions.setMode('requests'); }}>Switch to Requests only</button>
-          <button type="button" className="adm-btn" onClick={() => setConfirming(false)}>Cancel</button>
+          <Button variant="solid" className="adm-danger" onClick={() => { setConfirming(false); void actions.setMode('requests'); }}>Switch to Requests only</Button>
+          <Button variant="outline" onClick={() => setConfirming(false)}>Cancel</Button>
         </div>
       ) : null}
     </div>
@@ -387,8 +423,8 @@ function MoveButtons({ ids, index, onMove }: { ids: readonly string[]; index: nu
   };
   return (
     <>
-      <button type="button" className="adm-btn adm-icon adm-quiet" aria-label="Move up" disabled={index === 0} onClick={move('up')}>↑</button>
-      <button type="button" className="adm-btn adm-icon adm-quiet" aria-label="Move down" disabled={index === ids.length - 1} onClick={move('down')}>↓</button>
+      <Button variant="ghost" className="adm-icon" icon="arrow-up" aria-label="Move up" disabled={index === 0} onClick={move('up')} />
+      <Button variant="ghost" className="adm-icon" icon="arrow-down" aria-label="Move down" disabled={index === ids.length - 1} onClick={move('down')} />
     </>
   );
 }
@@ -405,7 +441,7 @@ function PlayNowButton({ snapshot, request, onConfirm }: { snapshot: Snapshot; r
     current ? `Interrupts “${current.title}”; it resumes where it left off afterward.` : 'Starts right away.',
     snapshot.schedule.intent === 'paused' ? 'Playback is paused, so press Play to hear it.' : null,
   ].filter(Boolean).join(' ');
-  return <ConfirmButton className="adm-quiet" danger={false} label="Play now…" confirmLabel="Play now" warning={effects} disabled={!!reason} title={reason} onConfirm={onConfirm} />;
+  return <ConfirmButton quiet danger={false} label="Play now…" confirmLabel="Play now" warning={effects} disabled={!!reason} title={reason} onConfirm={onConfirm} />;
 }
 
 export function RequestQueuePanel({ snapshot, actions }: { snapshot: Snapshot; actions: Actions }) {
@@ -427,7 +463,7 @@ export function RequestQueuePanel({ snapshot, actions }: { snapshot: Snapshot; a
           {r.status !== 'playing' ? <MoveButtons ids={ids} index={index} onMove={(after) => void actions.moveRequest(r.id, after, r.title)} /> : null}
           {r.status !== 'playing' ? <PlayNowButton snapshot={snapshot} request={r} onConfirm={() => void actions.playNow(r.id, r.title)} /> : null}
           <ConfirmButton
-            className="adm-quiet"
+            quiet
             label="Remove…" confirmLabel="Remove"
             warning={r.status === 'playing' ? 'Stops this request now; master music resumes. They don’t get the request back.' : 'They don’t get the request back.'}
             onConfirm={() => void actions.removeRequest(r.id, r.title)}
@@ -469,7 +505,7 @@ export function MasterQueuePanel({ snapshot, actions }: { snapshot: Snapshot; ac
         <div className="adm-row-actions">
           <MoveButtons ids={ids} index={index} onMove={(after) => void actions.moveMaster(m.id, after, m.title)} />
           <ConfirmButton
-            className="adm-quiet"
+            quiet
             label="Remove…" confirmLabel="Remove"
             warning={suspended ? 'This mix is waiting to resume; the next song plays instead.' : isCurrent ? 'This is playing now; it jumps to the next song.' : undefined}
             onConfirm={() => void actions.removeMaster(m.id, m.title)}
@@ -487,30 +523,48 @@ export function MasterQueuePanel({ snapshot, actions }: { snapshot: Snapshot; ac
 
 // ------------------------------------------------------------------- add
 
-/** One link box feeding either queue. Organizer requests go through request.submit, so they use the organizer's own nightly allowance. */
+/**
+ * One link box feeding either queue. Organizer requests go through request.submit, so they use the organizer's own nightly allowance.
+ * Both buttons are blocked from the first click: by the local in-flight guard in the same tick, then by the pending intent.
+ */
 export function AddBar({ actions, lastAdd, nightOpen, children }: { actions: Actions; lastAdd: Intent | null; nightOpen: boolean; children?: ReactNode }) {
   const [url, setUrl] = useState('');
+  const [submitting, setSubmitting] = useState<'master' | 'request' | null>(null);
+  const inFlight = useRef(false);
   const pending = lastAdd?.status === 'pending';
+  const blocked = pending || submitting !== null;
+  const target = pending ? (lastAdd.type === 'master.add' ? 'master' : 'request') : submitting;
   const value = url.trim();
-  const add = (target: 'master' | 'request') => {
-    if (!value || pending) return;
-    void (target === 'master' ? actions.addMaster(value) : actions.addRequest(value)).then((intent) => { if (intent.status === 'ok') setUrl(''); });
+  const add = (next: 'master' | 'request') => {
+    if (!value || blocked || inFlight.current) return;
+    inFlight.current = true;
+    setSubmitting(next);
+    void (next === 'master' ? actions.addMaster(value) : actions.addRequest(value))
+      .then((intent) => { if (intent.status === 'ok') setUrl(''); })
+      .finally(() => { inFlight.current = false; setSubmitting(null); });
   };
   return (
     <section className="adm-section" aria-labelledby="adm-queue">
-      <h2 id="adm-queue" className="adm-section-title">Queue</h2>
-      <form className="jb-panel adm-add" aria-busy={pending} onSubmit={(e) => { e.preventDefault(); add('master'); }}>
-      <label htmlFor="adm-add-url" className="adm-sr">YouTube, Spotify, or Apple Music track link</label>
-      <div className="adm-add-row">
-        <input id="adm-add-url" type="url" inputMode="url" placeholder="YouTube, Spotify, or Apple Music track link" value={url} disabled={pending} onChange={(e) => setUrl(e.target.value)} />
-        <button type="submit" className="adm-btn adm-primary" disabled={!value || pending}>Add to master</button>
-        <button type="button" className="adm-btn" disabled={!value || !nightOpen || pending} title={nightOpen ? undefined : 'Start the night first'} onClick={() => add('request')}>Add to requests</button>
-      </div>
-      {pending ? <p className="adm-add-loading adm-small" role="status"><span className="adm-spinner" aria-hidden="true" />Adding to {lastAdd.type === 'master.add' ? 'master' : 'requests'}…</p> : null}
-      {lastAdd?.status === 'failed' && lastAdd.error ? <p className="adm-bad-text adm-small" role="alert" data-testid="add-error">{explainError(lastAdd.error, lastAdd.type).message}</p> : null}
-      <p className="adm-dim adm-small">YouTube, Spotify, or Apple Music tracks. Master mixes welcome. Requests: under {POLICY.requestMaxSec / 60} min; {POLICY.quotaPerNight} per person per night.</p>
-      </form>
-      {children}
+      <h2 id="adm-queue" className="adm-headline adm-section-title">Queue</h2>
+      <Card className="adm-card">
+        <form className="adm-add" aria-busy={blocked} onSubmit={(e) => { e.preventDefault(); add('master'); }}>
+          <Field
+            label="YouTube, Spotify, or Apple Music track link"
+            htmlFor="adm-add-url"
+          >
+            <div className="adm-add-row">
+              <Input id="adm-add-url" type="url" inputMode="url" value={url} disabled={blocked} onChange={(e) => setUrl(e.target.value)} />
+              <Button type="submit" variant="solid" disabled={!value || blocked}>Add to master</Button>
+              <Tip title={nightOpen ? undefined : 'Start the night first'}>
+                <Button variant="outline" onClick={() => add('request')} disabled={!value || !nightOpen || blocked}>Add to requests</Button>
+              </Tip>
+            </div>
+            {blocked ? <p className="adm-add-loading adm-small" role="status"><span className="adm-spinner" aria-hidden="true" />Adding to {target === 'master' ? 'master' : 'requests'}…</p> : null}
+            {lastAdd?.status === 'failed' && lastAdd.error ? <p className="adm-bad-text adm-small" role="alert" data-testid="add-error">{explainError(lastAdd.error, lastAdd.type).message}</p> : null}
+          </Field>
+        </form>
+        {children}
+      </Card>
     </section>
   );
 }
@@ -521,30 +575,32 @@ export function ActivityPanel({ intents, actions, hidden = false }: { intents: r
   const visible = intents.filter((i) => i.type !== 'playback.volume' || i.status === 'failed');
   return (
     <section id="adm-activity" className="adm-section" aria-labelledby="adm-activity-title" hidden={hidden}>
-      <h2 id="adm-activity-title" className="adm-section-title">Action log</h2>
-      <div className="adm-activity">
-      {!visible.length ? <p className="adm-empty">No actions yet.</p> : null}
-      <ul className="adm-list" aria-label="Action log">
-        {visible.map((intent) => {
-          const explained = intent.error ? explainError(intent.error, intent.type) : null;
-          const [tone, label]: [Tone, string] = intent.status === 'ok' ? ['ok', 'sent'] : intent.status === 'pending' ? ['warn', 'sending…'] : explained?.tone === 'conflict' ? ['warn', 'not applied'] : ['bad', 'failed'];
-          return (
-            <li key={intent.id} className="adm-row" data-status={intent.status} data-intent={intent.type}>
-              <time className="adm-action-time adm-dim" dateTime={new Date(intent.startedAt).toISOString()} title={new Date(intent.startedAt).toLocaleString([], { timeZone: 'America/Indiana/Indianapolis' })}>
-                {new Date(intent.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit', timeZone: 'America/Indiana/Indianapolis' })}
-              </time>
-              <div className="adm-row-main">
-                <span>{intent.label}</span>
-                {intent.status === 'failed' && explained ? <span className={`adm-small ${explained.tone === 'transient' ? 'adm-warning' : 'adm-bad-text'}`} role="alert">{explained.message}</span> : null}
-                {intent.status === 'ok' && intent.replayed ? <span className="adm-dim adm-small">Already applied earlier.</span> : null}
-              </div>
-              <Tag tone={tone}>{label}</Tag>
-              {intent.status === 'failed' && intent.error?.retryable ? <button type="button" className="adm-btn adm-quiet" onClick={() => actions.retry(intent.id)}>Retry</button> : null}
-            </li>
-          );
-        })}
-      </ul>
-      </div>
+      <h2 id="adm-activity-title" className="adm-headline adm-section-title">Action log</h2>
+      <Card className="adm-card">
+        <div className="adm-activity">
+          {!visible.length ? <p className="adm-empty">No actions yet.</p> : null}
+          <ul className="adm-list" aria-label="Action log">
+            {visible.map((intent) => {
+              const explained = intent.error ? explainError(intent.error, intent.type) : null;
+              const [tone, label]: [Tone, string] = intent.status === 'ok' ? ['ok', 'sent'] : intent.status === 'pending' ? ['warn', 'sending…'] : explained?.tone === 'conflict' ? ['warn', 'not applied'] : ['bad', 'failed'];
+              return (
+                <li key={intent.id} className="adm-row" data-status={intent.status} data-intent={intent.type}>
+                  <time className="adm-action-time adm-dim" dateTime={new Date(intent.startedAt).toISOString()} title={new Date(intent.startedAt).toLocaleString([], { timeZone: 'America/Indiana/Indianapolis' })}>
+                    {new Date(intent.startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit', timeZone: 'America/Indiana/Indianapolis' })}
+                  </time>
+                  <div className="adm-row-main">
+                    <span>{intent.label}</span>
+                    {intent.status === 'failed' && explained ? <span className={`adm-small ${explained.tone === 'transient' ? 'adm-warning' : 'adm-bad-text'}`} role="alert">{explained.message}</span> : null}
+                    {intent.status === 'ok' && intent.replayed ? <span className="adm-dim adm-small">Already applied earlier.</span> : null}
+                  </div>
+                  <Tag tone={tone}>{label}</Tag>
+                  {intent.status === 'failed' && intent.error?.retryable ? <Button variant="ghost" onClick={() => actions.retry(intent.id)}>Retry</Button> : null}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </Card>
     </section>
   );
 }
