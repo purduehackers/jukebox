@@ -68,28 +68,56 @@ export class MatchingSource implements SourcePort {
       if (strong.length > 1) {
         const bestTier = Math.min(...strong.map((finding) => channelTier(finding.candidate, track).tier));
         const tierCandidates = strong.filter((finding) => channelTier(finding.candidate, track).tier === bestTier);
-        const durationsEquivalent = tierCandidates.every((finding) => Math.abs(finding.candidate.durationSec - tierCandidates[0]!.candidate.durationSec) <= 3);
-        if (tierCandidates.length > 1 && !durationsEquivalent) {
-          throw this.failure(track, tierCandidates, 'ambiguous', 'Several different edits match. Paste the YouTube link of the version you want.');
-        }
         chosen = tierCandidates[0]!;
         const tierDescription = channelTier(chosen.candidate, track).description;
-        reasons.push(`several equivalent uploads; picked ${tierDescription}`);
+        reasons.push(`several equivalent uploads; preferred ${tierDescription}`);
       }
+      // Every fallback must satisfy the title/artist/version rules and the
+      // user's 60-second catalog tolerance, including less preferred channels.
+      // Never retry the same recording or broaden search after extraction fails.
+      const seen = new Set<string>([chosen.ref.canonicalUrl]);
+      const alternatives = strong
+        .sort((a, b) => channelTier(a.candidate, track).tier - channelTier(b.candidate, track).tier)
+        .filter((finding) => {
+          if (seen.has(finding.ref.canonicalUrl)) return false;
+          seen.add(finding.ref.canonicalUrl);
+          return true;
+        });
+      const attempts = [chosen, ...alternatives].slice(0, 2);
+      let resolved: ResolvedSource | undefined;
+      const failedUrls: string[] = [];
+      for (const attempt of attempts) {
+        chosen = attempt;
+        try {
+          resolved = await this.inner.resolve(chosen.ref, purpose);
+          if (purpose === 'request' && resolved.durationSec >= 360) throw new PortError('DURATION_REJECTED', 'The resolved recording must be strictly under six minutes');
+        } catch (error) {
+          if (!(error instanceof PortError) || error.details?.kind !== 'audio_format_unavailable') throw error;
+          failedUrls.push(chosen.ref.canonicalUrl);
+          if (attempt === attempts.at(-1)) {
+            throw new PortError(error.code, error.message, error.technical, {
+              ...error.details, attemptedUrls: failedUrls,
+            });
+          }
+          continue;
+        }
+        const resolvedCandidate = { ...chosen.candidate, title: resolved.title, channel: resolved.artist ?? chosen.candidate.channel };
+        const titleArtistOk = candidateMatchesTitleArtist(track, resolvedCandidate);
+        const versionOk = detectMarkers(resolved.title).join('|') === detectMarkers(track.title).join('|');
+        const durationOk = durationMatches(resolved.durationSec, track.durationMs);
+        if (!durationOk || !titleArtistOk || !versionOk) {
+          const notes = [...chosen.notes];
+          if (!durationOk) notes.push(`resolved recording differs by ${Math.round(Math.abs(resolved.durationSec - track.durationMs / 1000))} s`);
+          if (!titleArtistOk || !versionOk) notes.push('resolved title, artist, or version changed since search');
+          const altered: Finding = { ...chosen, candidate: resolvedCandidate, durationOk, notes };
+          throw this.failure(track, [altered], 'version_mismatch', 'The resolved recording title, version, or duration differs from the catalog; paste the YouTube link of the version you want.');
+        }
+        break;
+      }
+      if (!resolved) throw new PortError('SOURCE_UNAVAILABLE', 'No matched upload could be resolved', true);
+      if (failedUrls.length) reasons.push('preferred upload exposed no suitable audio-only format; used an equivalent matched upload');
       for (const marker of detectMarkers(chosen.candidate.title, ['remaster', 'remastered', 'mono', 'stereo', 'explicit', 'clean', 'deluxe'])) {
         reasons.push(`soft marker: ${marker}`);
-      }
-      const resolved = await this.inner.resolve(chosen.ref, purpose);
-      const resolvedCandidate = { ...chosen.candidate, title: resolved.title, channel: resolved.artist ?? chosen.candidate.channel };
-      const titleArtistOk = candidateMatchesTitleArtist(track, resolvedCandidate);
-      const versionOk = detectMarkers(resolved.title).join('|') === detectMarkers(track.title).join('|');
-      const durationOk = durationMatches(resolved.durationSec, track.durationMs);
-      if (!durationOk || !titleArtistOk || !versionOk) {
-        const notes = [...chosen.notes];
-        if (!durationOk) notes.push(`resolved recording differs by ${Math.round(Math.abs(resolved.durationSec - track.durationMs / 1000))} s`);
-        if (!titleArtistOk || !versionOk) notes.push('resolved title, artist, or version changed since search');
-        const altered: Finding = { ...chosen, candidate: resolvedCandidate, durationOk, notes };
-        throw this.failure(track, [altered], 'version_mismatch', 'The resolved recording title, version, or duration differs from the catalog; paste the YouTube link of the version you want.');
       }
       const selection = isPlainObject(resolved.selection)
         ? { ...resolved.selection, matchedFrom: ref.canonicalUrl, matchedUrl: chosen.candidate.url, catalog: { provider: track.provider, itemId: track.itemId, title: track.title, artists: track.artists, durationMs: track.durationMs, provenance: track.provenance ?? 'fixture', ...(track.isrc ? { isrc: track.isrc } : {}) } }

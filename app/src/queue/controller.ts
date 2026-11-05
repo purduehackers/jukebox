@@ -78,9 +78,12 @@ export class RequestFlow {
     this.set({ url, phase: 'idle', preview: null, error: null, submitted: null });
   }
 
-  /** Start over after a successful submit or to dismiss a message. */
+  /** Clear the form and retry aid. An active submission must finish first. */
   reset() {
+    if (this.state.phase === 'submitting') return;
     this.generation++;
+    this.inflight = null;
+    this.clearIntent();
     this.state = INITIAL;
     for (const listener of this.listeners) listener();
   }

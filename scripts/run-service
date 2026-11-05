@@ -3,5 +3,6 @@
 # Offline tests/demos must opt into --fixture-media or --fixture-matching.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/load-local-env
 command -v node >/dev/null || { echo "Missing node (22.18+; tested on 26); see README.md" >&2; exit 1; }
 exec node src/server/main.ts "$@"

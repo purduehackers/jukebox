@@ -121,6 +121,8 @@
 .adm-display-wait[hidden] { display: none; }
 .adm-spinner { display: block; width: 100%; height: 100%; box-sizing: border-box; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: adm-spin 900ms linear infinite; }
 @keyframes adm-spin { to { transform: rotate(360deg); } }
+.adm-add-loading { display: flex; align-items: center; gap: 0.5rem; color: var(--jb-amber); }
+.adm-add-loading .adm-spinner { width: 1rem; height: 1rem; flex: 0 0 1rem; }
 @media (prefers-reduced-motion: reduce) { .adm-spinner { animation: none; border-style: dotted; } }
 
 .adm-section[hidden] { display: none; }

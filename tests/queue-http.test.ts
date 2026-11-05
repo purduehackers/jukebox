@@ -102,10 +102,9 @@ test('two attendees and an organizer share one queue over HTTP; preview is read-
     assert.match(preview.result.match.url, /youtube\.com\/watch\?v=GFOtrack001/);
     assert.equal(service.revision(), revision, 'a preview changes nothing for anyone');
 
-    const ambiguous = await alice.command('request.preview', { url: MATCHING_FIXTURE_URLS.ambiguous });
-    assert.equal(ambiguous.error?.code, 'SOURCE_UNAVAILABLE');
-    assert.equal(ambiguous.error?.details?.kind, 'ambiguous');
-    assert.equal((ambiguous.error?.details?.candidates as unknown[]).length, 2);
+    const equivalentEdits = await alice.command('request.preview', { url: MATCHING_FIXTURE_URLS.ambiguous });
+    assert.ok(equivalentEdits.ok, 'same title/artist/version uploads inside 60 seconds are accepted');
+    assert.match(equivalentEdits.result.match.url, /EDITshort01/);
 
     const id = randomUUID();
     const first = await alice.command('request.submit', { url: MATCHING_FIXTURE_URLS.spotify, expectRecordingKey: preview.result.source.recordingKey }, id);

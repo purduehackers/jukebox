@@ -28,6 +28,22 @@ after(async () => {
 
 const noop = () => { throw new Error('not called during render'); };
 const actions = new Proxy({}, { get: () => noop }) as Actions;
+
+test('pending add renders a spinner and blocks both queue buttons until failure clears it', () => {
+  for (const type of ['master.add', 'request.submit']) {
+    const intent = { type, status: 'pending' };
+    const pending = html(createElement(views.AddBar, { actions, lastAdd: intent, nightOpen: true }));
+    assert.match(pending, /aria-busy="true"/);
+    assert.match(pending, /role="status"/);
+    assert.match(pending, /adm-spinner/);
+    assert.match(pending, /Adding to /);
+    assert.match(pending, /<button[^>]*disabled="">Add to master/);
+    assert.match(pending, /<button[^>]*disabled="">Add to requests/);
+    const failed = html(createElement(views.AddBar, { actions, lastAdd: { ...intent, status: 'failed', error: { code: 'INTERNAL', message: 'Failed', retryable: true } }, nightOpen: true }));
+    assert.match(failed, /aria-busy="false"/);
+    assert.doesNotMatch(failed, /adm-spinner|role="status"/);
+  }
+});
 const html = (node: ReturnType<typeof createElement>) => renderToStaticMarkup(node);
 const text = (markup: string) => markup.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
 
@@ -128,14 +144,15 @@ test('alerts band, request turn, queues, and unsupported-source guidance', async
     assert.match(addBar, /Queue/);
     assert.match(addBar, /Add to master/);
     assert.match(addBar, /Add to requests/);
-    assert.match(addBar, /YouTube songs and mixes only/);
+    assert.match(addBar, /YouTube, Spotify, or Apple Music tracks/);
+    assert.match(addBar, /Master mixes welcome/);
     assert.match(text(master), /· mix/);
     assert.match(master, /Move up/);
 
     const failedAdd = { id: 'x', label: 'Add', type: 'master.add', payload: {}, status: 'failed', replayed: false, startedAt: 0, finishedAt: 1, attempts: 1,
       error: { code: 'SOURCE_UNSUPPORTED', message: 'Spotify/Apple Music matching is not implemented yet', retryable: false } } as const;
     const withError = text(html(createElement(views.AddBar, { actions, lastAdd: failedAdd, nightOpen: true })));
-    assert.match(withError, /cannot be played yet/);
+    assert.match(withError, /matching is not implemented yet/);
 
     // Offline display + conflicts surface as alerts; an external queue change can be dismissed.
     app.clock.advance(16_000);

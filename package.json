@@ -6,7 +6,7 @@
     "test:policy": "node --test tests/turn.test.mjs",
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc -p . && tsc -p app",
-    "service": "node src/server/main.ts",
+    "service": "scripts/run-service",
     "dev": "scripts/run-dev",
     "build:app": "vite build"
   },

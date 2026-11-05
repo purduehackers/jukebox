@@ -33,7 +33,7 @@ export function DisplayView({ snapshot, error, now }: { snapshot: Snapshot | nul
       <section className="display-now" aria-label="Now playing">
         <Artwork url={track?.artworkUrl} />
         <div className="display-metadata">
-          <div className="display-kicker"><span className="display-kind">{track ? track.kind === 'request' ? 'REQUEST' : `MASTER${(track.durationSec ?? 0) > 360 ? ' · MIX' : ''}` : 'JUKEBOX'}</span>
+          <div className="display-kicker"><span className="display-kind" data-kind={track?.kind}>{track ? track.kind === 'request' ? 'Request Queue' : 'Master Queue' : 'JUKEBOX'}</span>
             <span className="display-status" role="status">{status}{track && !model.confirmed ? ' · awaiting player confirmation' : ''}</span></div>
           <h1 title={track?.title}>{track?.title ?? (snapshot ? 'Waiting for music' : 'Connecting to Jukebox…')}</h1>
           <p className="display-artist" title={track?.artist ?? ''}>{track?.artist || (track ? 'Artist unavailable' : 'Organizer controls playback from /admin')}</p>

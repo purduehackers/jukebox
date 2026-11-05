@@ -157,7 +157,7 @@ def main():
         until(lambda: canvas(display)['bass'] > .01)
         report['checks']['seekResumesRealAnalysis'] = True
         http(service + '/__test/due', {})
-        until(lambda: display.find_element(By.CSS_SELECTOR, '.display-kind').text == 'REQUEST' and canvas(display)['treble'] > .01 and canvas(display)['bass'] < .01, 15)
+        until(lambda: display.find_element(By.CSS_SELECTOR, '.display-kind').text == 'Request Queue' and canvas(display)['treble'] > .01 and canvas(display)['bass'] < .01, 15)
         request = canvas(display)
         report['measurements']['request'] = request
         assert request['bass'] < live['bass'] / 2
@@ -169,13 +169,13 @@ def main():
         display.refresh()
         until(lambda: display.find_elements(By.CSS_SELECTOR, '.display-kind'))
         assert display.execute_script("return document.querySelector('audio').paused")
-        assert display.find_element(By.CSS_SELECTOR, '.display-kind').text == 'REQUEST'
+        assert display.find_element(By.CSS_SELECTOR, '.display-kind').text == 'Request Queue'
         until(lambda: display.find_element(By.CSS_SELECTOR, '[data-testid=player]').get_attribute('data-generation'), 25)
         if display.find_elements(By.ID, 'player-activate'): click(display, '#player-activate')
         command(admin, 'playback.play')
         until(lambda: canvas(display)['treble'] > .001)
         report['checks']['refreshReconnectsAutomaticallyAndRespectsBrowserSoundPermission'] = True
-        until(lambda: display.find_element(By.CSS_SELECTOR, '.display-kind').text == 'MASTER · MIX', 20)
+        until(lambda: display.find_element(By.CSS_SELECTOR, '.display-kind').text == 'Master Queue', 20)
         until(lambda: canvas(display)['bass'] > .01)
         assert display.execute_script("return document.querySelector('audio').currentTime") > 1234
         report['checks']['suspendedMasterResumesAndAnalysisFollows'] = True

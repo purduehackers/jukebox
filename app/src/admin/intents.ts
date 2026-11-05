@@ -29,6 +29,7 @@ export interface Intent {
 }
 
 const HISTORY = 12;
+const isAdd = (type: CommandType) => type === 'master.add' || type === 'request.submit';
 
 export class CommandRunner {
   private intents: Intent[] = [];
@@ -59,6 +60,8 @@ export class CommandRunner {
 
   /** Start a new user decision. Resolves with the final intent (never throws). */
   async run<T extends CommandType>(label: string, type: T, payload: CommandPayloads[T], options: { expectedRevision?: number } = {}): Promise<Intent> {
+    const pending = isAdd(type) && this.intents.find((i) => isAdd(i.type) && i.status === 'pending');
+    if (pending) return this.waitFor(pending.id);
     const id = this.newId();
     const intent: Intent = {
       id, label, type, payload, expectedRevision: options.expectedRevision, status: 'pending', error: null, replayed: false,
@@ -76,8 +79,23 @@ export class CommandRunner {
   async retry(id: string): Promise<Intent | null> {
     const intent = this.intents.find((i) => i.id === id);
     if (!intent || intent.status !== 'failed') return null;
+    const pending = isAdd(intent.type) && this.intents.find((i) => isAdd(i.type) && i.status === 'pending');
+    if (pending) return this.waitFor(pending.id);
     this.update(id, { status: 'pending', error: null });
     return this.enqueue(id, intent.type);
+  }
+
+  /** Join the active add instead of creating a second submission before React renders. */
+  private waitFor(id: string): Promise<Intent> {
+    return new Promise((resolve) => {
+      const stop = this.subscribe(() => {
+        const intent = this.intents.find((i) => i.id === id);
+        if (intent && intent.status !== 'pending') {
+          stop();
+          resolve(intent);
+        }
+      });
+    });
   }
 
   private enqueue(id: string, type: CommandType): Promise<Intent> {

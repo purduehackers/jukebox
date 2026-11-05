@@ -51,7 +51,15 @@ export class WorkerAdapter implements SourcePort, MediaPort, CandidateSearchPort
     } catch (error) {
       throw new PortError('SOURCE_UNAVAILABLE', 'The local audio worker is unreachable or timed out. Start scripts/run-local and check --worker / JUKEBOX_WORKER_URL.', true, { kind: 'worker_unavailable' });
     }
-    if (!response.ok) throw this.workerError(body, response.status);
+    if (!response.ok) {
+      const error = this.workerError(body, response.status);
+      // This is a selected recording's extraction failure, not a search miss or
+      // a worker outage. Recognize the current worker and yt-dlp error wording.
+      if (/requested format is not available|did not expose a suitable audio-only format|no verified audio-only source format/i.test(error.message)) {
+        error.details = { kind: 'audio_format_unavailable', stage: 'candidate_resolution' };
+      }
+      throw error;
+    }
     if (body.source !== source || typeof body.title !== 'string' || !Number.isFinite(body.duration) || body.duration <= 0 || typeof body.recordingKey !== 'string') throw new PortError('SOURCE_UNAVAILABLE', 'The audio worker returned incomplete recording metadata', true);
     const artworkUrl = typeof body.thumbnail === 'string' ? body.thumbnail : undefined;
     if (artworkUrl !== undefined) {

@@ -18,6 +18,13 @@ start in its own chat/worktree. Follow the approved dependency order; paid hosti
 production changes, and later component discussions remain later steps. Do not
 ask for the same product-plan approval again.
 
+## Current baseline
+
+`main` is the consolidated app baseline. New work should start from the latest
+`origin/main` in an isolated worktree, not an older phase branch. Existing feature
+branches must merge/rebase current main before continuing; uncommitted edits in
+another worktree are not inherited. Keep `.env.local` and `.local/` private.
+
 ## Confirmed requirements
 
 - Intended hostname: `jukebox.purduehackers.com`; routes `/display`, `/admin`,

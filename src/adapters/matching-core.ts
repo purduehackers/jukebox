@@ -55,8 +55,8 @@ export function baseTitle(value: string): string {
   return normalizeText(withoutMarkers);
 }
 
-export function durationTolerance(durationMs: number): number {
-  return Math.max(3, (durationMs / 1000) * 0.02);
+export function durationTolerance(_durationMs: number): number {
+  return 60;
 }
 
 export function durationMatches(candidateSec: number, catalogMs: number): boolean {

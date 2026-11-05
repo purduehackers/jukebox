@@ -2,6 +2,7 @@
 # Real local audio by default. Fixture modes are explicit and never alter PH ID.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+source scripts/load-local-env
 [[ -x node_modules/.bin/vite ]] || npm ci --no-audit --no-fund
 auth_args=()
 if [[ -z ${JUKEBOX_PHID_CLIENT_ID:-} ]]; then auth_args+=(--dev-auth); fi

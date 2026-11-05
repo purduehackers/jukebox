@@ -10,6 +10,41 @@ import { sendCommand } from '../app/src/shared/api.ts';
 import { URLS } from './helpers.ts';
 import { ORIGIN, ScriptedDisplay, organizer, startApp, startNight } from './admin-helpers.ts';
 import type { App, HttpClient } from './admin-helpers.ts';
+import type { CommandResponse } from '../src/contract/types.ts';
+import type { Send } from '../app/src/admin/intents.ts';
+
+test('add commands share one pending operation through slow resolution, errors, and retry', async () => {
+  let response = Promise.withResolvers<CommandResponse>();
+  let calls = 0;
+  const runner = new CommandRunner((async () => {
+    calls++;
+    return response.promise;
+  }) as Send);
+  const first = runner.run('Add master', 'master.add', { url: URLS.mix });
+  const id = runner.getSnapshot()[0]!.id;
+  const duplicate = runner.run('Add request', 'request.submit', { url: URLS.r1 });
+  assert.equal(runner.getSnapshot()[0]!.status, 'pending', 'loading is synchronous');
+  await Promise.resolve();
+  const later = runner.run('Add again', 'master.add', { url: URLS.song });
+  assert.equal(calls, 1, 'same-tick and later clicks do not start another resolve');
+  response.reject(new Error('metadata failed'));
+  const results = await Promise.all([first, duplicate, later]);
+  assert.ok(results.every((intent) => intent.id === id && intent.status === 'failed'));
+  assert.ok(runner.getSnapshot().every((intent) => intent.status !== 'pending'), 'errors clear loading');
+
+  response = Promise.withResolvers<CommandResponse>();
+  const retry = runner.retry(id);
+  const duringRetry = runner.run('Request during retry', 'request.submit', { url: URLS.r1 });
+  assert.equal(calls, 2);
+  response.resolve({ ok: true, commandId: id, revision: 1, replayed: false, result: {} } as CommandResponse);
+  assert.equal((await retry)!.status, 'ok');
+  assert.equal((await duringRetry).id, id);
+  assert.equal(runner.getSnapshot().length, 1);
+
+  const next = await runner.run('Next request', 'request.submit', { url: URLS.r1 });
+  assert.equal(calls, 3, 'a settled add releases the guard');
+  assert.notEqual(next.id, id);
+});
 
 const submit = async (app: App, who: HttpClient, url: string) => {
   const res = await who.raw('request.submit', { url });
@@ -438,7 +473,7 @@ test('unsupported sources get specific, truthful explanations and nothing is add
     const admin = await organizer(app);
     const runner = new CommandRunner(admin.send);
     const attempts = [
-      ['https://open.spotify.com/track/1OAFmguvHB2OI2AMYXpmyG', /Spotify and Apple Music links cannot be played yet/],
+      ['https://open.spotify.com/track/1OAFmguvHB2OI2AMYXpmyG', /Try the exact YouTube recording/],
       ['https://www.youtube.com/playlist?list=PLabc', /Playlists and albums cannot be imported yet/],
       ['https://music.apple.com/us/album/x/123456', /Playlists and albums cannot be imported yet/],
       ['https://example.com/track.mp3', /not a supported source/],

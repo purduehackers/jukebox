@@ -13,7 +13,7 @@ https://jukebox.purduehackers.com/auth/callback
 
 The first is for the local Vite development origin; the second is the intended production origin, not a claim that it is deployed. If PH ID rejects a callback, do not substitute a different URL without also configuring that exact origin in Jukebox. Select `openid`, `profile`, and `roles`; the last supplies the organizer/admin claim used by the existing Jukebox admin rule. Email, offline access, device sign-in, and user-data scopes are unnecessary. PH ID's application page creates confidential clients with `client_secret_basic`; Jukebox uses that method and PKCE S256. PH ID's source currently allows members to register applications; this supersedes the older phase-2 note that an ID admin must create clients.
 
-Store the resulting client secret privately on the server; do not commit it or send it in chat. For local use set these environment variables in your shell or a private, untracked environment file:
+Store the resulting client secret privately on the server; do not commit it or send it in chat. For local use copy `.env.example` to `.env.local` in the checkout where you run the app, then fill it in once. `npm run dev`, `npm run service`, and the corresponding startup scripts load that file automatically. It is ignored by Git; existing exported variables take precedence. Set:
 
 ```
 JUKEBOX_PHID_CLIENT_ID=<client id>
@@ -22,7 +22,7 @@ JUKEBOX_PHID_REDIRECT_URI=http://127.0.0.1:5173/auth/callback
 JUKEBOX_SESSION_SECRET=<random secret of at least 32 characters>
 ```
 
-Generate the session secret locally with `openssl rand -base64 32`. Run `npm run dev`, visit `http://127.0.0.1:5173/queue`, and sign in. The development script selects PH ID when a client ID is set; without it, it uses the clearly labelled local fake identity. The service remains loopback-only and is not a production deployment. For production, use the production callback and origin only after the separately planned hosting and ingress work.
+Generate the session secret once with `openssl rand -base64 32`, save it in `.env.local`, and keep it stable across restarts. Do not prefix private credentials with `VITE_` (those variables are browser-visible). Run `npm run dev`, visit `http://127.0.0.1:5173/queue`, and sign in. The development script selects PH ID when a client ID is set; without it, it uses the clearly labelled local fake identity. The service remains loopback-only and is not a production deployment. For production, use the production callback and origin only after the separately planned hosting and ingress work.
 
 The service stores opaque session identifiers as hashes and keeps identity and role claims server-side for 12 hours. Roles are captured at login and do not refresh during that session. `organizer` or `admin` grants Jukebox admin under the existing phase-2 implementation choice; an explicit admin-key allowlist is also supported. Discovery and endpoint requests are restricted to the configured PH ID origin, HTTPS except loopback fixtures, without HTTP redirects. Userinfo over that trusted connection is authoritative; the ID token is not signature-verified and is not used as authentication proof. Automated coverage uses fixtures; the user separately verified live local sign-in. Production deployment and live admin-role access remain unverified.
 

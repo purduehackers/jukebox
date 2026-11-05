@@ -5,10 +5,8 @@ import type { RequestEntryView, Snapshot } from '../../../src/contract/types.ts'
 import { fetchMe, sendCommand, useSnapshot } from '../shared/api.ts';
 import { RequestFlow, sessionIntentStore } from './controller.ts';
 import type { FlowState } from './controller.ts';
-import { STATUS_COPY, WAITING, describeError, describeEstimate, estimateTurn, formatDuration, readDisambiguation } from './model.ts';
+import { STATUS_COPY, WAITING, describeError, formatDuration, readDisambiguation } from './model.ts';
 import './queue.css';
-
-const PROVIDER_LABEL = { youtube: 'YouTube', spotify: 'Spotify', apple_music: 'Apple Music', fixture: 'Test fixture' } as const;
 
 function useFlow() {
   const flow = useMemo(() => new RequestFlow(sendCommand, sessionIntentStore()), []);
@@ -16,22 +14,10 @@ function useFlow() {
   return { flow, state };
 }
 
-/** Re-render periodically so "in about N minutes" tracks the server clock between snapshots. */
-function useServerNow(snapshot: Snapshot | null) {
-  const received = useMemo(() => ({ at: Date.now(), serverTime: snapshot?.serverTime ?? Date.now() }), [snapshot]);
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => tick((n) => n + 1), 15_000);
-    return () => clearInterval(timer);
-  }, []);
-  return received.serverTime + (Date.now() - received.at);
-}
-
 export function QueuePage() {
   const { snapshot, error: streamError } = useSnapshot();
   const { flow, state } = useFlow();
   const [name, setName] = useState<string | null>(null);
-  const nowServer = useServerNow(snapshot);
 
   useEffect(() => {
     void fetchMe().then((me) => setName(me.identity?.displayName ?? null)).catch(() => undefined);
@@ -45,7 +31,6 @@ export function QueuePage() {
     <main className="q-page">
       <header className="q-head">
         <h1>Jukebox</h1>
-        <p className="q-sub">Request a song for the room. Audio plays on the venue speakers, not on your phone.</p>
       </header>
 
       {streamError && (
@@ -65,18 +50,10 @@ export function QueuePage() {
               <RequestForm flow={flow} state={state} remaining={snapshot.quota?.remaining ?? 0} />
             </>
           )}
-          <MyRequests entries={mine} snapshot={snapshot} nowServer={nowServer} />
-          <Lineup entries={snapshot.requests} nowServer={nowServer} snapshot={snapshot} />
+          <MyRequests entries={mine} />
+          <Lineup entries={snapshot.requests} />
         </>
       )}
-
-      <footer className="q-foot">
-        <p>Audio only. Valid requests join the queue automatically; organizers can remove any of them.</p>
-        <p>{!snapshot ? 'Organizers control when requests play.'
-          : snapshot.schedule.mode === 'master' ? 'Request turns are paused while only regular music plays.'
-          : snapshot.schedule.mode === 'requests' ? 'Requests play back to back in queue order.'
-          : `Request turns come about every ${snapshot.schedule.periodMs / 60_000} minutes of regular music.`} Wait estimates are rough and not guaranteed.</p>
-      </footer>
     </main>
   );
 }
@@ -124,7 +101,6 @@ function Allowance({ quota }: { quota: Snapshot['quota'] }) {
       </div>
       <p>
         <strong>{quota.remaining}</strong> of {quota.limit} requests left tonight
-        {quota.remaining === 0 && <> — you’ve used them all. Songs that fail to play are refunded.</>}
       </p>
     </section>
   );
@@ -145,7 +121,6 @@ function RequestForm({ flow, state, remaining }: { flow: RequestFlow; state: Flo
     return (
       <section className="q-panel q-success" role="status">
         <h2>Added to the queue</h2>
-        <p>{state.submitted.quota.remaining === 0 ? 'That was your last request tonight.' : `You have ${state.submitted.quota.remaining} left tonight.`} Track its progress below.</p>
         <button className="q-button" type="button" onClick={() => flow.reset()}>Request another</button>
       </section>
     );
@@ -175,7 +150,7 @@ function RequestForm({ flow, state, remaining }: { flow: RequestFlow; state: Flo
           onChange={(event) => flow.setUrl(event.target.value)}
         />
         <button className="q-button" type="submit" disabled={busy || exhausted || state.url.trim() === ''}>
-          {state.phase === 'checking' ? 'Checking…' : 'Check link'}
+          {state.phase === 'checking' ? 'Searching…' : 'Search'}
         </button>
       </form>
 
@@ -224,6 +199,9 @@ function RequestForm({ flow, state, remaining }: { flow: RequestFlow; state: Flo
       )}
 
       {state.preview && <Preview flow={flow} state={state} />}
+      {(state.url || state.error || state.preview) && (
+        <button className="q-button" type="button" disabled={state.phase === 'submitting'} onClick={() => flow.reset()}>Cancel</button>
+      )}
     </section>
   );
 }
@@ -235,17 +213,11 @@ function Preview({ flow, state }: { flow: RequestFlow; state: FlowState }) {
   const reject = verdict.accepted ? null : describeError({ code: verdict.code, message: verdict.message, retryable: false });
   return (
     <div className="q-preview">
-      <p className="q-eyebrow">{PROVIDER_LABEL[source.provider]} link</p>
-      <p className="q-title">{source.title}</p>
-      <p className="q-artist">{source.artist ?? 'Unknown artist'} · {formatDuration(source.durationSec)}</p>
-      {match && (
-        <div className="q-match">
-          <p className="q-eyebrow">What will actually play</p>
-          <p><strong>{match.title}</strong> · {match.artist ?? 'Unknown channel'} · {formatDuration(match.durationSec)} · audio from YouTube</p>
-          <ul className="q-dim">{match.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
-          <p className="q-dim">Not the version you meant? Paste the exact YouTube link instead.</p>
-        </div>
-      )}
+      <div className="q-match">
+        <p className="q-eyebrow">Found match:</p>
+        <p><strong>{(match ?? source).title}</strong> · {(match ?? source).artist ?? 'Unknown artist'} · {formatDuration((match ?? source).durationSec)}</p>
+        <p className="q-dim">Not the version you meant? Paste an exact YouTube link instead.</p>
+      </div>
       {reject ? (
         <div className={`q-note q-${reject.tone}`} role="alert">
           <strong>{reject.title}</strong>
@@ -253,20 +225,19 @@ function Preview({ flow, state }: { flow: RequestFlow; state: FlowState }) {
         </div>
       ) : (
         <button className="q-button q-primary" type="button" disabled={submitting} onClick={() => void flow.submit()}>
-          {submitting ? 'Adding…' : `Add to queue (uses 1 of your ${preview.quota.limit})`}
+          {submitting ? 'Adding…' : 'Add to queue'}
         </button>
       )}
-      {!reject && <p className="q-dim">{preview.quota.remaining - 1} left after this. Removed or skipped songs still count; songs that fail to play are refunded.</p>}
     </div>
   );
 }
 
-function MyRequests({ entries, snapshot, nowServer }: { entries: RequestEntryView[]; snapshot: Snapshot; nowServer: number }) {
+function MyRequests({ entries }: { entries: RequestEntryView[] }) {
   if (entries.length === 0) {
     return (
       <section className="q-panel">
         <h2>Your requests</h2>
-        <p className="q-dim">Nothing yet tonight. Finished requests stay listed for about an hour.</p>
+        <p className="q-dim">No requests yet.</p>
       </section>
     );
   }
@@ -276,7 +247,6 @@ function MyRequests({ entries, snapshot, nowServer }: { entries: RequestEntryVie
       <ul className="q-list">
         {entries.map((entry) => {
           const copy = STATUS_COPY[entry.status];
-          const estimate = WAITING.has(entry.status) ? describeEstimate(estimateTurn(snapshot, entry.id, nowServer)) : '';
           return (
             <li key={entry.id} className={`q-entry q-${copy.tone}`}>
               <div className="q-row">
@@ -284,9 +254,6 @@ function MyRequests({ entries, snapshot, nowServer }: { entries: RequestEntryVie
                 <span className="q-badge">{copy.label}</span>
               </div>
               <p className="q-artist">{entry.artist ?? 'Unknown artist'} · {formatDuration(entry.durationSec)}</p>
-              <p className="q-dim">{copy.detail}</p>
-              {estimate && <p>{estimate}</p>}
-              {entry.status === 'failed' && entry.error && <p className="q-dim">Reason: {entry.error}</p>}
             </li>
           );
         })}
@@ -295,15 +262,12 @@ function MyRequests({ entries, snapshot, nowServer }: { entries: RequestEntryVie
   );
 }
 
-function Lineup({ entries, snapshot, nowServer }: { entries: RequestEntryView[]; snapshot: Snapshot; nowServer: number }) {
+function Lineup({ entries }: { entries: RequestEntryView[] }) {
   const lineup = entries.filter((r) => r.status === 'playing' || WAITING.has(r.status));
   if (lineup.length === 0) return null;
-  const waiting = lineup.filter((r) => WAITING.has(r.status));
-  const next = waiting[0] ? estimateTurn(snapshot, waiting[0].id, nowServer) : null;
   return (
     <section className="q-panel">
       <h2>In the queue</h2>
-      {next && <p className="q-dim">{describeEstimate(next)}</p>}
       <ol className="q-lineup">
         {lineup.map((entry) => (
           <li key={entry.id} className={entry.mine ? 'q-mine' : ''}>

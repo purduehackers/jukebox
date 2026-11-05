@@ -488,26 +488,29 @@ export function MasterQueuePanel({ snapshot, actions }: { snapshot: Snapshot; ac
 // ------------------------------------------------------------------- add
 
 /** One link box feeding either queue. Organizer requests go through request.submit, so they use the organizer's own nightly allowance. */
-export function AddBar({ actions, lastAdd, nightOpen }: { actions: Actions; lastAdd: Intent | null; nightOpen: boolean }) {
+export function AddBar({ actions, lastAdd, nightOpen, children }: { actions: Actions; lastAdd: Intent | null; nightOpen: boolean; children?: ReactNode }) {
   const [url, setUrl] = useState('');
+  const pending = lastAdd?.status === 'pending';
   const value = url.trim();
   const add = (target: 'master' | 'request') => {
-    if (!value) return;
+    if (!value || pending) return;
     void (target === 'master' ? actions.addMaster(value) : actions.addRequest(value)).then((intent) => { if (intent.status === 'ok') setUrl(''); });
   };
   return (
     <section className="adm-section" aria-labelledby="adm-queue">
       <h2 id="adm-queue" className="adm-section-title">Queue</h2>
-      <form className="jb-panel adm-add" onSubmit={(e) => { e.preventDefault(); add('master'); }}>
-      <label htmlFor="adm-add-url" className="adm-sr">YouTube link</label>
+      <form className="jb-panel adm-add" aria-busy={pending} onSubmit={(e) => { e.preventDefault(); add('master'); }}>
+      <label htmlFor="adm-add-url" className="adm-sr">YouTube, Spotify, or Apple Music track link</label>
       <div className="adm-add-row">
-        <input id="adm-add-url" type="url" inputMode="url" placeholder="Paste a YouTube link" value={url} onChange={(e) => setUrl(e.target.value)} />
-        <button type="submit" className="adm-btn adm-primary" disabled={!value}>Add to master</button>
-        <button type="button" className="adm-btn" disabled={!value || !nightOpen} title={nightOpen ? undefined : 'Start the night first'} onClick={() => add('request')}>Add to requests</button>
+        <input id="adm-add-url" type="url" inputMode="url" placeholder="YouTube, Spotify, or Apple Music track link" value={url} disabled={pending} onChange={(e) => setUrl(e.target.value)} />
+        <button type="submit" className="adm-btn adm-primary" disabled={!value || pending}>Add to master</button>
+        <button type="button" className="adm-btn" disabled={!value || !nightOpen || pending} title={nightOpen ? undefined : 'Start the night first'} onClick={() => add('request')}>Add to requests</button>
       </div>
+      {pending ? <p className="adm-add-loading adm-small" role="status"><span className="adm-spinner" aria-hidden="true" />Adding to {lastAdd.type === 'master.add' ? 'master' : 'requests'}…</p> : null}
       {lastAdd?.status === 'failed' && lastAdd.error ? <p className="adm-bad-text adm-small" role="alert" data-testid="add-error">{explainError(lastAdd.error, lastAdd.type).message}</p> : null}
-      <p className="adm-dim adm-small">YouTube songs and mixes only. Requests must be under {POLICY.requestMaxSec / 60} min and count toward your {POLICY.quotaPerNight} per night.</p>
+      <p className="adm-dim adm-small">YouTube, Spotify, or Apple Music tracks. Master mixes welcome. Requests: under {POLICY.requestMaxSec / 60} min; {POLICY.quotaPerNight} per person per night.</p>
       </form>
+      {children}
     </section>
   );
 }

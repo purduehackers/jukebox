@@ -133,5 +133,5 @@ test('reachability check requires the health endpoint and the /queue page to ans
 
 test('source configuration errors explain the missing worker without implying a removed track',()=>{
   const copy=describeError({code:'SOURCE_UNAVAILABLE',message:'Start the audio worker',retryable:true,details:{kind:'worker_unavailable'}});
-  assert.equal(copy.title,'Audio service needs attention');assert.match(copy.body,/Start the audio worker/);assert.match(copy.body,/allowance is unchanged/);assert.doesNotMatch(copy.body,/private|removed|region/);
+  assert.equal(copy.title,'Audio service needs attention');assert.match(copy.body,/Start the audio worker/);assert.doesNotMatch(copy.body,/allowance/);assert.doesNotMatch(copy.body,/private|removed|region/);
 });

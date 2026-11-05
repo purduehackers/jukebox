@@ -396,3 +396,42 @@ is refused while a request plays; Auto after Master only starts a fresh interval
 deliberate pause stays paused through `Play now`/mode changes (the request loads and waits for Play); `Play now` and
 mode changes never change allowance; interval bounds 1–120 minutes (service-enforced); `Requests only` plays
 requests back to back by explicit organizer choice, while Auto keeps exactly one request per turn.
+
+## Queue UI simplification (2026-11-02)
+
+The user requested moving mode/interval controls into the admin Queue section,
+updating link entry for YouTube/Spotify/Apple Music, and immediate add-progress
+feedback with duplicate-click prevention. Display source badges now say
+“Master Queue” or “Request Queue”, with yellow distinguishing requests.
+
+The attendee page should omit wait estimates, scheduling/policy explanations,
+match-reason bullets, redundant catalog metadata above the match, and all comments
+under personal request cards (including thanks and removal/refund explanations).
+Use “Search” and “Found match:”, retain the exact-YouTube-link alternative, and
+provide Cancel to reset the form. Quota and scheduling enforcement remain unchanged.
+The user explicitly requested a few agents and focused, short verification rather
+than extensive test runs. Intermittent catalog-to-YouTube audio resolution for the
+two supplied Spotify links is a separate reliability investigation.
+
+Matching duration tolerance: the user rejected the prior few-second bound and
+requested one or two minutes. Apply a one-minute absolute tolerance, retaining
+title/artist/version checks and the actual under-six-minute request limit.
+
+Implementation: the matcher tries at most two qualifying uploads if the first
+fails specifically to expose an audio-only format; it does not cache that failure.
+Bounded live checks retrieved both Spotify tracks' metadata but encountered a
+YouTube search HTTP 403 for Someday and connection errors during Little Darling
+extraction. Those observations do not establish the precise cause of the user's
+successful retry. UI/behavior checks were focused; both typechecks passed.
+Changes are applied to the running local PH ID app, without committing or pushing.
+
+## Consolidated main baseline (2026-11-05)
+
+The user requested publishing the current combined app to `main` so other agents
+start from the latest implementation. This includes the queue/admin copy and
+loading fixes, display badges, one-minute matching tolerance and bounded alternate
+upload resolution, and automatic private `.env.local` loading. Phase branches are
+historical sources, not the default baseline. The separate `feat/jukebox-ph-ui`
+redesign is not included in this promotion and must incorporate current main
+before integration. This is a source-code consolidation, with no deployment or
+credential/state publication.

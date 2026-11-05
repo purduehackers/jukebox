@@ -15,6 +15,7 @@ test('resolve mapping, duration errors, provider bypass, timeout',async()=>{
     if(req.url==='/api/resolve'&&JSON.parse(data).source==='fixture:request'){res.setHeader('content-type','application/json');res.end(JSON.stringify({source:'fixture:request',title:'request',artist:null,duration:4,recordingKey:'fixture:request',thumbnail:'https://img.example/request.jpg'}));}
     else if(req.url==='/api/resolve'&&JSON.parse(data).source==='fixture:aac'){res.setHeader('content-type','application/json');res.end(JSON.stringify({source:'fixture:aac',title:'request',duration:4,recordingKey:'fixture:aac',thumbnail:'javascript:alert(1)'}));}
     else if(req.url==='/api/resolve'&&JSON.parse(data).source==='fixture:song'){res.statusCode=400;res.end(JSON.stringify({error:'Requests must be strictly under six minutes'}));}
+    else if(req.url==='/api/resolve'&&JSON.parse(data).source==='fixture:master'){res.statusCode=503;res.end(JSON.stringify({error:'YouTube did not expose a suitable audio-only format to this worker.'}));}
     else if(req.url==='/api/resolve'){setTimeout(()=>res.end('{}'),100);}
     else {res.statusCode=404;res.end('{}');}
   });});
@@ -24,6 +25,9 @@ test('resolve mapping, duration errors, provider bypass, timeout',async()=>{
     assert.equal(resolved.durationSec,4);assert.deepEqual(resolved.selection,{source:'fixture:request'});assert.equal(resolved.artworkUrl,'https://img.example/request.jpg');
     await assert.rejects(()=>a.resolve(a.canonicalize('fixture:aac'),'request'),(e:any)=>e.code==='SOURCE_UNAVAILABLE');
     await assert.rejects(()=>a.resolve(a.canonicalize('fixture:song'),'request'),(e:any)=>e.code==='DURATION_REJECTED');
+    const beforeFormats=requests;
+    for(let attempt=0;attempt<2;attempt++) await assert.rejects(()=>a.resolve(a.canonicalize('fixture:master'),'master'),(e:any)=>e.technical && e.details?.kind==='audio_format_unavailable' && e.details?.stage==='candidate_resolution');
+    assert.equal(requests,beforeFormats+2,'format failures must not be cached');
     const before=requests;await assert.rejects(()=>a.resolve(a.canonicalize('https://open.spotify.com/track/1234567890123456789012'),'request'),(e:any)=>e.code==='SOURCE_UNSUPPORTED');assert.equal(requests,before);
     await assert.rejects(()=>new WorkerAdapter({baseUrl:w.base,resolveTimeoutMs:20}).resolve(a.canonicalize('https://youtu.be/BaW_jenozKc'),'master'),(e:any)=>e.technical===true);
   } finally {w.server.close();}

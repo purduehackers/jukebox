@@ -297,3 +297,59 @@ test('two clients see the same queue: public order/status match, "mine" differs,
   assert.equal(h.snap(h.bob).requests[0]!.id, second!.id);
   assert.notEqual(h.snap(h.bob).requests[0]!.id, first!.id);
 });
+
+test('cancel clears the form and retry aid and ignores an old preview', async () => {
+  const h = harness();
+  await h.startNight();
+  const store = memoryStore();
+  store.value = { canonicalUrl: URLS.r1, recordingKey: 'old', commandId: randomUUID() };
+  const real = sender(h, h.alice);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let first = true;
+  const delayed: Send = (async (...args: Parameters<Send>) => {
+    if (first) {
+      first = false;
+      await gate;
+    }
+    return real(...args);
+  }) as Send;
+  const flow = new RequestFlow(delayed, store);
+  flow.setUrl(URLS.r1);
+  const oldPreview = flow.check();
+  flow.reset();
+  assert.deepEqual({ ...flow.snapshot }, { url: '', phase: 'idle', preview: null, error: null, submitted: null });
+  assert.equal(flow.resumable, null);
+  assert.equal(store.value, null);
+  await checked(flow, URLS.r2);
+  assert.equal(flow.snapshot.preview?.source.title, 'Request Two', 'new search starts immediately');
+  release();
+  await oldPreview;
+  assert.equal(flow.snapshot.preview?.source.title, 'Request Two', 'cancelled preview cannot overwrite the new search');
+});
+
+test('cancel cannot discard a submission or its retry identity while it is in flight', async () => {
+  const h = harness();
+  await h.startNight();
+  const store = memoryStore();
+  const real = sender(h, h.alice);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const delayed: Send = (async (...args: Parameters<Send>) => {
+    if (args[0] === 'request.submit') await gate;
+    return real(...args);
+  }) as Send;
+  const flow = new RequestFlow(delayed, store);
+  await checked(flow, URLS.r1);
+  const submission = flow.submit();
+  const intent = store.value;
+  flow.reset();
+  assert.equal(flow.snapshot.phase, 'submitting');
+  assert.equal(store.value, intent);
+  release();
+  await submission;
+  assert.equal(flow.snapshot.phase, 'submitted');
+  flow.reset();
+  assert.equal(flow.snapshot.url, '');
+  assert.equal(store.value, null);
+});

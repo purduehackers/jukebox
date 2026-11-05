@@ -10,6 +10,10 @@ Intended production origin: `https://jukebox.purduehackers.com` (not deployed).
 
 ## Run the complete local app
 
+For real PH ID sign-in, copy `.env.example` to `.env.local` and fill it in once;
+startup loads it automatically on every run. See [PH ID setup](docs/jukebox/PH-ID-SETUP.md).
+The file stays private and is ignored by Git.
+
 ```sh
 ./scripts/run-dev --data .local/display-demo/service
 ```
@@ -34,9 +38,9 @@ The example reuses saved display-demo service state and the local worker cache. 
 loopback. Without PH ID configuration, the development script uses labelled fake
 sign-in. To use the registered PH ID client, follow [PH ID setup](docs/jukebox/PH-ID-SETUP.md).
 
-The consolidated working branch is `feat/jukebox-phid`; `feat/jukebox-integration`
-tracks the same combined baseline. Run the app from that checkout so the current
-admin/display/session changes and PH ID fixes are together. The display tuner is
+The consolidated baseline is `main`. Start new work from the latest `origin/main`;
+older phase branches may omit recent fixes. The existing local PH ID checkout can
+still run the app with its private `.env.local` and saved state. The display tuner is
 `/display?tune`. A closed night deliberately shows the empty session screen;
 start a night in `/admin` to show music and the visualizer. New display connections
 wait up to 15 seconds for an old audio lease to expire.

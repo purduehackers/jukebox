@@ -44,7 +44,7 @@ const ERROR_COPY: Record<ErrorCode, Omit<ErrorCopy, 'retry' | 'body'> & { body: 
   NIGHT_CLOSED: { title: 'Requests are closed', body: 'There is no open night right now. Ask an organizer, or try again when one starts.', tone: 'info', blocksLink: true },
   NIGHT_ALREADY_OPEN: { title: 'Night already open', body: 'A night session is already open.', tone: 'info', blocksLink: true },
   QUOTA_EXCEEDED: { title: 'You’re out of requests', body: 'You’ve used all your requests for tonight. A new night starts with a fresh allowance.', tone: 'info', blocksLink: true },
-  DUPLICATE_REQUEST: { title: 'Already in the queue', body: 'That recording is already waiting. Pick another song, or look for it in the list below.', tone: 'info', blocksLink: false },
+  DUPLICATE_REQUEST: { title: 'Already in the queue', body: 'That recording is already in the queue. Pick another song, or look for it in the list below.', tone: 'info', blocksLink: false },
   INVALID_SOURCE: { title: 'That link doesn’t work', body: 'Paste a full https link to one YouTube, Spotify, or Apple Music track.', tone: 'error', blocksLink: false },
   SOURCE_UNSUPPORTED: {
     title: 'Link type not supported',
@@ -59,13 +59,13 @@ const ERROR_COPY: Record<ErrorCode, Omit<ErrorCopy, 'retry' | 'body'> & { body: 
     blocksLink: false,
   },
   DURATION_REJECTED: { title: 'Too long for a request', body: 'Requests must be shorter than 6 minutes. Long mixes are added by organizers.', tone: 'error', blocksLink: false },
-  RATE_LIMITED: { title: 'Slow down a little', body: 'You’ve checked a lot of links in a minute. Wait a few seconds and try again.', tone: 'warn', blocksLink: false },
+  RATE_LIMITED: { title: 'Slow down a little', body: 'You’ve checked a lot of links in a minute. Try again in a few seconds.', tone: 'warn', blocksLink: false },
   LEASE_HELD: { title: 'Not available here', body: 'That action isn’t for this page.', tone: 'error', blocksLink: true },
   STALE_LEASE: { title: 'Not available here', body: 'That action isn’t for this page.', tone: 'error', blocksLink: true },
   DEVICE_REVOKED: { title: 'Not available here', body: 'That action isn’t for this page.', tone: 'error', blocksLink: true },
   PAIRING_INVALID: { title: 'Not available here', body: 'That action isn’t for this page.', tone: 'error', blocksLink: true },
   NOTHING_PLAYABLE: { title: 'Not available here', body: 'That action isn’t for this page.', tone: 'error', blocksLink: true },
-  INTERNAL: { title: 'Something went wrong on our side', body: 'Nothing was added to your allowance. Try again in a moment.', tone: 'error', blocksLink: false },
+  INTERNAL: { title: 'Something went wrong on our side', body: 'Try again in a moment.', tone: 'error', blocksLink: false },
 };
 
 export interface Candidate {
@@ -108,7 +108,7 @@ export function readDisambiguation(details: ApiError['details']): Disambiguation
 export function describeError(error: ApiError): ErrorCopy {
   const base = ERROR_COPY[error.code] ?? ERROR_COPY.INTERNAL;
   if (['worker_unavailable', 'catalog_configuration', 'catalog_unavailable', 'catalog_metadata'].includes(String(error.details?.kind))) {
-    return { title: error.details?.kind === 'worker_unavailable' ? 'Audio service needs attention' : 'Catalog needs attention', body: `${error.message} Nothing was added; your allowance is unchanged.`, tone: 'warn', retry: error.retryable, blocksLink: false };
+    return { title: error.details?.kind === 'worker_unavailable' ? 'Audio service needs attention' : 'Catalog needs attention', body: error.message, tone: 'warn', retry: error.retryable, blocksLink: false };
   }
   const disambiguation = error.code === 'SOURCE_UNAVAILABLE' ? readDisambiguation(error.details) : null;
   if (disambiguation) {
@@ -122,7 +122,7 @@ export function describeError(error: ApiError): ErrorCopy {
   }
   // Server wording is more specific for validation failures; fall back to ours for generic ones.
   const useServerMessage = error.code === 'INVALID_SOURCE' || error.code === 'SOURCE_UNSUPPORTED' || error.code === 'SOURCE_UNAVAILABLE';
-  const body = useServerMessage && error.message ? `${error.message} Nothing was added; your allowance is unchanged.` : base.body;
+  const body = useServerMessage && error.message ? error.message : base.body;
   return { ...base, body, retry: error.retryable };
 }
 

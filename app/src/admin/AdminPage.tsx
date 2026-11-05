@@ -48,7 +48,8 @@ export function AdminPage() {
     return <AccessGate access={live.access} onRetry={live.recheck} />;
   }
   const snapshot = live.snapshot;
-  const lastAdd = intents.find((i) => i.type === 'master.add' || i.type === 'request.submit') ?? null;
+  const adds = intents.filter((i) => i.type === 'master.add' || i.type === 'request.submit');
+  const lastAdd = adds.find((i) => i.status === 'pending') ?? adds[0] ?? null;
   const signOut = async () => {
     await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: '{}' });
     live.recheck();
@@ -65,9 +66,10 @@ export function AdminPage() {
       <AlertsBand snapshot={snapshot} link={live.link} external={live.externalChange} onAckExternal={live.ackExternal} />
       <NowPlayingPanel snapshot={snapshot} serverNow={serverNow} actions={actions} pendingVolume={pendingVolume} intents={intents}>
         <TurnPanel snapshot={snapshot} serverNow={serverNow} />
-        <QueueControls snapshot={snapshot} serverNow={serverNow} actions={actions} intents={intents} />
       </NowPlayingPanel>
-      <AddBar actions={actions} lastAdd={lastAdd} nightOpen={snapshot.night?.status === 'open'} />
+      <AddBar actions={actions} lastAdd={lastAdd} nightOpen={snapshot.night?.status === 'open'}>
+        <QueueControls snapshot={snapshot} serverNow={serverNow} actions={actions} intents={intents} />
+      </AddBar>
       <div className="adm-queues">
         <MasterQueuePanel snapshot={snapshot} actions={actions} />
         <RequestQueuePanel snapshot={snapshot} actions={actions} />
