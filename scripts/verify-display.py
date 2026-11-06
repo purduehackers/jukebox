@@ -61,6 +61,13 @@ def main():
         driver.set_window_size(1920, 1080 + chrome_height)
         helpers.allow_autoplay(driver, app)
         driver.get(app + path)
+        if path == '/display':
+            until(lambda: driver.find_elements(By.CSS_SELECTOR, '[data-testid="organizer-gate"] a'))
+            assert not driver.find_elements(By.TAG_NAME, 'audio')
+            for cookie in helpers.organizer_cookies(app):
+                driver.add_cookie(cookie)
+            driver.get(app + path)
+            report['checks']['organizerLoginRequiredBeforeDisplayAndAudio'] = True
         return driver
 
     def click(driver, selector):

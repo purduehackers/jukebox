@@ -1,0 +1,81 @@
+{
+  "result": "passed",
+  "browser": {
+    "browserName": "firefox",
+    "browserVersion": "159.0",
+    "moz:buildID": "20261027211755",
+    "moz:geckodriverVersion": "0.37.1",
+    "platformName": "linux",
+    "moz:headless": true
+  },
+  "checks": {
+    "organizerLoginRequiredBeforeDisplayAndAudio": true,
+    "nativeFirefoxBlockHasNoAppActivationButton": true,
+    "persistentSitePermissionStartsPlaybackAutomatically": true,
+    "ownedFirefoxOutputVerifiedOnNullSink": true,
+    "separateAdminAttendeeProfilesSilent": true,
+    "suspendedMasterPinned": true,
+    "oneRequestNativeEndedThenMixResumed": true,
+    "normalSongEndedBeforeRequest": true,
+    "refreshMidRequestRestoredWithoutDoubleCharge": true,
+    "missingAssetTwoAttemptsRefundAndReturn": true,
+    "secondDisplayPlaysWithoutStealingOrBlockingFirst": true,
+    "shortReconnectKeepsLoad": true,
+    "longControlOutageKeepsAudioAndRecoversAutomatically": true,
+    "fiveEndStartCyclesStopAndResumeWithoutAnotherClick": true,
+    "playingRefreshResumesCheckpointWithoutClickOrLeaseWait": true,
+    "delayedOldSnapshotIgnored": true,
+    "organizerLogoutUnmountsAudioAndSignInRestoresPlayback": true,
+    "exhaustedMasterStaysSilentWithoutRepeatedErrors": true
+  },
+  "measurements": [
+    {
+      "permissionToPlaybackMs": 3782.12
+    },
+    {
+      "masterAnalysisRms": 0.07038336653703739
+    },
+    {
+      "command": "playback.pause",
+      "commandToServerObservedAckMs": 112.34
+    },
+    {
+      "command": "playback.seek",
+      "commandToServerObservedAckMs": 551.46
+    },
+    {
+      "command": "playback.volume",
+      "commandToServerObservedAckMs": 110.39
+    },
+    {
+      "command": "playback.play",
+      "commandToServerObservedAckMs": 91.02
+    },
+    {
+      "requestAnalysisRms": 0.014010251678637712
+    },
+    {
+      "resumeRequestedSec": 1234.574666,
+      "resumeActualSeekedSec": 1234.574666,
+      "resumeErrorSec": 0.0
+    },
+    {
+      "nightStartToPlaybackMs": 331.77
+    },
+    {
+      "nightStartToPlaybackMs": 350.92
+    },
+    {
+      "nightStartToPlaybackMs": 337.37
+    },
+    {
+      "nightStartToPlaybackMs": 300.28
+    },
+    {
+      "nightStartToPlaybackMs": 303.81
+    }
+  ],
+  "atUTC": "2026-11-06T21:31:46.542418+00:00",
+  "finishedUTC": "2026-11-06T21:34:05.726578+00:00",
+  "scope": "Organizer-authenticated isolated local Firefox fixtures; null audio sink. No live PH ID, hosted source access, or HDMI verification."
+}

@@ -827,6 +827,11 @@ export class JukeboxService {
     return { deviceId, token: `${deviceId}.${secret}` };
   }
 
+  /** Automatic browser players must also have a current organizer session at the HTTP boundary. */
+  deviceRequiresOrganizer(deviceId: string): boolean {
+    return this.automaticDevice(deviceId);
+  }
+
   /** Returns the device ID for a valid, unrevoked bearer token. */
   authenticateDevice(token: string): string | null {
     const [deviceId, secret] = token.split('.');

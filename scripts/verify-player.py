@@ -6,6 +6,8 @@ only the scheduling anchor, avoiding fifteen-minute waits without changing playb
 Admin commands use fetch in a separate Firefox profile with its own login cookie.
 """
 import argparse
+import http.cookiejar as cookiejar
+import urllib.parse
 from datetime import datetime, timezone
 import json
 import os
@@ -38,6 +40,18 @@ def http(url, body=None):
                                  headers={'Content-Type': 'application/json'})
     with urllib.request.urlopen(req, timeout=3) as res:
         return json.load(res)
+
+
+def organizer_cookies(origin):
+    """Independent organizer session from the local fake-ID fixture, no browser gesture."""
+    jar = cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    with opener.open(origin + '/auth/login?returnTo=/display', timeout=5) as response:
+        state = urllib.parse.parse_qs(urllib.parse.urlparse(response.geturl()).query)['state'][0]
+    callback = urllib.parse.urlencode({'state': state, 'sub': 'fixture_wall', 'roles': 'organizer'})
+    with opener.open(origin + '/auth/callback?' + callback, timeout=5):
+        pass
+    return [{'name': c.name, 'value': c.value, 'path': c.path, 'httpOnly': True} for c in jar if c.name == 'jb_session']
 
 
 def until(fn, seconds=20):
@@ -112,6 +126,15 @@ def main():
         d.set_window_size(1440, 1000)
         d.set_script_timeout(10)
         d.get(app + path)
+        if path.startswith('/display'):
+            until(lambda: d.find_elements(By.CSS_SELECTOR, '[data-testid="organizer-gate"] a'))
+            assert not d.find_elements(By.TAG_NAME, 'audio'), 'logged-out display must mount no audio player'
+            # Fixture session copied into a fresh profile without a user activation;
+            # Firefox autoplay checks must still exercise the native default block.
+            for cookie in organizer_cookies(app):
+                d.add_cookie(cookie)
+            d.get(app + path)
+            report['checks']['organizerLoginRequiredBeforeDisplayAndAudio'] = True
         return d
 
     def click(d, id):
@@ -388,6 +411,15 @@ def main():
         assert audio(player)['generation'] and not audio(player)['paused']
         player.execute_script('window.fetch=window.originalFetch')
         report['checks']['delayedOldSnapshotIgnored']=True
+        # Sign-out closes the player feed; the gate unmounts audio and requires
+        # organizer authentication again without granting bearer-only access.
+        player.execute_async_script("fetch('/auth/logout',{method:'POST',headers:{'content-type':'application/json'},body:'{}'}).then(arguments[0])")
+        until(lambda: player.find_elements(By.CSS_SELECTOR, '[data-testid="organizer-gate"] a'), 8)
+        assert not player.find_elements(By.TAG_NAME, 'audio')
+        login(player, 'phase3_wall', True)
+        player.get(app + '/display')
+        playing(player)
+        report['checks']['organizerLogoutUnmountsAudioAndSignInRestoresPlayback'] = True
         # Exhaust the usable master list with an actual newly-prepared broken
         # asset. Terminal acknowledgement must not stop silent lease heartbeats.
         for entry in snap(admin)['master']:

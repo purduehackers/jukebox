@@ -79,7 +79,7 @@ export const COMMAND_ROLES: { [T in CommandType]: Role } = {
   'request.submit': 'attendee',
   'request.preview': 'attendee',
   'device.pair': 'public',
-  'display.connect': 'public',
+  'display.connect': 'admin',
   'player.claim': 'player',
   'player.release': 'player',
   'player.report': 'player',

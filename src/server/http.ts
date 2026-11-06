@@ -67,7 +67,12 @@ export function createHttpServer(options: HttpOptions): http.Server {
     const auth = req.headers.authorization;
     if (auth?.startsWith('Bearer ')) {
       const deviceId = service.authenticateDevice(auth.slice(7));
-      return deviceId ? { kind: 'device', deviceId } : 'invalid-device';
+      if (!deviceId) return 'invalid-device';
+      if (service.deviceRequiresOrganizer(deviceId)) {
+        const organizer = sessionIdentity(req);
+        if (!organizer || !service.isAdmin(organizer)) return 'invalid-device';
+      }
+      return { kind: 'device', deviceId };
     }
     const user = sessionIdentity(req);
     return user ? { kind: 'user', identity: user } : { kind: 'public' };
@@ -81,15 +86,27 @@ export function createHttpServer(options: HttpOptions): http.Server {
     return (req.headers['content-type'] ?? '').split(';')[0] === 'application/json';
   }
 
-  const streams = new Set<{ actor: Actor; res: http.ServerResponse; sent: number }>();
+  type Stream = { actor: Actor; req: http.IncomingMessage; res: http.ServerResponse; sent: number };
+  const streams = new Set<Stream>();
+  // Local indexed SQLite lookups only: never contact PH ID in the update path.
+  function authorized(stream: Stream) {
+    const current = actorFor(stream.req);
+    if (current === 'invalid-device' || JSON.stringify(current) !== JSON.stringify(stream.actor)) {
+      streams.delete(stream);
+      stream.res.end();
+      return false;
+    }
+    return true;
+  }
   let pending: NodeJS.Timeout | null = null;
-  service.onChange(() => {
+  const unsubscribe = service.onChange(() => {
     pending ??= setTimeout(() => {
       pending = null;
       for (const stream of streams) pushSnapshot(stream);
     }, 25);
   });
-  function pushSnapshot(stream: { actor: Actor; res: http.ServerResponse; sent: number }, heartbeat = false) {
+  function pushSnapshot(stream: Stream, heartbeat = false) {
+    if (!authorized(stream)) return;
     const snapshot = service.snapshot(stream.actor);
     if (snapshot.revision < stream.sent || (!heartbeat && snapshot.revision === stream.sent)) return;
     stream.sent = snapshot.revision;
@@ -113,7 +130,7 @@ export function createHttpServer(options: HttpOptions): http.Server {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
       // Full role-scoped snapshots, not deltas: (re)connect always delivers current state,
       // and clients keep the highest revision they have seen.
-      const stream = { actor, res, sent: -1 };
+      const stream = { actor, req, res, sent: -1 };
       streams.add(stream);
       res.write('retry: 2000\n\n');
       pushSnapshot(stream);
@@ -169,6 +186,8 @@ export function createHttpServer(options: HttpOptions): http.Server {
       if (!sameOrigin(req)) return json(res, 403, { error: { code: 'FORBIDDEN', message: 'Same-origin JSON required', retryable: false } });
       const id = cookies(req).get(SESSION_COOKIE);
       if (id) service.db.prepare('delete from sessions where id_hash = ?').run(hash(id));
+      // End affected streams immediately; do not wait for a queue change/heartbeat.
+      for (const stream of streams) authorized(stream);
       return json(res, 200, { ok: true }, { 'set-cookie': cookie(SESSION_COOKIE, '', 0) });
     }
     if (method === 'GET' && url.pathname === '/auth/fake' && identity.kind === 'fake') {
@@ -199,6 +218,8 @@ export function createHttpServer(options: HttpOptions): http.Server {
   const close = server.close.bind(server);
   server.close = ((callback?: (error?: Error) => void) => {
     clearInterval(keepAlive);
+    if (pending) clearTimeout(pending);
+    unsubscribe();
     for (const stream of streams) stream.res.end();
     streams.clear();
     return close(callback);

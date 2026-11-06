@@ -257,3 +257,20 @@ epoch, subsequent paused reports for the same load/epoch renew health without
 moving its checkpoint. A seek/new epoch permits the next position. Each native
 display presents its own actual audio position; shared observations are the
 fallback for read-only fixtures and remain the admin/checkpoint source.
+
+## Organizer-only display revision (2026-11-06)
+
+Supersedes the public command/access descriptions above. Contract version remains
+1; no storage migration is required. `display.connect` now requires the `admin`
+role. Automatic device credentials additionally require a valid organizer cookie
+on every HTTP request. Tokens do not confer organizer commands; their actor
+remains `player`. Old anonymously issued automatic tokens cannot be used alone.
+The whole display UI and live visualizer lab require organizer access.
+
+SSE credentials are checked before each outgoing snapshot and on the existing
+five-second heartbeat. Logout immediately ends affected streams; expiry/revocation
+closes them before any further privileged data is emitted. Checks are indexed
+local SQLite reads, not identity-provider network requests. Admin/attendee/public
+snapshot roles used by other pages remain unchanged. Legacy admin-issued pairing
+APIs remain compatible for fixtures; the app uses organizer-authenticated automatic
+registration without pairing, exclusive leases or ownership waits.

@@ -7,6 +7,7 @@
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc -p . && tsc -p app",
     "service": "scripts/run-service",
+    "start": "scripts/run-production",
     "dev": "scripts/run-dev",
     "build:app": "vite build"
   },

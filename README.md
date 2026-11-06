@@ -28,7 +28,8 @@ separately, run `./scripts/run-local --data .local/display-demo/worker`, then
 See [link compatibility and live-source evidence](docs/jukebox/LINK-COMPATIBILITY.md)
 for supported URLs, catalog behavior, configuration, and isolated test ports.
 
-Open **http://127.0.0.1:5173/display in Firefox**. If Firefox blocks autoplay, set
+Open **http://127.0.0.1:5173/display in Firefox** and sign in with an organizer PH ID account.
+The display and visualizer lab require organizer access; attendees cannot open them. If Firefox blocks autoplay, set
 this site's Autoplay permission to **Allow Audio and Video** in the address bar
 once; there is no app sound-enable button. Open **http://127.0.0.1:5173/admin**,
 sign in with PH ID, add master music, and click **Start night**. The display stays
@@ -51,6 +52,14 @@ silent layout check. `/display` uses the approved stationary soundbar preset fro
 A closed night deliberately shows the empty session screen;
 start a night in `/admin` to show music and the visualizer. See the
 [connection audit](docs/jukebox/PLAYER-CONNECTION-AUDIT.md) for the simplified flow.
+
+## Operator deployment
+
+See [the deployment guide](docs/jukebox/DEPLOYMENT.md) for production startup,
+server storage, environment variables, HTTPS/SPA/SSE ingress and systemd examples.
+The production launcher requires explicit persistent data directories and never
+loads local developer credentials. QR and request links follow the deployed site
+origin, so `https://jukebox.purduehackers.com` produces the matching `/queue` URL.
 
 ## Run the phase-2 queue service
 

@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Operator supplies environment; never load a developer's .env.local in production.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+export NODE_ENV=production
+: "${JUKEBOX_SERVICE_DATA:?Set an absolute persistent queue-service directory}"
+: "${JUKEBOX_WORKER_DATA:?Set an absolute persistent worker/cache directory}"
+[[ $JUKEBOX_WORKER_DATA == /* ]] || { echo 'JUKEBOX_WORKER_DATA must be absolute' >&2; exit 1; }
+export JUKEBOX_SERVICE_PORT=${JUKEBOX_SERVICE_PORT:-8980}
+worker_port=${JUKEBOX_WORKER_PORT:-8971}
+# This launcher manages a same-host worker; other topologies can run main.ts directly.
+export JUKEBOX_WORKER_URL="http://127.0.0.1:$worker_port"
+node --input-type=module <<'JS'
+import { validateProduction } from './src/server/production.ts';
+import net from 'node:net';
+validateProduction(process.env, { data: process.env.JUKEBOX_SERVICE_DATA, devAuth: false, fixtures: false });
+for (const value of [process.env.JUKEBOX_SERVICE_PORT, process.env.JUKEBOX_WORKER_PORT ?? '8971']) {
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw Error('Invalid internal port');
+  const server = net.createServer();
+  await new Promise((resolve, reject) => server.once('error', reject).listen(port, '127.0.0.1', resolve));
+  await new Promise(resolve => server.close(resolve));
+}
+JS
+for dependency in ffmpeg ffprobe; do
+  command -v "$dependency" >/dev/null || { echo "Missing $dependency" >&2; exit 1; }
+done
+[[ -x .venv/bin/python ]] || { echo 'Install the worker virtualenv and requirements.txt first' >&2; exit 1; }
+worker_pid=''
+service_pid=''
+cleanup() {
+  [[ -z $service_pid ]] || kill "$service_pid" 2>/dev/null || true
+  [[ -z $worker_pid ]] || kill "$worker_pid" 2>/dev/null || true
+  [[ -z $service_pid ]] || wait "$service_pid" 2>/dev/null || true
+  [[ -z $worker_pid ]] || wait "$worker_pid" 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+.venv/bin/python -m jukebox.server --port "$worker_port" --data "$JUKEBOX_WORKER_DATA" &
+worker_pid=$!
+node --input-type=module <<'JS'
+const end = Date.now() + 30000;
+for (;;) {
+  try {
+    const r = await fetch(process.env.JUKEBOX_WORKER_URL + '/api/status', { signal: AbortSignal.timeout(1000) });
+    const body = await r.json();
+    if (r.ok && body.capabilities?.candidateSearch === 1) break;
+  } catch { /* bounded startup wait */ }
+  if (Date.now() >= end) throw Error('Worker failed its startup health check');
+  await new Promise(resolve => setTimeout(resolve, 200));
+}
+JS
+node src/server/main.ts &
+service_pid=$!
+# A supervisor restarts the whole stack if either child exits, even with code zero.
+wait -n "$worker_pid" "$service_pid" || true
+exit 1

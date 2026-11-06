@@ -1,6 +1,7 @@
 # Ordered phase chat prompts
 
-Current status (2026-11-06): local phases 1–4 are integrated. Start from the
+Current status (2026-11-06): local phases 1–4 are integrated. The entire display
+and visualizer lab now require organizer sign-in; automatic playback follows login. Start from the
 latest `origin/main`; use [current implementation and deployment gates](CURRENT-STATUS.md)
 for the next task. The phase prompts below are historical templates, not a request
 to repeat completed phases. The original approval remains valid and later user

@@ -1,4 +1,5 @@
-// Local queue service entry point. Loopback-only; not a production deployment.
+// Queue service entry point. Loopback-only behind same-origin HTTPS ingress in production.
+import { validateProduction } from './production.ts';
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -15,8 +16,8 @@ import { JukeboxService } from './service.ts';
 
 const { values } = parseArgs({
   options: {
-    port: { type: 'string', default: '8980' },
-    data: { type: 'string', default: '.local/service' },
+    port: { type: 'string', default: process.env.JUKEBOX_SERVICE_PORT ?? '8980' },
+    data: { type: 'string', default: process.env.JUKEBOX_SERVICE_DATA ?? '.local/service' },
     worker: { type: 'string' },
     'dev-auth': { type: 'boolean', default: false },
     'fixture-media': { type: 'boolean', default: false },
@@ -24,6 +25,8 @@ const { values } = parseArgs({
     'admin-key': { type: 'string', multiple: true, default: [] },
   },
 });
+
+validateProduction(process.env, { data: values.data!, devAuth: values['dev-auth'], fixtures: values['fixture-media'] || values['fixture-matching'] });
 
 const port = Number(values.port);
 const host = '127.0.0.1';

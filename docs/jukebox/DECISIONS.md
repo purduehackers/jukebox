@@ -1,5 +1,40 @@
 # Decisions and question backlog
 
+## Organizer-only display and stream authorization (2026-11-06)
+
+The user first accepted organizer login for the display, then explicitly clarified
+that **the entire display must require organizer login**, with no public viewing
+mode. This supersedes the public/universal access portion of the 2026-11-05
+decision below. Multiple organizer displays, automatic playback after login,
+no pairing and no exclusive lease remain. `/visual` also requires organizer login
+because it uses the same audio/reporting player.
+
+`display.connect` now requires admin authorization. Every automatic-player HTTP
+request requires both its report token and a currently valid organizer session;
+a copied token or an old anonymously issued token alone is insufficient. The UI
+mounts no live display/player before organizer access is confirmed. Logout/expiry
+closes privileged streams; the normal player stops on authorization failure.
+Stream reauthorization uses local SQLite, without extra PH ID network requests.
+No trusted-network configuration, public viewer mode or pairing flow was added.
+
+The server remains queue/scheduler authority. Display reports are actual-playback
+feedback used for terminal transitions, technical failures and resume positions;
+the admin browser need not stay open. The user authorized efficient fixes and a
+portability review. Production launcher, env/ingress/systemd examples and a
+concrete operator guide are included. Storage is created in explicitly configured
+server directories; DNS, secrets, persistent disk and actual host/venue tests
+remain operator work. No production infrastructure change is implied.
+
+
+Verification: 187 TypeScript tests, 21 Python tests, five policy tests, typechecks
+and frontend build pass. The isolated production launcher creates service/worker
+state at configured absolute directories and shuts both processes down. Firefox
+159 passed all 18 checks, including no display/audio before organizer login,
+logout stopping audio and fresh sign-in restoring it. Five night starts measured
+300–351 ms and mix resume error was 0.000 seconds. Evidence is in
+`evidence/organizer-display-firefox.json`. No live role grant, hosted source access,
+production ingress or HDMI output is claimed.
+
 ## Minimal display request copy (2026-11-05)
 
 Keep the request QR, “Song requests” heading, URL and original sizing. The user

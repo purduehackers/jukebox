@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { OrganizerGate } from '../shared/OrganizerGate.tsx';
 import { Player } from '../player/Player.tsx';
 import type { PlayerState } from '../player/controller.ts';
 import type { Snapshot } from '../shared/api.ts';
@@ -19,6 +20,10 @@ function load(): Settings {
 }
 
 export function VisualPage() {
+  return <OrganizerGate><VisualLab /></OrganizerGate>;
+}
+
+function VisualLab() {
   const [settings, setSettings] = useState(load);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [local, setLocal] = useState<PlayerState | null>(null);

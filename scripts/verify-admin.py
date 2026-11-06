@@ -67,12 +67,15 @@ def main():
     def post(base, path, body, token=None, origin=None, opener=None):
         headers = {'Content-Type': 'application/json'}
         if token: headers['Authorization'] = 'Bearer ' + token
+        if token or body.get('type') == 'display.connect':
+            headers['Cookie'] = '; '.join(c['name'] + '=' + c['value'] for c in driver.get_cookies())
         if origin: headers['Origin'] = origin
         req = urllib.request.Request(base + path, data=json.dumps(body).encode(), headers=headers, method='POST')
         with (opener.open(req, timeout=5) if opener else urllib.request.urlopen(req, timeout=5)) as response: return json.load(response)
 
     def get_json(base, path, token=None, opener=None):
         headers = {'Authorization': 'Bearer ' + token} if token else {}
+        if token: headers['Cookie'] = '; '.join(c['name'] + '=' + c['value'] for c in driver.get_cookies())
         req = urllib.request.Request(base + path, headers=headers)
         with (opener.open(req, timeout=5) if opener else urllib.request.urlopen(req, timeout=5)) as response:
             return json.load(response)

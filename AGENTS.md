@@ -83,8 +83,10 @@ when authorized rather than silently switching to the fake sign-in form.
 - Shared queues/checkpoints must survive supported restarts and concurrent clients.
   Browser storage, module memory, or Edge Config alone is not queue authority.
 - Use stable command IDs, actual player acknowledgement, and explicit device
-  reports. The universal display stays connected across nights (2026-11-05 user
-  decision); no exclusive player lease, pairing/claim UI, linking, startup wait,
+  reports. The entire display requires organizer login (2026-11-06 user decision).
+  Automatic-player API requests require a valid organizer session plus the report
+  token. `/visual` also requires organizer login. After login the display stays
+  connected across nights; no exclusive player lease, pairing/claim UI, linking, startup wait,
   or app sound-enable button. Multiple tabs may play. No night shows “Night not
   started”; Start/End night automatically starts/stops sound. Reloads resume near
   the checkpoint. Always attempt native autoplay; Firefox's persistent site

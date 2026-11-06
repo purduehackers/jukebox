@@ -1,5 +1,15 @@
 # Display / admin / player audit — 2026-11-05
 
+## Later access correction (2026-11-06)
+
+The user now requires organizer login for the entire display and visualizer lab.
+The UI mounts no player before organizer access is confirmed. `display.connect`
+is admin-only and automatic token use requires a valid organizer session. The
+server reauthorizes streams locally before sending updates; logout/expiry stops
+privileged streaming. A fresh login is required when the 12-hour session expires.
+Automatic starts, concurrent organizer displays and no pairing/exclusive lease
+remain. Public/universal access statements below describe the earlier audit.
+
 ## Confirmed behavior
 
 The user confirmed automatic start/stop and checkpoint resume. `/display` stays

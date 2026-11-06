@@ -26,7 +26,21 @@ Generate the session secret once with `openssl rand -base64 32`, save it in `.en
 
 The service stores opaque session identifiers as hashes and keeps identity and role claims server-side for 12 hours. Roles are captured at login and do not refresh during that session. `organizer` or `admin` grants Jukebox admin under the existing phase-2 implementation choice; an explicit admin-key allowlist is also supported. Discovery and endpoint requests are restricted to the configured PH ID origin, HTTPS except loopback fixtures, without HTTP redirects. Userinfo over that trusted connection is authoritative; the ID token is not signature-verified and is not used as authentication proof. Automated coverage uses fixtures; the user separately verified live local sign-in. Production deployment and live admin-role access remain unverified.
 
-Existing integration limitation: an already-open event stream retains its initial role after session expiry or logout until it disconnects. Do not expose this local service to untrusted networks; stream reauthorization is required before deployment. The admin page polls session status, but that does not protect the stream itself.
+## Organizer display and stream authorization (2026-11-06)
+
+Organizer/admin PH ID access is required for the **whole `/display` page** and
+`/visual`. After signing in, the display connects and plays automatically. There
+is no public display mode. Automatic player tokens require a current organizer
+cookie on every request, including SSE; a bearer alone is insufficient. Logout
+immediately closes affected streams. Expiry/revocation is checked before every
+snapshot and at the five-second heartbeat, using local indexed database lookups.
+No PH ID round trip is added to playback reports or event delivery. The old
+stream-after-logout limitation is fixed, with HTTP regression coverage.
+
+The current session TTL is 12 hours. Plan a fresh venue sign-in before each night;
+expiry stops authorization and requires sign-in again. Roles remain the claims
+captured at login: after a provider role change, complete a fresh sign-in. Immediate
+remote provider-role revocation is not polled on each report.
 
 ## Live token exchange failure, 2026-11-02
 

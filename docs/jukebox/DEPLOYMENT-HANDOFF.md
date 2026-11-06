@@ -7,6 +7,15 @@ Canonical app: `purduehackers/jukebox`, intended hostname
 This checklist supersedes speculative options in ENGINEER-QUESTIONS.md where the
 local implementation now supplies an answer.
 
+## Implemented preparation (2026-11-06)
+
+Read [the concrete deployment guide](DEPLOYMENT.md): production launcher and
+operator env/Caddy/systemd examples are included. Both stale SSE authorization
+and unauthenticated automatic-display reporting are fixed. The entire display
+and live visualizer lab require organizer sign-in; there is no public viewer mode.
+No pairing/network allowlist is needed. Production still needs the actual operator
+configuration, disk/permissions, PH ID/DNS and host/venue verification below.
+
 ## Questions to ask the operator
 
 1. Who owns deploying, reviewing, and operating Jukebox, and who can approve the
@@ -39,7 +48,7 @@ local implementation now supplies an answer.
 
 ## Values and configuration to bring
 
-- Hostname: `jukebox.purduehackers.com`; public pages `/queue`, `/admin`, `/display`.
+- Hostname: `jukebox.purduehackers.com`; routes `/queue`, `/admin`, `/display` (admin/display require organizer login).
 - Production OIDC callback: `https://jukebox.purduehackers.com/auth/callback`.
 - Local callback: `http://127.0.0.1:5173/auth/callback`.
 - PH ID confidential client, authorization code + PKCE, `client_secret_basic`;
@@ -64,8 +73,8 @@ using that repository's current instructions and validation/plan procedure.
 The planned file is `zones/purduehackers.com/jukebox.yaml`; verify the layout when
 working there. Do not add a `music` alias or change dashboard DNS as part of this.
 
-Before public operation: fix event-stream reauthorization after logout/session
-expiry and protect the public automatic-display connect/report boundary, complete production ingress and abuse controls, verify durable restart
+Before public operation: verify the implemented stream/display authorization on
+the deployed origin, complete production ingress and abuse controls, verify durable restart
 and backup behavior, test real audio-source access from the server, and rehearse
 Firefox audio/seek/recovery with the venue output. After DNS/HTTPS are ready, test
 production sign-in, organizer permissions, attendee rejection from admin actions,
@@ -76,8 +85,8 @@ success does not verify production or hardware behavior.
 
 On 2026-11-02 the user supplied a screenshot of `/queue` signed in as
 `patiowizard` after the token-transport fix. This verifies user-observed live PH ID
-sign-in to the local app. The user is obtaining organizer/admin privileges;
-live role-based admin access is pending. Roles are captured at login, so sign out
+sign-in to the local app. Live role-based admin/display access was pending in that historical verification;
+this code follow-up does not establish the current provider role grant. Roles are captured at login, so sign out
 and sign in again after a role is granted, then visit `/admin`. No client ID or
 secret is recorded here. See PH-ID-SETUP.md for integration details and regression
 coverage.
@@ -86,7 +95,7 @@ coverage.
 
 Automatic displays no longer pair or hold an exclusive lease. They remain
 connected between nights; Start/End night starts/stops audio, and multiple tabs
-may play. Preserve this UX when protecting report routes for public deployment.
+may play. Organizer login is now required for the entire display and automatic report access.
 The latest reviewed source is `32c265a` on `origin/main`; do not deploy an old phase
 branch or a stale local main. `./scripts/run-dev` starts real worker/media by
 default and loads private `.env.local`. Production still needs a separate process,

@@ -12,9 +12,9 @@ import { createHttpServer } from '../src/server/http.ts';
 import { JukeboxService } from '../src/server/service.ts';
 import { URLS } from './helpers.ts';
 
-async function start(dir: string, clock: FakeClock, source: FakeSource, media: FakeMedia) {
+async function start(dir: string, clock: FakeClock, source: FakeSource, media: FakeMedia, sessionTtlMs?: number) {
   const service = new JukeboxService({ dbPath: join(dir, 'state.sqlite3'), clock, source, media });
-  const server = createHttpServer({ service, identity: new FakeIdentity(), origin: 'http://127.0.0.1' });
+  const server = createHttpServer({ service, identity: new FakeIdentity(), origin: 'http://127.0.0.1', sessionTtlMs });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   return {
@@ -73,6 +73,9 @@ class Client {
     const waiters: (() => void)[] = [];
     const headers: Record<string, string> = {};
     if (this.jar.size) headers.cookie = [...this.jar].map(([k, v]) => `${k}=${v}`).join('; ');
+    if (this.bearer) headers.authorization = `Bearer ${this.bearer}`;
+    let finish!: () => void;
+    const ended = new Promise<void>((resolve) => { finish = resolve; });
     void fetch(new URL('/api/v1/stream', this.base), { headers, signal: controller.signal }).then(async (res) => {
       let buffer = '';
       for await (const chunk of res.body!) {
@@ -88,9 +91,9 @@ class Client {
           }
         }
       }
-    }).catch(() => undefined);
+    }).catch(() => undefined).finally(() => finish());
     return {
-      seen,
+      seen, ended,
       async until(predicate: (s: Snapshot) => boolean) {
         for (let i = 0; i < 100; i++) {
           const match = seen.find(predicate);
@@ -181,4 +184,88 @@ test('admin, attendee, and paired player share one durable state over HTTP; rest
   assert.ok((await admin.command('device.revoke', { deviceId })).body.ok);
   assert.equal((await display.fetch('/api/v1/snapshot')).status, 401);
   await app.stop();
+});
+
+
+test('logout immediately closes its privileged SSE without disturbing public readers', { timeout: 10_000 }, async (t) => {
+  const app = await start(mkdtempSync(join(tmpdir(), 'jukebox-sse-')), new FakeClock(), new FakeSource(), new FakeMedia());
+  t.after(() => app.stop());
+  const admin = new Client(app.base), visitor = new Client(app.base);
+  await admin.login('organizer', true);
+  const privileged = admin.stream(), publicStream = visitor.stream();
+  t.after(() => { privileged.close(); publicStream.close(); });
+  await privileged.until(s => s.role === 'admin');
+  await publicStream.until(s => s.role === 'public');
+  const before = app.service.revision();
+  assert.equal((await admin.fetch('/auth/logout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).status, 200);
+  await privileged.ended;
+  assert.equal(app.service.revision(), before, 'logout closes even without a state revision');
+  assert.equal((await admin.command('night.open', {})).status, 401);
+  await admin.login('organizer', true);
+  assert.ok((await admin.command('night.open', {})).body.ok);
+  await publicStream.until(s => s.revision > before);
+  assert.equal(privileged.seen.length, 1, 'no post-logout privileged snapshot');
+});
+
+test('expired idle SSE closes on heartbeat even without queue changes', { timeout: 10_000 }, async (t) => {
+  const clock = new FakeClock();
+  const app = await start(mkdtempSync(join(tmpdir(), 'jukebox-sse-')), clock, new FakeSource(), new FakeMedia(), 1000);
+  t.after(() => app.stop());
+  const admin = new Client(app.base);
+  await admin.login('organizer', true);
+  const stream = admin.stream();
+  t.after(() => stream.close());
+  await stream.until(s => s.role === 'admin');
+  const revision = app.service.revision();
+  clock.advance(1001);
+  await stream.ended;
+  assert.equal(app.service.revision(), revision);
+  assert.equal(stream.seen.length, 1, 'expired session receives no heartbeat snapshot');
+  assert.equal((await admin.command('night.open', {})).status, 401);
+});
+
+test('revoked device SSE closes before publishing another player snapshot', { timeout: 10_000 }, async (t) => {
+  const app = await start(mkdtempSync(join(tmpdir(), 'jukebox-sse-')), new FakeClock(), new FakeSource(), new FakeMedia());
+  t.after(() => app.stop());
+  const admin = new Client(app.base), display = new Client(app.base);
+  await admin.login('organizer', true);
+  await display.login('wall_organizer', true);
+  const connected = await display.command('display.connect', { secret: 'a'.repeat(64) });
+  display.bearer = connected.body.result!.token as string;
+  const stream = display.stream();
+  t.after(() => stream.close());
+  await stream.until(s => s.role === 'player');
+  assert.ok((await admin.command('device.revoke', { deviceId: connected.body.result!.deviceId })).body.ok);
+  await stream.ended;
+  assert.equal(stream.seen.length, 1);
+  assert.equal((await display.fetch('/api/v1/snapshot')).status, 401);
+});
+
+
+test('automatic player tokens require a current organizer cookie; logout/expiry close player streams', { timeout: 10_000 }, async (t) => {
+  const clock = new FakeClock();
+  const app = await start(mkdtempSync(join(tmpdir(), 'jukebox-wall-auth-')), clock, new FakeSource(), new FakeMedia(), 1000);
+  t.after(() => app.stop());
+  const wall = new Client(app.base), visitor = new Client(app.base);
+  assert.equal((await visitor.command('display.connect', { secret: 'b'.repeat(64) })).status, 401);
+  await visitor.login('attendee');
+  assert.equal((await visitor.command('display.connect', { secret: 'b'.repeat(64) })).status, 403);
+  await wall.login('wall', true);
+  const connected = await wall.command('display.connect', { secret: 'c'.repeat(64) });
+  wall.bearer = connected.body.result!.token as string;
+  visitor.bearer = wall.bearer;
+  assert.equal((await visitor.fetch('/api/v1/snapshot')).status, 401, 'copied token alone grants no player access');
+  const stream = wall.stream(); t.after(() => stream.close());
+  await stream.until(s => s.role === 'player');
+  const bearer = wall.bearer; wall.bearer = null;
+  await wall.fetch('/auth/logout', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  await stream.ended;
+  wall.bearer = bearer;
+  assert.equal((await wall.fetch('/api/v1/snapshot')).status, 401);
+  wall.bearer = null; await wall.login('wall', true); wall.bearer = bearer;
+  const expiring = wall.stream(); t.after(() => expiring.close());
+  await expiring.until(s => s.role === 'player');
+  clock.advance(1001);
+  await expiring.ended;
+  assert.equal((await wall.fetch('/api/v1/snapshot')).status, 401);
 });

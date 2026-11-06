@@ -65,7 +65,7 @@ async function setup(t: TestContext) {
   const fakeFetch = async (url: string | URL | Request, init?: RequestInit) => {
     const bearer = new Headers(init?.headers).get('authorization')?.slice(7);
     const deviceId = bearer ? h.svc.authenticateDevice(bearer) : null;
-    const actor = deviceId ? { kind: 'device' as const, deviceId } : { kind: 'public' as const };
+    const actor = deviceId ? { kind: 'device' as const, deviceId } : h.admin;
     if (String(url).endsWith('/commands')) {
       const response = await h.svc.execute(actor, JSON.parse(String(init!.body)));
       return Response.json(response);

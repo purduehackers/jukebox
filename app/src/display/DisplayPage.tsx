@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
+import { OrganizerGate } from '../shared/OrganizerGate.tsx';
 import { Player } from '../player/Player.tsx';
 import type { Snapshot } from '../shared/api.ts';
 import type { LocalPlayback } from './model.ts';
@@ -66,7 +67,7 @@ const FixtureView = import.meta.env.DEV ? lazy(() => import('./FixtureView.tsx')
 
 export function DisplayPage() {
   if (FixtureView && new URLSearchParams(location.search).has('displayFixture')) return <Suspense fallback={<p>Loading dev snapshots…</p>}><FixtureView /></Suspense>;
-  return <LiveDisplay />;
+  return <OrganizerGate><LiveDisplay /></OrganizerGate>;
 }
 
 function LiveDisplay() {

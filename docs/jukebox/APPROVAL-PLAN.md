@@ -9,6 +9,14 @@ approval. The user adopted the defaults and authorized starting phase 1 in a
 separate chat/worktree. Production deployment and paid infrastructure remain later
 steps. The detailed briefs and research support this plan.
 
+## Organizer access update (2026-11-06)
+
+The user now requires organizer login for the entire display, superseding later
+public/universal access as well as this document's original pairing design.
+Playback remains automatic after sign-in; no pairing or exclusive lease.
+The live `/visual` lab is organizer-only too. See CURRENT-STATUS.md and
+DEPLOYMENT.md for implemented authorization and the operator setup.
+
 ## Implementation update (2026-11-06)
 
 This document preserves the 2026-10-30 approval. Read

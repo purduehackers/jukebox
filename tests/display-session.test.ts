@@ -6,13 +6,13 @@ import { harness, URLS } from './helpers.ts';
 const publicActor = { kind: 'public' } as const;
 const secret = () => randomBytes(32).toString('hex');
 
-test('a display stays connected across nights, with no admin or attendee authority', async (t) => {
+test('an organizer display stays connected across nights, with no admin or attendee authority', async (t) => {
   const h = harness(); t.after(() => h.svc.close());
   const key = secret();
-  const idle = await h.ok(publicActor, 'display.connect', { secret: key });
+  const idle = await h.ok(h.admin, 'display.connect', { secret: key });
   assert.equal(h.snap({ kind: 'device', deviceId: idle.deviceId }).desired, null);
   await h.ok(h.admin, 'night.open', {});
-  const connected = await h.ok(publicActor, 'display.connect', { secret: key });
+  const connected = await h.ok(h.admin, 'display.connect', { secret: key });
   assert.equal(h.svc.authenticateDevice(connected.token), connected.deviceId);
   const actor = { kind: 'device', deviceId: connected.deviceId } as const;
   assert.equal(h.snap(actor).lease, null);
@@ -31,10 +31,10 @@ test('displays connect immediately and concurrently; retries and refreshes requi
   await h.svc.reconcile();
   await h.ok(h.admin, 'night.open', {});
   const key = secret();
-  const first = await h.ok(publicActor, 'display.connect', { secret: key });
-  const replay = await h.ok(publicActor, 'display.connect', { secret: key });
+  const first = await h.ok(h.admin, 'display.connect', { secret: key });
+  const replay = await h.ok(h.admin, 'display.connect', { secret: key });
   assert.deepEqual(replay, first);
-  const others = await Promise.all(Array.from({ length: 5 }, () => h.ok(publicActor, 'display.connect', { secret: secret() })));
+  const others = await Promise.all(Array.from({ length: 5 }, () => h.ok(h.admin, 'display.connect', { secret: secret() })));
   for (const device of [first, ...others]) {
     const actor = { kind: 'device', deviceId: device.deviceId } as const;
     const desired = h.snap(actor).desired!;
@@ -61,7 +61,7 @@ test('displays connect immediately and concurrently; retries and refreshes requi
 test('automatic registrations stay bounded without invalidating the other recent tabs', async (t) => {
   const h = harness(); t.after(() => h.svc.close());
   const devices = [];
-  for (let i = 0; i < 40; i++) devices.push(await h.ok(publicActor, 'display.connect', { secret: secret() }));
+  for (let i = 0; i < 40; i++) devices.push(await h.ok(h.admin, 'display.connect', { secret: secret() }));
   assert.equal(h.svc.db.prepare('select count(*) as n from devices where automatic=1').get()!.n, 32);
   for (const device of devices.slice(-32)) assert.equal(h.svc.authenticateDevice(device.token), device.deviceId);
 });
@@ -71,7 +71,7 @@ test('reload checkpoints cannot override a pending seek, and stale seek reports 
   await h.ok(h.admin, 'master.add', { url: URLS.mix });
   await h.svc.reconcile();
   await h.ok(h.admin, 'night.open', {});
-  const device = await h.ok(publicActor, 'display.connect', { secret: secret() });
+  const device = await h.ok(h.admin, 'display.connect', { secret: secret() });
   const actor = { kind: 'device', deviceId: device.deviceId } as const;
   const d = h.snap(actor).desired!;
   const report = { generation: device.generation, epoch: d.epoch, loadId: d.loadId, status: 'playing' as const, positionSec: 42 };
@@ -124,13 +124,13 @@ test('request reload restores its own checkpoint and duplicate display ends adva
   const request = await h.ok(h.alice, 'request.submit', { url: URLS.r1 });
   await h.svc.reconcile();
   await h.ok(h.admin, 'request.playNow', { entryId: request.entryId });
-  const page = await h.ok(publicActor, 'display.connect', { secret: secret() });
+  const page = await h.ok(h.admin, 'display.connect', { secret: secret() });
   const actor = { kind: 'device', deviceId: page.deviceId } as const;
   const d = h.snap(actor).desired!;
   const report = { generation: page.generation, epoch: d.epoch, loadId: d.loadId, status: 'paused' as const, positionSec: 70 };
   await h.ok(actor, 'player.report', report);
   h.restart();
-  const reload = await h.ok(publicActor, 'display.connect', { secret: secret() });
+  const reload = await h.ok(h.admin, 'display.connect', { secret: secret() });
   const other = { kind: 'device', deviceId: reload.deviceId } as const;
   assert.equal(h.snap(other).desired!.startPositionSec, 70);
   await h.ok(h.admin, 'playback.seek', { entryId: d.entryId, positionSec: 100 });
@@ -163,8 +163,8 @@ test('alternating paused displays cannot move the checkpoint, while explicit see
   await h.svc.reconcile();
   await h.ok(h.admin, 'night.open', {});
   await h.ok(h.admin, 'playback.pause', {});
-  const a = await h.ok(publicActor, 'display.connect', { secret: secret() });
-  const b = await h.ok(publicActor, 'display.connect', { secret: secret() });
+  const a = await h.ok(h.admin, 'display.connect', { secret: secret() });
+  const b = await h.ok(h.admin, 'display.connect', { secret: secret() });
   const actor = (device: typeof a) => ({ kind: 'device' as const, deviceId: device.deviceId });
   const report = async (device: typeof a, positionSec: number) => {
     const d = h.snap(actor(device)).desired!;
@@ -185,4 +185,12 @@ test('alternating paused displays cannot move the checkpoint, while explicit see
   assert.equal(h.snap().playback.confirmation, 'confirmed');
   assert.ok(h.snap(actor(a)).desired);
   assert.ok(h.snap(actor(b)).desired);
+});
+
+
+test('public visitors and attendees cannot register an automatic player', async (t) => {
+  const h = harness(); t.after(() => h.svc.close());
+  await h.fails('UNAUTHENTICATED', publicActor, 'display.connect', { secret: secret() });
+  await h.fails('FORBIDDEN', h.alice, 'display.connect', { secret: secret() });
+  assert.equal(h.svc.db.prepare('select count(*) as n from devices').get()!.n, 0);
 });

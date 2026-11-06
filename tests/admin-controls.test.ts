@@ -433,12 +433,13 @@ async function until(condition: () => boolean, ms = 3000) {
   }
 }
 
-test('known service limitation: an already-open SSE stream keeps admin data after the session expires, so /admin also polls', async () => {
+test('an expired admin stream closes before another organizer change can expose privileged data', async () => {
   const app = await startApp();
   const controller = new AbortController();
   try {
     const admin = await organizer(app);
     assert.ok((await admin.raw('night.open', {})).body.ok);
+    let ended = false;
     const seen: { role: string; revision: number; hasMaster: boolean }[] = [];
     const res = await admin.fetch('/api/v1/stream', { signal: controller.signal });
     void (async () => {
@@ -452,15 +453,14 @@ test('known service limitation: an already-open SSE stream keeps admin data afte
           if (data) { const s = JSON.parse(data.slice(6)); seen.push({ role: s.role, revision: s.revision, hasMaster: s.master !== undefined }); }
         }
       }
-    })().catch(() => undefined);
+    })().catch(() => undefined).finally(() => { ended = true; });
     await until(() => seen.length > 0);
     app.clock.advance(13 * 3600_000); // session TTL is 12 h
     assert.equal((await admin.snapshot()).role, 'public', 'a fresh request sees the expiry (what the admin page polls)');
     const other = await organizer(app, 'organizer2');
     assert.ok((await other.raw('master.add', { url: URLS.song })).body.ok);
-    await until(() => seen.some((s) => s.revision > seen[0]!.revision));
-    assert.equal(seen.at(-1)!.role, 'admin', 'LIMITATION (proposal A2): the stale stream still receives admin snapshots');
-    assert.equal(seen.at(-1)!.hasMaster, true);
+    await until(() => ended);
+    assert.equal(seen.length, 1, 'no new privileged snapshot after expiry');
   } finally {
     controller.abort();
     await app.stop();

@@ -1,7 +1,7 @@
 # Jukebox project plan
 
 Status: local phases 1–4 are integrated, including PH ID, dark admin/queue UI,
-automatic Firefox playback and the approved stationary soundbar. Production and
+organizer-authenticated automatic Firefox playback and the approved stationary soundbar. Production and
 venue gates remain open. Updated 2026-11-06.
 
 Read [Current implementation and deployment readiness](CURRENT-STATUS.md) first

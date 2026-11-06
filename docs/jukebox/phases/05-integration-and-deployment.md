@@ -4,7 +4,8 @@ Status: local phases 1–4 integrated; public deployment and venue rehearsal pen
 Updated 2026-11-06. [Current status](../CURRENT-STATUS.md) records the actual
 implementation, local test results and release blockers. This brief is the
 remaining integration/operations checklist, not deployment authorization.
-Automatic concurrent displays supersede older pairing/exclusive-lease steps.
+Organizer-authenticated concurrent displays supersede older public-display/pairing/exclusive-lease steps.
+Production launcher and operator examples are in [the deployment guide](../DEPLOYMENT.md).
 
 ## Local integration
 
@@ -60,7 +61,7 @@ Operator questions and configuration inventory: [Deployment handoff](../DEPLOYME
 
 The agreed night-long rehearsal succeeds; pending hardware checks are resolved;
 production state survives supported reconnect/restart cases; and the organizer
-has a short runbook covering start event, activate audio, pair device, manage
+has a short runbook covering sign in as organizer on the display, start event, verify Firefox autoplay, manage
 requests, recover connection, stop event, and roll back. Include state backup/
 retention and credential rotation responsibilities appropriate to the chosen
 service. Document known limits rather than promising uninterrupted provider audio.

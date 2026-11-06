@@ -99,6 +99,15 @@ def main():
         d.set_script_timeout(10)
         player_helpers.allow_autoplay(d, app)
         d.get(app + path)
+        if path.startswith('/display'):
+            until(lambda: d.find_elements(By.CSS_SELECTOR, '[data-testid="organizer-gate"] a'))
+            assert not d.find_elements(By.TAG_NAME, 'audio'), 'logged-out display must mount no audio player'
+            # Fixture session copied into a fresh profile without a user activation;
+            # Firefox autoplay checks must still exercise the native default block.
+            for cookie in player_helpers.organizer_cookies(app):
+                d.add_cookie(cookie)
+            d.get(app + path)
+            report['checks']['organizerLoginRequiredBeforeDisplayAndAudio'] = True
         return d
 
     def click(d, id):
