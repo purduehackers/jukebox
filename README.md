@@ -41,8 +41,12 @@ sign-in. To use the registered PH ID client, follow [PH ID setup](docs/jukebox/P
 
 The consolidated baseline is `main`. Start new work from the latest `origin/main`;
 older phase branches may omit recent fixes. The existing local PH ID checkout can
-still run the app with its private `.env.local` and saved state. The display tuner is
-`/display?tune`. A closed night deliberately shows the empty session screen;
+still run the app with its private `.env.local` and saved state. The visualizer tuning lab is
+`/visual` (use instead of `/display` while tuning audio). It saves sliders locally
+and offers Copy settings and an underlying-function view. `/visual?silent=1` is a
+silent layout check. `/display` uses the approved stationary soundbar preset from
+`docs/jukebox/references/soundbar-approved-settings.json`; lab changes do not alter it.
+A closed night deliberately shows the empty session screen;
 start a night in `/admin` to show music and the visualizer. See the
 [connection audit](docs/jukebox/PLAYER-CONNECTION-AUDIT.md) for the simplified flow.
 

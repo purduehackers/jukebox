@@ -1,0 +1,16 @@
+{
+  "gain": 2.3,
+  "height": 0.85,
+  "bands": 92,
+  "attack": 12,
+  "release": 125,
+  "minHz": 20,
+  "maxHz": 15500,
+  "softness": 0,
+  "size": 2,
+  "density": 1,
+  "edgeSoftness": 100,
+  "floorDb": -77,
+  "rangeDb": 63,
+  "tilt": 0.5
+}

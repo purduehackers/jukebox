@@ -1,0 +1,2 @@
+.soundbar { position: absolute; inset: 0; overflow: hidden; }
+.soundbar canvas { display: block; image-rendering: pixelated; }

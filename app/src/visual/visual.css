@@ -1,0 +1,26 @@
+.visual-lab { min-height: 100dvh; box-sizing: border-box; background: #000; padding: 32px; font-family: Inconsolata, monospace; }
+.visual-lab * { box-sizing: border-box; }
+.visual-lab header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+.visual-eyebrow { color: #efb9ff; font-size: 14px; letter-spacing: .12em; }
+.visual-lab h1 { font: 400 42px PolySans, sans-serif; margin: 10px 0 0; }
+.visual-lab header a { color: #efb9ff; }
+.visual-workspace { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 32px; }
+.visual-stage { position: relative; min-height: 560px; height: calc(100dvh - 165px); border: 1px solid #7e3cff; overflow: hidden; }
+.visual-caption { position: absolute; bottom: 20px; left: 24px; right: 24px; display: flex; gap: 24px; justify-content: space-between; color: #efb9ff; font-size: 14px; }
+.visual-caption span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.visual-controls h2 { font: 400 24px PolySans, sans-serif; margin: 0 0 22px; }
+.visual-controls label { display: block; margin-bottom: 18px; font-size: 15px; }
+.visual-controls label > span { display: flex; justify-content: space-between; margin-bottom: 7px; }
+.visual-controls output { color: #efb9ff; font-variant-numeric: tabular-nums; }
+.visual-controls input { width: 100%; accent-color: #7e3cff; }
+.visual-actions { display: flex; gap: 10px; margin-top: 24px; }
+.visual-actions button { font: inherit; color: white; background: #171717; border: 1px solid #7e3cff; padding: 9px 14px; cursor: pointer; }
+.visual-controls p { color: #aaa; font-size: 13px; line-height: 1.5; }
+@media (max-width: 850px) { .visual-lab { padding: 20px; } .visual-workspace { grid-template-columns: 1fr; } .visual-stage { min-height: 300px; height: 50dvh; } }
+
+@media (min-width: 851px) { .visual-controls { height: calc(100dvh - 165px); overflow-y: auto; padding-right: 12px; } }
+.visual-controls label { margin-bottom: 12px; }
+.visual-controls input { margin: 0; }
+
+.visual-mode { width: 100%; margin: 0 0 20px; font: inherit; color: #efb9ff; background: #171717; border: 1px solid #7e3cff; padding: 10px; cursor: pointer; }
+.visual-mode[aria-pressed="true"] { background: #7e3cff; color: white; }

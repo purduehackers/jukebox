@@ -4,7 +4,8 @@ import type { Snapshot } from '../shared/api.ts';
 import type { LocalPlayback } from './model.ts';
 import { displayModel, duration, safeArtwork } from './model.ts';
 import { RequestQr } from './RequestQr.tsx';
-import { Visualizer } from './Visualizer.tsx';
+import { Soundbar } from '../visual/Soundbar.tsx';
+import { approvedDefaults } from '../visual/soundbar.ts';
 import '@fontsource/inconsolata/400.css';
 import '@fontsource/inconsolata/700.css';
 import './display.css';
@@ -25,11 +26,10 @@ export function DisplayView({ snapshot, error, now, local }: { snapshot: Snapsho
   </main>;
   const model = displayModel(snapshot, now, !!error, local);
   const track = snapshot?.nowPlaying;
-  const observed = model.observed;
   const status = model.status.replaceAll('_', ' ');
   return <main className="jukebox-display" data-testid="display" data-state={model.status}>
     <div className="display-left">
-      <Visualizer playing={model.playing} trackKey={track?.entryId ?? ''} position={observed?.positionSec ?? null} observedAt={observed?.observedAt ?? null} />
+      <section className="display-visualizer" aria-label="Audio-reactive soundbar"><Soundbar settings={approvedDefaults} playing={model.playing} /></section>
       <section className="display-now" aria-label="Now playing">
         <Artwork url={track?.artworkUrl} />
         <div className="display-metadata">

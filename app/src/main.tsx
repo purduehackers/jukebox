@@ -6,9 +6,11 @@ import { AdminPage } from './admin/AdminPage.tsx';
 import { DisplayPage } from './display/DisplayPage.tsx';
 import { QueuePage } from './queue/QueuePage.tsx';
 import './shared/tokens.css';
+import { VisualPage } from './visual/VisualPage.tsx';
 
 function App() {
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
+  if (path === '/visual') return <VisualPage />;
   if (path === '/display') return <DisplayPage />;
   if (path === '/admin') return <AdminPage />;
   if (path === '/queue') return <QueuePage />;

@@ -1,32 +1,38 @@
-# Audio visualizer chat handoff
+# Approved soundbar display handoff
 
-This handoff accompanies the committed universal-display baseline on `main`.
-The next chat must be bound to an isolated worktree of that exact pushed commit.
-The user wants to work on the audio visualizer next; no new visual design or
-behavior change has been specified yet. Start the normal local app in the new
-worktree, report readiness, then ask what visualizer change the user wants.
+Final user decision (2026-11-05): put the original approved stationary soundbar
+on `/display` and push it to `main`. Keep `/visual` for future tuning. All wisp,
+extra-gradient, outline, cutout and warp experiments were rejected and removed.
+Do not reintroduce them without a new request.
 
-Read AGENTS.md, docs/jukebox/README.md, DECISIONS.md, PHASE-4C-DISPLAY.md and
-DESIGN-REFERENCE.md. Main visualizer files: app/src/display/Visualizer.tsx,
-signal.ts, Tuner.tsx and display.css. `/display?tune` exposes existing tuning.
-The current visualizer is real audio-driven purple/black dithered geometry,
-mirrored waveform with integrated tapered wisps and high-frequency bounce.
-Reuse the actual fonts, colors and analyser; do not invent signal or request a mic.
+## Implementation
 
-## Preserve this baseline
+- `app/src/visual/soundbar.ts`: approved 14-value preset, stationary logarithmic
+  spectrum, explicit attack/release, scalar field and 4x4 Bayer threshold.
+- `app/src/visual/Soundbar.tsx`: shared Canvas renderer consuming the player's
+  analyser. FFT 4096, built-in smoothing disabled, no extra audio graph/player.
+- `/display` imports the fixed approved preset. Its behaviour is independent of
+  browser lab storage. Preserve exact reaction settings and flush side edges.
+- `/visual` keeps the original sliders, Reset, Copy settings and underlying-field
+  toggle. Lab settings save locally and do not alter the main display preset.
+- `references/soundbar-approved-settings.json` archives the user's exact values.
+  `VISUALIZER-RESEARCH.md` is background research, not a replacement preset.
 
-- Universal automatic display, no pairing, linking, exclusive playback gate,
-  15-second startup wait or app Enable sound button. Firefox site autoplay
-  permission still applies. Start/End night starts/stops sound; closed night
-  reads Night not started. Reloads resume near durable checkpoints.
-- One ordered state subscription. Native audio drives each display's local
-  progress/status. Paused shared checkpoints stay fixed across heartbeats.
-  Do not reintroduce the two-display paused-time flicker.
-- Display request panel keeps its QR, Song requests heading, URL and original
-  dimensions. Only PH ID / three-per-night helper copy was removed.
-- Queue page hides Getting ready badges. Preserve the existing minimal UI.
-- Keep admin/queue official dark PH components separate from display styling.
-- See PLAYER-CONNECTION-AUDIT.md for playback changes and measured evidence.
+## Preserve player and presentation behaviour
+
+Universal automatic display; Start/End night starts/stops sound. No pairing,
+linking, lease gate, startup delay or app sound-enable button. Native autoplay
+is attempted; Firefox site permission still applies. Closed nights show Night
+not started. Reloads resume near checkpoints. Keep local progress and paused
+checkpoint handling stable (see PLAYER-CONNECTION-AUDIT.md).
+
+Keep the request QR, Song requests heading and URL. Preserve the removed
+PH ID/three-per-night helper line and hidden Getting ready queue badges.
+Admin/queue styling remains separate from the display identity.
+
+Use isolated muted audio or silent display fixtures for verification. Avoid
+opening another live player tab while the user is listening. Never infer HDMI
+or venue behaviour from software checks alone.
 
 ## Local runtime handoff
 

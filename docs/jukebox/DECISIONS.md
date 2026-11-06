@@ -488,3 +488,39 @@ chats. The official component skill and scoped admin/queue styles are included;
 display/player/server behavior stays unchanged. Real PH ID configuration and
 service/worker state remain local and untracked. Typechecks and build pass; the
 13 focused admin/rendering checks passed after the copy cleanup.
+
+## Approved stationary soundbar promoted to display (2026-11-05)
+
+The user approved the original stationary soundbar's reaction and pasted all 14
+settings, archived verbatim in `references/soundbar-approved-settings.json`.
+The user ultimately rejected the wisp, extra gradient, outline, cutout and warp
+experiments and explicitly requested putting their original on `/display` and
+pushing it to `main`. Those experimental renderers/controls/dependencies are
+removed. Do not restore them without a new user request.
+
+The display uses the exact approved defaults, independent of browser lab storage.
+The soundbar integrates FFT power into stationary logarithmic bands, maps a dB
+range to height, applies the approved attack/release and renders one mirrored
+scalar field through 4x4 Bayer dithering in purple/black. FFT 4096 with native
+analyser smoothing disabled; explicit reaction smoothing is the only temporal
+filter. No autonomous motion, particle layers or shader warp remains. First/last
+measured heights meet the panel side edges without synthetic triangular taper.
+
+`/visual` retains only the original 14 tuning sliders, Reset, Copy settings and
+underlying-function toggle. It uses the same renderer as `/display`. Changing lab
+sliders does not change the display's approved preset. Use one live player page
+at a time; `/visual?silent=1` and display fixtures mount no player. The renderer
+only consumes the existing player analyser and creates no audio graph/session.
+PH ID, scheduling, checkpoints, QR and admin/queue styling remain unchanged.
+
+Research findings remain in VISUALIZER-RESEARCH.md as background, not overrides
+to the user-approved settings. Original source formulas and the final approved
+preset take precedence over proposed research defaults.
+
+
+Validation for promotion: 179 automated tests, both TypeScript checks and the
+production build pass. Firefox 159 verified the actual DisplayView fixture's
+shared renderer with muted cached audio: exact approved JSON, real audio response,
+silence decay, original purple Bayer pixels, flush sides and preserved QR panel.
+The test fixture mounts no live player and changes no night/queue/checkpoint.
+The user reconfirmed that `/visual` should remain for future work.
