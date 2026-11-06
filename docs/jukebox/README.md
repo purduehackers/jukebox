@@ -1,21 +1,18 @@
 # Jukebox project plan
 
-Status: Phases 1–3 (local audio proof, durable service, designated Firefox player) implemented; venue/server/PH ID client gates pending. Updated 2026-10-30.
+Status: local phases 1–4 are integrated, including PH ID, dark admin/queue UI,
+automatic Firefox playback and the approved stationary soundbar. Production and
+venue gates remain open. Updated 2026-11-06.
 
-The user approved [the consolidated plan](APPROVAL-PLAN.md) and its defaults on
-2026-10-30. It is the current scope/behavior authority. Start phase 1 in its own
-chat/worktree; later detailed discussions and dependent phases follow its order.
+Read [Current implementation and deployment readiness](CURRENT-STATUS.md) first
+for actual behavior, startup, baseline and release blockers. The original plan
+was approved on 2026-10-30; later decisions supersede its pairing, activation,
+fixed-mode and deferred-display descriptions. No new plan approval is needed.
+The older architecture/order sections below preserve the planning context, not
+instructions to restart completed phases. The separate Hack Night dashboard
+remains a visual reference only and is outside this implementation scope.
 
-This is the starting point for planning and later phase chats. Phase 1 now has
-a local runnable worker/cache and Firefox proof; see [findings](PHASE-1-FINDINGS.md)
-and the [root startup instructions](../../README.md). No production runtime has
-been deployed. The user has returned and clarified audio-only playback,
-song/mix interruption, a separate repository, and exact dashboard visual reuse.
-The canonical implementation repository is
-<https://github.com/purduehackers/jukebox>. The separate Hack Night dashboard
-remains a visual reference only. Changes to that dashboard are outside scope.
-
-## Intended experience
+## Original intended experience (see current status for overrides)
 
 One laptop drives the video wall. The existing Hack Night dashboard occupies the
 left area; `jukebox.purduehackers.com/display` occupies the right area and plays
@@ -79,7 +76,7 @@ superseded by the intended jukebox hostname.
 - [Phase 4C: dedicated jukebox display](phases/04c-display.md).
 - [Phase 5: integration and deployment](phases/05-integration-and-deployment.md).
 
-## Proposed architecture
+## Original architecture and phase plan (historical)
 
 These are design proposals to discuss. The separate repository is confirmed;
 hosting and the media worker's location remain open.
@@ -116,7 +113,7 @@ URL and requested version separately from the selected playable provider item.
 YouTube, Spotify, and Apple Music support should be explicit capabilities, not a
 promise to play any arbitrary URL.
 
-## Order of work
+## Original order of work (phases 1–4 now integrated)
 
 | Stage | Outcome | Depends on |
 | --- | --- | --- |

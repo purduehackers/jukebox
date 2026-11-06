@@ -524,3 +524,27 @@ shared renderer with muted cached audio: exact approved JSON, real audio respons
 silence decay, original purple Bayer pixels, flush sides and preserved QR panel.
 The test fixture mounts no live player and changes no night/queue/checkpoint.
 The user reconfirmed that `/visual` should remain for future work.
+
+## Implementation reconciliation and deployment scan (2026-11-06)
+
+The user requested a final localhost review, deployment readiness scan, and notes
+that reflect how the app actually works. CURRENT-STATUS.md now consolidates the
+implemented behavior and later overrides without treating them as new decisions.
+Baseline reviewed: `32c265a`, already on `origin/main`; local main was behind.
+The normal stack was started with real PH ID and the real audio worker. Full
+routine checks pass (179 TS, 21 Python, five policy tests, typechecks/build).
+Public deployment remains blocked by stale SSE authorization and the unprotected
+public automatic-display reporting/registration boundary, plus unfinished hosting,
+persistence/backup, production-origin identity/source and venue checks. This scan
+authorizes no production or DNS change and does not restore obsolete pairing UX.
+
+The fresh Firefox 159.0 run passed all 16 native playback/recovery checks with
+isolated fixtures and a null audio sink, including concurrent displays, repeated
+nights, outages and refund recovery. Mix resume seek error measured 0.000 seconds.
+Evidence: `evidence/deployment-scan-firefox.json`. HDMI and server-source tests
+remain pending; these results do not close the public-deployment gates.
+
+## Shorter display countdown label (2026-11-06)
+
+The user requested removing “turn” from the display countdown. Its visible label
+and accessible section name now read “Next request”; scheduling is unchanged.

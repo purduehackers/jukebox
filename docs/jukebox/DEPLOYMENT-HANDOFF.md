@@ -1,6 +1,6 @@
 # Deployment and DNS operator handoff
 
-Updated 2026-11-02. Preparation for the infrastructure discussion; no message has
+Updated 2026-11-06. See [current status](CURRENT-STATUS.md) for the implementation and verified release gates. Preparation for the infrastructure discussion; no message has
 been sent and no hosting, DNS, or production change is authorized by this document.
 Canonical app: `purduehackers/jukebox`, intended hostname
 `jukebox.purduehackers.com`. The existing Hack Night dashboard is independent.
@@ -29,7 +29,7 @@ local implementation now supplies an answer.
 5. Where will the SQLite state and media cache persist across deploys/restarts?
    Agree one queue-service writer, storage/cache limits, backup/restore, cleanup,
    logs, restart policy, and migration/rollback procedure. Separate preview data,
-   credentials, pairing, and worker/cache resources from production.
+   credentials, display registrations, and worker/cache resources from production.
 6. Who manages the PH ID application's production callback, client secret, and
    organizer/admin roles? Confirm whether the current application should remain
    personally owned or be transferred/recreated under an organization operator.
@@ -65,11 +65,11 @@ The planned file is `zones/purduehackers.com/jukebox.yaml`; verify the layout wh
 working there. Do not add a `music` alias or change dashboard DNS as part of this.
 
 Before public operation: fix event-stream reauthorization after logout/session
-expiry, complete production ingress and abuse controls, verify durable restart
+expiry and protect the public automatic-display connect/report boundary, complete production ingress and abuse controls, verify durable restart
 and backup behavior, test real audio-source access from the server, and rehearse
 Firefox audio/seek/recovery with the venue output. After DNS/HTTPS are ready, test
 production sign-in, organizer permissions, attendee rejection from admin actions,
-QR reachability, same-origin media/range seeking, and display pairing. Local
+QR reachability, same-origin media/range seeking, and automatic display connection/playback. Local
 success does not verify production or hardware behavior.
 
 ## Current identity evidence
@@ -81,3 +81,13 @@ live role-based admin access is pending. Roles are captured at login, so sign ou
 and sign in again after a role is granted, then visit `/admin`. No client ID or
 secret is recorded here. See PH-ID-SETUP.md for integration details and regression
 coverage.
+
+## Current display and baseline correction
+
+Automatic displays no longer pair or hold an exclusive lease. They remain
+connected between nights; Start/End night starts/stops audio, and multiple tabs
+may play. Preserve this UX when protecting report routes for public deployment.
+The latest reviewed source is `32c265a` on `origin/main`; do not deploy an old phase
+branch or a stale local main. `./scripts/run-dev` starts real worker/media by
+default and loads private `.env.local`. Production still needs a separate process,
+proxy, persistent-storage and operations configuration; see CURRENT-STATUS.md.

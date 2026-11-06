@@ -1,7 +1,10 @@
 # Phase 5: integration, rehearsal, and deployment
 
-Status: after the core phases and infrastructure answers. No deployment is part
-of the current planning task.
+Status: local phases 1–4 integrated; public deployment and venue rehearsal pending.
+Updated 2026-11-06. [Current status](../CURRENT-STATUS.md) records the actual
+implementation, local test results and release blockers. This brief is the
+remaining integration/operations checklist, not deployment authorization.
+Automatic concurrent displays supersede older pairing/exclusive-lease steps.
 
 ## Local integration
 
@@ -13,7 +16,7 @@ of the current planning task.
 3. Simulate an admin-managed night session with an accelerated clock, across
    midnight without a quota reset. Exercise next-session quota reset, empty turns,
    automatic request admission, admin removal, repeated
-   commands, track errors, connection loss, device lease expiry, and refresh.
+   commands, track errors, connection loss, automatic-display reconnect/report credentials, and refresh.
 4. Rehearse on the real laptop and wall: window placement, audio activation,
    HDMI route, Firefox sleep recovery, QR reachability, and emergency
    fallback. Keep simulated success distinct from hardware success.
@@ -27,7 +30,7 @@ of the current planning task.
 - Evaluate the user's existing capable server before proposing new infrastructure.
   Confirm actual runtime/resources, deployment ownership, storage, source access,
   and network paths; do not infer capabilities or credentials from the description.
-- Use preview-only storage, credentials, and device pairing. Preview commands must
+- Use preview-only storage, credentials, and display registrations. Preview commands must
   not reach the production player or queues, even when accounts are shared.
 - Deploy compatible app/service contracts and database migrations deliberately.
   Confirm reconnects and mixed-version behavior before changing production.
@@ -50,7 +53,7 @@ Operator questions and configuration inventory: [Deployment handoff](../DEPLOYME
 3. Follow the engineer's deployment/merge procedure, verify DNS, HTTPS, routes,
    callbacks, websocket origin authorization, and public read versus device/admin
    access. If desired, implement the separate `music` redirect explicitly.
-4. Verify production pairing and actual output with an organizer present. Define
+4. Verify automatic production display connection and actual output with an organizer present. Define
    fallback music, emergency stop, manual recovery, and rollback owner.
 
 ## Exit gate and operations handoff

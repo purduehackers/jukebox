@@ -1,8 +1,10 @@
 # Ordered phase chat prompts
 
-Approval recorded: the user approved APPROVAL-PLAN.md and its defaults on
-2026-10-30. Start with playback feasibility in its own Jukebox project/worktree.
-Do not request the same approval again or start dependent phases prematurely.
+Current status (2026-11-06): local phases 1–4 are integrated. Start from the
+latest `origin/main`; use [current implementation and deployment gates](CURRENT-STATUS.md)
+for the next task. The phase prompts below are historical templates, not a request
+to repeat completed phases. The original approval remains valid and later user
+decisions in DECISIONS.md supersede older pairing/activation/display instructions.
 
 These are ordered implementation-chat templates. The user chose a separate repo, audio-only playback,
 song/mix interruption, one request per turn, a fresh 15-minute master period,

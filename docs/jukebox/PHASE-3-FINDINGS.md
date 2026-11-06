@@ -1,5 +1,11 @@
 # Phase 3: designated Firefox playback browser
 
+Historical phase evidence: pairing, claim, activation and exclusive-lease behavior
+below was superseded on 2026-11-05. See [connection audit](PLAYER-CONNECTION-AUDIT.md)
+and [current status](CURRENT-STATUS.md) for automatic concurrent displays and
+current release gates. Preserve these measurements as evidence of that phase,
+not instructions for operating today's app.
+
 Implemented 2026-10-30 (America/Indiana/Indianapolis), based on app-shell baseline
 `c2dc8835241753784e27614592cade1255ebe570`. Scope authority remains
 [APPROVAL-PLAN.md](APPROVAL-PLAN.md). No production deployment or venue test is claimed.

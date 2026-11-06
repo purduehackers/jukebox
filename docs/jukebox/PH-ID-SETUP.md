@@ -1,6 +1,6 @@
 # PH ID setup and local verification
 
-PH ID's [source](https://github.com/purduehackers/id) at `eacf5a7e46cb091f1825262b538119f409aa56e6` exposes OpenID Connect discovery, authorization code with PKCE, and a member application registration page. Jukebox already had an adapter and routes on the integrated baseline. This phase hardens discovery and redirects and verifies the complete HTTP login and logout against a local provider fixture. On 2026-11-02 the user verified live local sign-in with a registered client; their screenshot shows `/queue` signed in as `patiowizard`. Live organizer/admin access remains pending a PH ID role grant.
+PH ID's [source](https://github.com/purduehackers/id) at `eacf5a7e46cb091f1825262b538119f409aa56e6` exposes OpenID Connect discovery, authorization code with PKCE, and a member application registration page. Jukebox already had an adapter and routes on the integrated baseline. This phase hardens discovery and redirects and verifies the complete HTTP login and logout against a local provider fixture. On 2026-11-02 the user verified live local sign-in with a registered client; their screenshot shows `/queue` signed in as `patiowizard`. Live organizer/admin access was pending a PH ID role grant in that verification; the 2026-11-06 scan did not repeat live sign-in or establish current role grants.
 
 ## Registration
 

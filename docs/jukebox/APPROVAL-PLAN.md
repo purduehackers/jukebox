@@ -9,6 +9,18 @@ approval. The user adopted the defaults and authorized starting phase 1 in a
 separate chat/worktree. Production deployment and paid infrastructure remain later
 steps. The detailed briefs and research support this plan.
 
+## Implementation update (2026-11-06)
+
+This document preserves the 2026-10-30 approval. Read
+[Current implementation and deployment readiness](CURRENT-STATUS.md) and later
+DECISIONS.md entries for today's behavior. Local phases 1–4 are integrated.
+Later user decisions replaced paired/exclusive playback and app activation with
+automatic concurrent displays and Firefox site autoplay permission; added queue
+modes, Play now and configurable Auto intervals; approved the stationary soundbar
+and retained `/visual`. Playlist-only import is still unsupported. Production
+hosting, security and venue gates remain open. Sections below are the original
+approval record, not a claim that every planned capability shipped.
+
 ## 1. What we are building — confirmed
 
 A separate Purdue Hackers Jukebox in `purduehackers/jukebox`, intended for
