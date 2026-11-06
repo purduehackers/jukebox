@@ -26,13 +26,14 @@ separately, run `./scripts/run-local --data .local/display-demo/worker`, then
 See [link compatibility and live-source evidence](docs/jukebox/LINK-COMPATIBILITY.md)
 for supported URLs, catalog behavior, configuration, and isolated test ports.
 
-Open **http://127.0.0.1:5173/display in Firefox** and click **Enable sound** if
-Firefox asks. Open **http://127.0.0.1:5173/admin**, use the labelled local test
-sign-in with organizer checked, add master music, and click **Start night**.
-The display connects and plays automatically. Ending the session stops audio
-and shows an empty display asking the admin to start a session. No pairing codes
-or claim controls. The browser handles the one-player lock and reconnection in
-the background. `/queue` is the silent attendee request page.
+Open **http://127.0.0.1:5173/display in Firefox**. If Firefox blocks autoplay, set
+this site's Autoplay permission to **Allow Audio and Video** in the address bar
+once; there is no app sound-enable button. Open **http://127.0.0.1:5173/admin**,
+sign in with PH ID, add master music, and click **Start night**. The display stays
+connected, starts music automatically, and resumes near its checkpoint on reload.
+**End night** stops audio and shows **Night not started**. No pairing, linking,
+exclusive display lock, or 15-second startup wait. Two display tabs can both play.
+`/queue` is the silent attendee request page.
 
 The example reuses saved display-demo service state and the local worker cache. All services bind to
 loopback. Without PH ID configuration, the development script uses labelled fake
@@ -42,8 +43,8 @@ The consolidated baseline is `main`. Start new work from the latest `origin/main
 older phase branches may omit recent fixes. The existing local PH ID checkout can
 still run the app with its private `.env.local` and saved state. The display tuner is
 `/display?tune`. A closed night deliberately shows the empty session screen;
-start a night in `/admin` to show music and the visualizer. New display connections
-wait up to 15 seconds for an old audio lease to expire.
+start a night in `/admin` to show music and the visualizer. See the
+[connection audit](docs/jukebox/PLAYER-CONNECTION-AUDIT.md) for the simplified flow.
 
 ## Run the phase-2 queue service
 

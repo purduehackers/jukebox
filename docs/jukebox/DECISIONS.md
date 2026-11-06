@@ -1,5 +1,35 @@
 # Decisions and question backlog
 
+## Minimal display request copy (2026-11-05)
+
+Keep the request QR, “Song requests” heading, URL and original sizing. The user
+removed only the “PH ID · 3 per night” line.
+
+## Minimal attendee request status (2026-11-05)
+
+The user removed the “Getting ready” badges from both **Your requests** and
+**In the queue**. Keep preparation internal; do not restore those badges.
+
+## Universal automatic display (2026-11-05)
+
+The user requested a full connection/playback audit and explicitly replaced the
+exclusive designated-player flow with one universal display. Competing tabs may
+both produce sound; preventing that is unnecessary. Keep the display connected
+across night sessions, with no linking, pairing, app sound-enable control, or
+ownership wait. No night: **Night not started**, silent. Confirmed follow-up:
+**Start night** immediately starts the master; **End night** immediately stops
+sound and returns to that idle state. Reloads/brief interruptions resume the
+current song near its saved position.
+
+Firefox's native autoplay policy still applies. Attempt playback automatically;
+use the browser's saved site permission rather than treating sound activation as
+an app setup step. The server remains authoritative for scheduling/queues; the
+open display browser still produces the HDMI audio. A server cannot make sound
+through a closed tab. Preserve actual playback reports, stale-command fences,
+media retry/refund behavior and durable checkpoints. See
+[the audit](PLAYER-CONNECTION-AUDIT.md). This supersedes historical single-player
+lease, 15-second wait, and Enable sound instructions below. No deployment requested.
+
 ## Official PH components for admin and attendee (2026-11-05)
 
 The user requested a new dark UI effort from consolidated `origin/main`, using

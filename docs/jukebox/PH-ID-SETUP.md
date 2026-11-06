@@ -46,3 +46,17 @@ its `grantedRoles` maps `admin` to both `organizer` and `admin`. Jukebox accepts
 either. An empty saved array alone does not prove that the current provider
 account lacks access; verify again after a fresh sign-in and confirm the registered
 client allows `roles` if it remains empty.
+
+## Local hostname consistency (2026-11-05)
+
+The development server redirects local aliases to the configured origin (or the
+registered PH ID callback origin). For the current registration, use
+`http://127.0.0.1:5173`. Opening `localhost` now redirects before a login cookie is
+set. Mixing the two previously lost the host-scoped login cookie at callback and
+caused `Missing login state`; display commands from the other origin were rejected
+by the API's CSRF check. That check remains strict. Start a fresh sign-in after
+fixing a mismatched origin; an old callback cannot recover its missing state.
+
+When reusing a saved service database from another worktree, also reuse the same
+worker/cache directory via private `JUKEBOX_WORKER_DATA`. Queue asset references
+belong to that worker state; an empty cache makes them return 404.

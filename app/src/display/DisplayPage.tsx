@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Player } from '../player/Player.tsx';
-import { useSnapshot } from '../shared/api.ts';
 import type { Snapshot } from '../shared/api.ts';
+import type { LocalPlayback } from './model.ts';
 import { displayModel, duration, safeArtwork } from './model.ts';
 import { RequestQr } from './RequestQr.tsx';
 import { Visualizer } from './Visualizer.tsx';
@@ -19,13 +19,13 @@ function Artwork({ url }: { url?: string }) {
 }
 
 /** Read-only presentation; receives public state and never claims audio authority. */
-export function DisplayView({ snapshot, error, now }: { snapshot: Snapshot | null; error: string | null; now: number }) {
+export function DisplayView({ snapshot, error, now, local }: { snapshot: Snapshot | null; error: string | null; now: number; local?: LocalPlayback | null }) {
   if (!snapshot || snapshot.night?.status !== 'open') return <main className="display-idle" data-testid="display" data-state={snapshot ? 'idle' : 'connecting'}>
-    <div><h1>JUKEBOX</h1><p>{snapshot ? 'An admin needs to start a session.' : error ? 'Connecting to Jukebox…' : 'Waiting for the session…'}</p></div>
+    <div><h1>JUKEBOX</h1><p>{snapshot ? 'Night not started' : error ? 'Connecting to Jukebox…' : 'Waiting for the session…'}</p></div>
   </main>;
-  const model = displayModel(snapshot, now, !!error);
+  const model = displayModel(snapshot, now, !!error, local);
   const track = snapshot?.nowPlaying;
-  const observed = snapshot?.playback.observed;
+  const observed = model.observed;
   const status = model.status.replaceAll('_', ' ');
   return <main className="jukebox-display" data-testid="display" data-state={model.status}>
     <div className="display-left">
@@ -70,7 +70,9 @@ export function DisplayPage() {
 }
 
 function LiveDisplay() {
-  const { snapshot, error } = useSnapshot();
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [local, setLocal] = useState<LocalPlayback | null>(null);
   const [clock, setClock] = useState({ server: Date.now(), receipt: performance.now() });
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -83,7 +85,7 @@ function LiveDisplay() {
     const timer = setInterval(() => setNow(clock.server + performance.now() - clock.receipt), 250);
     return () => clearInterval(timer);
   }, [clock]);
-  return <><DisplayView snapshot={snapshot} error={error} now={now} />
-    <Player snapshot={snapshot} />
+  return <><DisplayView snapshot={snapshot} error={error} now={now} local={local} />
+    <Player onSnapshot={setSnapshot} onError={setError} onState={setLocal} />
   </>;
 }

@@ -134,3 +134,22 @@ test('flow shares the band material through bounce and silence clears all geomet
   drawEnvelope(context, [{ bass: 0, treble: 0 }], width, height, { time: 13, historyStart: 3, historyEnd: 13, bounce: 0 }, tuning);
   for (let i = 0; i < pixels.length; i += 4) assert.equal(pixels[i], 0, 'no stale smoke after audio clears');
 });
+
+test('display progress follows its local audio instead of alternating remote paused reports', async (t) => {
+  const { harness, URLS } = await import('./helpers.ts');
+  const h = harness(); t.after(() => h.svc.close());
+  const player = await h.startNight([URLS.mix]);
+  const snapshot = h.snap(player.actor);
+  const desired = snapshot.desired!;
+  const local = { loadId: desired.loadId, epoch: desired.epoch, status: 'paused' as const, positionSec: 318 };
+  snapshot.playback.confirmation = 'confirmed';
+  for (const position of [295, 318, 295, 318, 295]) {
+    snapshot.playback.observed!.positionSec = position;
+    assert.equal(displayModel(snapshot, snapshot.serverTime, false, local).progress, 318);
+    assert.equal(displayModel(snapshot, snapshot.serverTime, false, local).status, 'paused');
+  }
+  assert.equal(displayModel(snapshot, snapshot.serverTime, false, { ...local, epoch: desired.epoch - 1 }).progress, 295,
+    'an old local load/intent cannot describe the next track or seek');
+  assert.equal(displayModel(snapshot, snapshot.serverTime, false, { ...local, positionSec: 200 }).progress, 200,
+    'native seeked position is reflected immediately');
+});

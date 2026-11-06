@@ -229,3 +229,31 @@ Additive; contract version stays 1. Full rationale: [proposal](proposals/queue-p
 
 The API character bound for submitted links is now 2048 on `master.add`, `request.preview` and `request.submit`
 only (previously 300); the source layer's own byte bounds still apply.
+
+## Universal display revision (2026-11-05)
+
+Supersedes the automatic display lease rules above; no migration or new command.
+`display.connect {secret}` now works before, during and between nights and returns
+report credentials without claiming exclusive playback. Its existing generation
+and expiry response fields remain for compatibility; automatic clients do not
+use them as playback gates. Up to 32 recent automatic registrations are retained;
+accepted reports refresh their recency. Legacy paired-player commands retain their
+lease semantics for service fixtures.
+
+An automatic player's snapshot exposes `desired` during an open night without
+requiring a lease. Closed nights expose `desired: null`. Initial source position
+uses the durable checkpoint unless a newer seek is pending. Automatic reports
+are accepted regardless of lease expiry/another automatic tab; load and seek epoch
+fences still reject stale transitions. Reports after night close are ignored.
+Health expiry marks stale observations, but does not revoke browser playback.
+Actual report acknowledgements and stable admin command IDs remain in force.
+
+The display uses one subscription for audio and presentation and cancels obsolete
+media operations before publishing the idle state. See
+[connection audit](PLAYER-CONNECTION-AUDIT.md) and the player README.
+
+Paused checkpoint clarification: once a paused report applies the current desired
+epoch, subsequent paused reports for the same load/epoch renew health without
+moving its checkpoint. A seek/new epoch permits the next position. Each native
+display presents its own actual audio position; shared observations are the
+fallback for read-only fixtures and remain the admin/checkpoint source.

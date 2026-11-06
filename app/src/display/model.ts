@@ -1,5 +1,5 @@
 import { POLICY } from '../../../src/contract/types.ts';
-import type { Snapshot } from '../../../src/contract/types.ts';
+import type { ObservedStatus, Snapshot } from '../../../src/contract/types.ts';
 
 export function duration(seconds: number | null | undefined) {
   if (seconds == null || !Number.isFinite(seconds)) return '—';
@@ -7,11 +7,23 @@ export function duration(seconds: number | null | undefined) {
   return `${Math.floor(value / 60).toString().padStart(2, '0')}:${(value % 60).toString().padStart(2, '0')}`;
 }
 
+export interface LocalPlayback {
+  loadId: number | null;
+  epoch: number;
+  status: ObservedStatus;
+  positionSec: number | null;
+}
+
 /** Presentation only: the service owns all turn transitions, including empty turns. */
-export function displayModel(snapshot: Snapshot | null, now: number, disconnected = false) {
-  const observed = snapshot?.playback.observed;
+export function displayModel(snapshot: Snapshot | null, now: number, disconnected = false, local?: LocalPlayback | null) {
+  const own = local && snapshot?.desired && local.loadId === snapshot.desired.loadId
+    && local.epoch === snapshot.desired.epoch && local.status !== 'loading';
+  // Shared reports belong to any connected display. The local audio element is
+  // the source of truth for this screen's progress, status and analysis.
+  const observed = own ? { status: local.status, positionSec: local.positionSec, observedAt: now }
+    : snapshot?.playback.observed;
   const stale = observed?.observedAt == null || now - observed.observedAt > POLICY.leaseMs;
-  const confirmed = snapshot?.playback.confirmation === 'confirmed';
+  const confirmed = !!own || snapshot?.playback.confirmation === 'confirmed';
   const status = disconnected ? 'disconnected' : !snapshot ? 'connecting' : !snapshot.nowPlaying ? 'empty'
     : stale ? 'offline' : observed!.status === 'playing' && !confirmed ? 'waiting_for_player' : observed!.status;
   const playing = status === 'playing' && confirmed;
@@ -36,7 +48,7 @@ export function displayModel(snapshot: Snapshot | null, now: number, disconnecte
       : remaining === 0 ? 'Awaiting scheduler confirmation'
       : (snapshot.nowPlaying?.durationSec ?? 0) > POLICY.mixThresholdSec ? '' : 'Master song will finish first';
   }
-  return { status, confirmed, playing, progress, turn, detail,
+  return { status, confirmed, playing, progress, turn, detail, observed,
     requests: snapshot?.requests.filter((entry) => entry.status === 'ready' || entry.status === 'preparing') ?? [] };
 }
 

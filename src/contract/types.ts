@@ -148,7 +148,7 @@ export type ObservedStatus =
   | 'error'
   | 'needs_activation';
 
-/** What the server wants the paired player to do. Idempotent; reconcile, don't replay. */
+/** What the server wants the player to do. Idempotent; reconcile, don't replay. */
 export interface DesiredPlayback {
   /** Increments on every desired change (source, intent, seek, volume). */
   epoch: number;
@@ -157,7 +157,7 @@ export interface DesiredPlayback {
   kind: Phase;
   entryId: string;
   asset: AssetDescriptor;
-  /** Position to load/seek to for this loadId; also the latest explicit seek. */
+  /** Initial/reload checkpoint, or the latest explicit seek. Seek only for a new loadId/seekSeq. */
   startPositionSec: number;
   /** Increments with each explicit seek, so a repeated seek to the same position applies. */
   seekSeq: number;
@@ -226,7 +226,7 @@ export interface Snapshot {
   devices?: DeviceView[];
   /** Signed-in attendee only. */
   quota?: { used: number; limit: number; remaining: number };
-  /** Paired player only, while it holds the lease. */
+  /** Player only: automatic displays during an open night; legacy players also require a lease. */
   desired?: DesiredPlayback | null;
   lease?: { deviceId: string; generation: number; expiresAt: number } | null;
 }
@@ -282,7 +282,7 @@ export interface CommandPayloads {
   'request.preview': { url: string };
   // Unauthenticated holder of a pairing code
   'device.pair': { code: string };
-  /** Display tab connects itself during an open session. Secret is unique to this page instance. */
+  /** Display tab connects itself across nights without an exclusive lease. Secret is page-specific. */
   'display.connect': { secret: string };
   // Paired player
   'player.claim': { takeover?: boolean };

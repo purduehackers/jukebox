@@ -204,8 +204,8 @@ const STATE_TONE: Record<PlayerState, Tone> = { playing: 'ok', paused: 'dim', bu
 
 /** One line answering "is the room hearing what I asked for?", with the fix when it isn't. */
 function displayStatus(snapshot: Snapshot, state: PlayerState): { tone: Tone; hint: string | null } {
-  if (state === 'no_display') return { tone: 'bad', hint: 'Open /display on the laptop. It connects automatically.' };
-  if (state === 'needs_activation') return { tone: 'warn', hint: 'Click “Enable sound” on the display.' };
+  if (state === 'no_display') return { tone: 'warn', hint: null };
+  if (state === 'needs_activation') return { tone: 'warn', hint: 'Allow autoplay for this site in Firefox’s address bar.' };
   if (state === 'error') return { tone: 'bad', hint: snapshot.playback.observed?.error ?? null };
   return { tone: STATE_TONE[state], hint: null };
 }

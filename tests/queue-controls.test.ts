@@ -633,7 +633,10 @@ test('a v3 database upgrades in place to v4 keeping queue, quota, lease, suspend
     assert.equal(s.requests.filter((r) => r.status === 'ready').length, 1);
     assert.equal(svc.snapshot(alice).quota?.used, 2, 'the refunded request is not counted');
     assert.equal(s.devices?.find((d) => d.id === 'dev-1')?.holdsLease, true);
-    assert.deepEqual(svc.snapshot({ kind: 'device', deviceId: 'dev-1' }).lease?.generation, 3);
+    assert.equal((svc.db.prepare('select generation from playback').get() as { generation: number }).generation, 3,
+      'migration preserves the stored generation');
+    assert.equal(svc.snapshot({ kind: 'device', deviceId: 'dev-1' }).lease, null,
+      'automatic displays no longer require an exclusive lease');
     // Stored command replays across the upgrade.
     const replay = await svc.execute(admin, { commandId: pauseId, type: 'playback.pause', payload: {} });
     assert.ok(replay.ok && replay.replayed);

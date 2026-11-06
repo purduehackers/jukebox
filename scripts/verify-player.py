@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Real Firefox + worker evidence. Fresh profiles, no autoplay overrides.
+"""Real Firefox + worker evidence. Fresh profiles, persistent site autoplay permission.
 
-Uses production lease/heartbeat policies. An isolated service fixture can advance
-only the scheduling anchor, avoiding fifteen-minute waits without changing leases.
+Uses production heartbeat policies. An isolated service fixture can advance
+only the scheduling anchor, avoiding fifteen-minute waits without changing playback timing.
 Admin commands use fetch in a separate Firefox profile with its own login cookie.
 """
 import argparse
@@ -54,14 +54,32 @@ def until(fn, seconds=20):
     raise AssertionError(f'Timed out: {last!r}')
 
 
+def allow_autoplay(driver, origin):
+    """Set Firefox's persistent per-site permission, equivalent to address-bar Allow.
+
+    No global autoplay preference is changed. Subsequent page loads and nights
+    must work without an app gesture or repeated permission setup.
+    """
+    driver.set_context('chrome')
+    try:
+        driver.execute_script("""
+          const principal=Services.scriptSecurityManager.createContentPrincipal(
+            Services.io.newURI(arguments[0]), {});
+          Services.perms.addFromPrincipal(principal, 'autoplay-media', Services.perms.ALLOW_ACTION);
+        """, origin)
+    finally:
+        driver.set_context('content')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', default='.local/player-firefox-evidence.json')
-    parser.add_argument('--dev-smoke', action='store_true', help='Smoke the actual scripts/run-dev --worker path on :5173')
+    parser.add_argument('--paused-clocks', action='store_true', help='Verify independent paused display clocks against alternating reports')
+    parser.add_argument('--dev-smoke', action='store_true', help='Smoke scripts/run-dev --worker on isolated ports')
     args = parser.parse_args()
     report = {'atUTC': datetime.now(timezone.utc).isoformat(), 'checks': {}, 'measurements': [],
               'hardware': 'Headless development Linux; HDMI, wall and audible checks pending',
-              'autoplayPreferencesOverridden': False, 'leaseMs': 15000, 'heartbeatMs': 5000}
+              'autoplayPreferencesOverridden': False, 'siteAutoplayPermission': 'Allow Audio and Video (persistent)', 'heartbeatMs': 5000}
     # Headless Firefox still uses the host sound server. Route only these owned
     # browser processes to a dedicated null sink; never change the user's default.
     sink_name = f'jukebox_verify_{os.getpid()}'
@@ -75,7 +93,7 @@ def main():
     drivers, children, logs = [], [], []
     temp = tempfile.TemporaryDirectory(prefix='jukebox-player-')
     work = Path(temp.name)
-    wp, sp, ap = port(), port(), (5173 if args.dev_smoke else port())
+    wp, sp, ap = port(), port(), port()
     worker_url, service_url, app = f'http://127.0.0.1:{wp}', f'http://127.0.0.1:{sp}', f'http://127.0.0.1:{ap}'
 
     def start(argv, env=None):
@@ -89,7 +107,7 @@ def main():
         options = Options()
         options.add_argument('-headless')
         options.binary_location = '/usr/bin/firefox'
-        d = webdriver.Firefox(options=options, service=Service(env=browser_env))
+        d = webdriver.Firefox(options=options, service=Service(env=browser_env, service_args=['--allow-system-access']))
         drivers.append(d)
         d.set_window_size(1440, 1000)
         d.set_script_timeout(10)
@@ -147,12 +165,16 @@ def main():
                         '--data', str(work/'service'), '--origin', app]
         env = {**os.environ, 'JUKEBOX_SERVICE': service_url}
         if args.dev_smoke:
+            # Keep the user's running app and private PH ID config untouched.
+            env.update({'JUKEBOX_APP_PORT': str(ap), 'JUKEBOX_ORIGIN': app,
+                        'JUKEBOX_PHID_CLIENT_ID': '', 'JUKEBOX_PHID_REDIRECT_URI': '',
+                        'JUKEBOX_PHID_CLIENT_SECRET': '', 'JUKEBOX_SESSION_SECRET': ''})
             service = start(['./scripts/run-dev', '--worker', worker_url, '--port', str(sp), '--data', str(work/'service')], env)
             report['runtime']='scripts/run-dev --worker (production service/policies)'
         else:
             service = start(service_args)
             start([str(ROOT/'node_modules/.bin/vite'), '--port', str(ap), '--strictPort'], env)
-            report['runtime']='isolated test service; production lease/heartbeat; injected scheduling anchor'
+            report['runtime']='isolated test service; production heartbeat; injected scheduling anchor'
         until(lambda: http(service_url + '/healthz'), 30)
         until(lambda: urllib.request.urlopen(app+'/display', timeout=2).status == 200, 30)
         admin = browser('/admin')
@@ -168,13 +190,16 @@ def main():
         report['browser'] = {k: player.capabilities.get(k) for k in ['browserName','browserVersion','moz:buildID','moz:geckodriverVersion','platformName','moz:headless']}
         assert report['browser']['browserName'] == 'firefox'
         until(lambda: audio(player)['generation'])
-        until(lambda: player.find_elements(By.ID, 'player-activate'))
+        until(lambda: audio(player)['status']=='needs_activation')
         assert audio(player)['paused']
-        report['checks']['automaticallyConnectedButFirefoxAwaitsSoundPermission'] = True
-        click(player, 'player-activate')
-        assert audio(player)['paused']
-        report['checks']['ordinaryClaimWaitsPriorLeaseBeforeAudio'] = True
+        assert not player.find_elements(By.ID, 'player-activate')
+        report['checks']['nativeFirefoxBlockHasNoAppActivationButton'] = True
+        began = time.monotonic()
+        allow_autoplay(player, app)
         playing(player)
+        report['measurements'].append({'permissionToPlaybackMs':round((time.monotonic()-began)*1000,2)})
+        assert time.monotonic()-began < 5, 'no 15-second ownership wait'
+        report['checks']['persistentSitePermissionStartsPlaybackAutomatically'] = True
         # Check the sound server, not just the environment variable. Firefox's
         # stream identifies its parent process, which Selenium owns.
         sink_index = next(line.split()[0] for line in subprocess.check_output(
@@ -207,6 +232,29 @@ def main():
         measure('playback.seek', {'entryId': master, 'positionSec': 1234.5}, lambda: abs(audio(player)['time']-1234.5)<.05)
         measure('playback.volume', {'volume': .17}, lambda: player.execute_script("return document.getElementById('jukebox-audio').volume===.17"))
         measure('playback.play', {}, lambda: not audio(player)['paused'])
+        if args.paused_clocks:
+            other = browser('/display')
+            allow_autoplay(other, app)
+            playing(other)
+            cmd(admin, 'playback.pause')
+            until(lambda: audio(player)['paused'] and audio(other)['paused'] and snap()['playback']['confirmation']=='confirmed')
+            checkpoint = snap()['playback']['observed']['positionSec']
+            player.execute_script("document.getElementById('jukebox-audio').currentTime=295")
+            other.execute_script("document.getElementById('jukebox-audio').currentTime=318")
+            clock = lambda d: d.find_element(By.CSS_SELECTOR, '.display-progress span').text
+            until(lambda: clock(player)=='04:55' and clock(other)=='05:18')
+            samples=[]
+            for _ in range(16):
+                assert clock(player)=='04:55' and clock(other)=='05:18', (clock(player), clock(other))
+                observed = snap()['playback']['observed']
+                assert abs(observed['positionSec']-checkpoint)<.001, observed
+                samples.append({'first':clock(player),'second':clock(other),'sharedPosition':observed['positionSec']})
+                time.sleep(1)
+            report['checks']['pausedDisplaysKeepOwnNativeClocksAcrossAlternatingHeartbeats']=True
+            report['checks']['sharedPausedCheckpointDoesNotAlternate']=True
+            report['measurements'].append({'pausedClockSamples':samples})
+            report['result']='passed'
+            return
         if args.dev_smoke:
             report['result']='passed'
             return
@@ -248,7 +296,6 @@ def main():
         until(lambda: audio(player)['generation'], 25)
         until(lambda: audio(player)['duration']==8)
         assert audio(player)['paused'] and abs(audio(player)['time']-request_position)<.35
-        if player.find_elements(By.ID, 'player-activate'): click(player, 'player-activate')
         cmd(admin, 'playback.play')
         playing(player, 'request')
         playing(player, 'master')
@@ -279,13 +326,13 @@ def main():
             held.rename(broken)
         report['checks']['missingAssetTwoAttemptsRefundAndReturn'] = True
         print('Passed missing asset failure/refund', flush=True)
-        # A second display connects in the background but cannot displace live audio.
+        # Two display tabs may play; neither is fenced by the other.
         other = browser('/display')
-        until(lambda: 'another display' in other.find_element(By.TAG_NAME, 'body').text)
-        assert audio(other)['paused'] and not audio(other)['generation']
+        allow_autoplay(other, app)
+        playing(other)
         assert not audio(player)['paused']
         other.quit(); drivers.remove(other)
-        report['checks']['secondDisplayCannotStealOrPlay'] = True
+        report['checks']['secondDisplayPlaysWithoutStealingOrBlockingFirst'] = True
         load_before = audio(player)['loadId']
         service.terminate(); service.wait(timeout=8)
         time.sleep(.5)
@@ -295,64 +342,37 @@ def main():
         until(lambda: snap()['playback']['confirmation']=='confirmed')
         assert audio(player)['loadId']==load_before
         report['checks']['shortReconnectKeepsLoad'] = True
-        # Service loss silences the old lease; the same laptop reconnects itself.
+        # A control-server outage no longer expires permission to play cached audio.
         service.terminate(); service.wait(timeout=8)
-        began=time.monotonic()
-        until(lambda: audio(player)['paused'] and not audio(player)['generation'], 17)
-        report['measurements'].append({'outageToSilenceObservedMs':round((time.monotonic()-began)*1000,2)})
+        time.sleep(16)
+        assert not audio(player)['paused']
         service=start(service_args)
         until(lambda: http(service_url+'/healthz'))
         playing(player)
-        report['checks']['leaseExpirySilencesThenAutomaticallyReconnectsWithoutAnotherClick'] = True
-        # Real session end clears the page and stops sound; next session resumes on this laptop.
-        # Hold ONLY the player's closed-night snapshots. The public display feed
-        # still arrives; its empty-night render must synchronously stop the audio.
-        player.execute_script("""
-          window.privateCloseHeld=0;
-          const pending=[];
-          let hold=true;
-          const originalRead=ReadableStreamDefaultReader.prototype.read;
-          const originalFetch=window.fetch;
-          const closed=s=>s?.role==='player' && s.night?.status==='closed';
-          const delay=value=>{window.privateCloseHeld++;return new Promise(resolve=>pending.push(()=>resolve(value)))};
-          ReadableStreamDefaultReader.prototype.read=function(...args){
-            return originalRead.apply(this,args).then(result=>{
-              if(hold && typeof result.value==='string'){
-                for(const line of result.value.split('\\n')){
-                  if(!line.startsWith('data: '))continue;
-                  try{if(closed(JSON.parse(line.slice(6))))return delay(result)}catch{}
-                }
-              }
-              return result;
-            });
-          };
-          window.fetch=async(url,init)=>{
-            const response=await originalFetch(url,init);
-            if(hold && url==='/api/v1/snapshot' && new Headers(init?.headers).has('authorization')){
-              try{if(closed(await response.clone().json()))return delay(response)}catch{}
-            }
-            return response;
-          };
-          window.releasePrivateClose=()=>{
-            hold=false;window.fetch=originalFetch;
-            ReadableStreamDefaultReader.prototype.read=originalRead;
-            for(const resolve of pending)resolve();
-          };
-        """)
-        # An already pending stream read predates the shim; let an open-night
-        # heartbeat consume it so the closed-night frame is actually intercepted.
-        time.sleep(5.5)
-        cmd(admin, 'night.close')
-        until(lambda: player.find_elements(By.CSS_SELECTOR, '.display-idle[data-state=idle]'))
-        assert audio(player)['paused']
-        until(lambda: player.execute_script('return window.privateCloseHeld>0'), 8)
-        player.execute_script('window.releasePrivateClose()')
-        report['checks']['publicNightCloseStopsAudioWithPrivateCloseSnapshotsHeld'] = True
-        assert not player.find_elements(By.CSS_SELECTOR, '.display-now,.display-request')
-        cmd(admin, 'night.open')
+        until(lambda: snap()['playback']['observed']['status']=='playing')
+        time.sleep(1)  # allow the recovered SSE connection to deliver its initial snapshot
+        report['checks']['longControlOutageKeepsAudioAndRecoversAutomatically'] = True
+        # Repeated nights keep the same connection and persistent browser permission.
+        for _ in range(5):
+            cmd(admin, 'night.close')
+            until(lambda: player.find_elements(By.CSS_SELECTOR, '.display-idle[data-state=idle]'))
+            assert audio(player)['paused']
+            assert 'Night not started' in player.find_element(By.TAG_NAME, 'body').text
+            began=time.monotonic()
+            cmd(admin, 'night.open')
+            playing(player)
+            report['measurements'].append({'nightStartToPlaybackMs':round((time.monotonic()-began)*1000,2)})
+            assert time.monotonic()-began < 5
+            assert not player.find_elements(By.ID, 'player-activate')
+        report['checks']['fiveEndStartCyclesStopAndResumeWithoutAnotherClick'] = True
+        # A playing-page reload uses its checkpoint and the same saved site permission.
+        before=audio(player)['time']
+        began=time.monotonic()
+        player.refresh()
         playing(player)
-        assert not player.find_elements(By.ID, 'player-activate')
-        report['checks']['endClearsDisplayThenStartResumesWithoutAnotherClick'] = True
+        assert abs(audio(player)['time']-before)<5
+        assert time.monotonic()-began < 5
+        report['checks']['playingRefreshResumesCheckpointWithoutClickOrLeaseWait'] = True
         # A delayed pre-claim snapshot from a separate fetch must not override
         # the claim's revision or the newer SSE generation.
         player.execute_script("""window.originalFetch=window.fetch;window.oldSnapshotDelivered=false;
@@ -367,17 +387,7 @@ def main():
         time.sleep(.2)
         assert audio(player)['generation'] and not audio(player)['paused']
         player.execute_script('window.fetch=window.originalFetch')
-        report['checks']['delayedPreclaimSnapshotIgnored']=True
-        # Declared synthetic transport response tests the STALE_LEASE path itself,
-        # independently of the real SSE generation fencing above.
-        player.execute_script("""window.originalFetch=window.fetch;window.fetch=(url,init)=>{
-          if(init?.body && JSON.parse(init.body).type==='player.report')return Promise.resolve(new Response(JSON.stringify({ok:false,error:{code:'STALE_LEASE',message:'Synthetic stale report',retryable:false}}),{status:409}));
-          return window.originalFetch(url,init);
-        };""")
-        until(lambda: audio(player)['paused'] and not audio(player)['generation'])
-        player.execute_script('window.fetch=window.originalFetch')
-        report['checks']['syntheticStaleLeaseReportSilencesLocalAudio']=True
-        playing(player)
+        report['checks']['delayedOldSnapshotIgnored']=True
         # Exhaust the usable master list with an actual newly-prepared broken
         # asset. Terminal acknowledgement must not stop silent lease heartbeats.
         for entry in snap(admin)['master']:
@@ -400,7 +410,7 @@ def main():
             assert len([e for e in events if e['type']=='player.error' and e['data'].get('entryId')==idle_master])==2
         finally:
             held.rename(broken)
-        report['checks']['exhaustedMasterStaysSilentAndRenewsWithoutRepeatedErrors']=True
+        report['checks']['exhaustedMasterStaysSilentWithoutRepeatedErrors']=True
         report['events'] = admin.execute_async_script("fetch('/api/v1/events?after=0').then(r=>r.json()).then(arguments[0])")['events']
         report['result']='passed'
     except Exception as error:

@@ -59,6 +59,7 @@ export function subscribeSnapshots(onSnapshot: (snapshot: Snapshot) => void, onE
   let fetching = false;
   let lastSuccess = -Infinity;
   let backoff = 500;
+  let expediteReconnect: (() => void) | null = null;
   const deliver = (snapshot: Snapshot) => {
     if (controller.signal.aborted || snapshot.revision < latest || (snapshot.revision === latest && snapshot.serverTime < latestTime)) return;
     latest = snapshot.revision;
@@ -78,7 +79,12 @@ export function subscribeSnapshots(onSnapshot: (snapshot: Snapshot) => void, onE
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       deliver(await res.json() as Snapshot);
-      if (!controller.signal.aborted) onError(null);
+      if (!controller.signal.aborted) {
+        onError(null);
+        // A healthy poll proves the server is back. Do not keep a failed SSE
+        // connection in its old ten-second retry delay while controls are live.
+        if (backoff > 500) { backoff = 500; expediteReconnect?.(); }
+      }
     } catch (error) {
       if (!controller.signal.aborted && performance.now() - lastSuccess > 5000) onError((error as Error).message);
     } finally { fetching = false; }
@@ -119,7 +125,13 @@ export function subscribeSnapshots(onSnapshot: (snapshot: Snapshot) => void, onE
         if (controller.signal.aborted) return;
         if (performance.now() - lastSuccess > 5000) onError((error as Error).message);
         void refresh();
-        await sleep(backoff);
+        await new Promise<void>((resolve) => {
+          const done = () => { clearTimeout(timer); expediteReconnect = null; controller.signal.removeEventListener('abort', done); resolve(); };
+          let timer = setTimeout(done, backoff);
+          expediteReconnect = () => { clearTimeout(timer); timer = setTimeout(done, 500); };
+          controller.signal.addEventListener('abort', done, { once: true });
+          if (controller.signal.aborted) done();
+        });
         backoff = Math.min(backoff * 2, 10_000);
       }
     }

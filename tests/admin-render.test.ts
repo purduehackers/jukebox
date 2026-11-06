@@ -69,12 +69,12 @@ test('now playing: requested vs confirmed vs unconfirmed vs offline are rendered
     const render = (snapshot: Snapshot, pendingVolume: number | null = null) =>
       html(createElement(views.NowPlayingPanel, { snapshot, serverNow: snapshot.serverTime, actions, pendingVolume }));
 
-    assert.match(render(await admin.snapshot()), /Display not open/);
-    assert.match(text(render(await admin.snapshot())), /connects automatically/);
+    assert.match(render(await admin.snapshot()), /Waiting for playback/);
+    assert.doesNotMatch(text(render(await admin.snapshot())), /Display not open|Enable sound/);
 
     const display = await ScriptedDisplay.pair(app, admin);
-    assert.match(render(await admin.snapshot()), /Display needs a click/);
-    assert.match(text(render(await admin.snapshot())), /Enable sound/);
+    assert.match(render(await admin.snapshot()), /Firefox blocked autoplay/);
+    assert.match(text(render(await admin.snapshot())), /Allow autoplay/);
 
     assert.ok((await admin.raw('playback.play', {})).body.ok);
     let out = render(await admin.snapshot());
@@ -108,7 +108,7 @@ test('now playing: requested vs confirmed vs unconfirmed vs offline are rendered
     await display.report('playing', 100); // the seek is acknowledged, then the display goes silent
     app.clock.advance(20_000);
     out = render(await admin.snapshot());
-    assert.match(out, /Display offline/);
+    assert.match(out, /Reconnecting/);
     assert.match(out, /data-confirmation="lapsed"/);
     assert.doesNotMatch(out, />Confirmed by display</, 'a lapsed confirmation is not presented as current');
     assert.doesNotMatch(text(out), /Times shown are its last report/);

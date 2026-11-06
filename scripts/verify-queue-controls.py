@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Real Firefox + worker evidence for queue playback controls (mode, Play now, request interval).
 
-Production lease/heartbeat/interval policies; real Python worker with fixture audio; the display runs
+Production heartbeat/interval policies; real Python worker with fixture audio; the display runs
 in real headless Firefox on a dedicated null audio sink. Measures the suspended master's checkpoint
 against the audio element's actual paused time, including while Requests only is silent.
 Admin/attendee commands use fetch in separate Firefox profiles. No audible HDMI claim.
 """
 import argparse
+import importlib.util
 from datetime import datetime, timezone
 import json
 import os
@@ -26,6 +27,9 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
 
 ROOT = Path(__file__).resolve().parent.parent
+spec = importlib.util.spec_from_file_location('player_verify', ROOT / 'scripts/verify-player.py')
+player_helpers = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(player_helpers)
 
 
 def port():
@@ -61,7 +65,7 @@ def main():
     args = parser.parse_args()
     report = {'atUTC': datetime.now(timezone.utc).isoformat(), 'checks': {}, 'measurements': [],
               'hardware': 'Headless development Linux; HDMI, wall and audible checks pending',
-              'autoplayPreferencesOverridden': False, 'leaseMs': 15000, 'heartbeatMs': 5000}
+              'autoplayPreferencesOverridden': False, 'siteAutoplayPermission': 'Allow Audio and Video (persistent)', 'heartbeatMs': 5000}
     # Headless Firefox still uses the host sound server. Route only these owned
     # browser processes to a dedicated null sink; never change the user's default.
     sink_name = f'jukebox_verify_{os.getpid()}'
@@ -89,10 +93,11 @@ def main():
         options = Options()
         options.add_argument('-headless')
         options.binary_location = '/usr/bin/firefox'
-        d = webdriver.Firefox(options=options, service=Service(env=browser_env))
+        d = webdriver.Firefox(options=options, service=Service(env=browser_env, service_args=['--allow-system-access']))
         drivers.append(d)
         d.set_window_size(1440, 1000)
         d.set_script_timeout(10)
+        player_helpers.allow_autoplay(d, app)
         d.get(app + path)
         return d
 
@@ -149,7 +154,7 @@ def main():
         env = {**os.environ, 'JUKEBOX_SERVICE': service_url}
         service = start(service_args)
         start([str(ROOT/'node_modules/.bin/vite'), '--port', str(ap), '--strictPort'], env)
-        report['runtime'] = 'isolated test service; production lease, heartbeat and 15 minute policies; real worker'
+        report['runtime'] = 'isolated test service; production heartbeat and 15 minute policies; real worker'
         until(lambda: http(service_url + '/healthz'), 30)
         until(lambda: urllib.request.urlopen(app+'/display', timeout=2).status == 200, 30)
         admin = browser('/admin')
@@ -163,8 +168,7 @@ def main():
         report['browser'] = {k: player.capabilities.get(k) for k in ['browserName', 'browserVersion', 'platformName', 'moz:headless']}
         assert report['browser']['browserName'] == 'firefox'
         until(lambda: audio(player)['generation'])
-        until(lambda: player.find_elements(By.ID, 'player-activate'))
-        click(player, 'player-activate')
+        assert not player.find_elements(By.ID, 'player-activate')
         playing(player, 'master')
         player.execute_script("""window.playerSamples=[];const a=document.getElementById('jukebox-audio');
           for(const name of ['seeked','pause'])a.addEventListener(name,()=>window.playerSamples.push({name,time:a.currentTime,at:performance.now()}));

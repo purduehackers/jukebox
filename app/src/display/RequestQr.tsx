@@ -21,7 +21,7 @@ export function RequestQr() {
     } catch (error) { return { url: '', path: '', size: 0, error: String(error) }; }
   }, []);
   return <section className="display-request" aria-label="Request a song">
-    <div><h2>SONG<br />REQUESTS</h2><p>PH ID · 3 per night</p>
+    <div><h2>SONG<br />REQUESTS</h2>
       {result.error ? <p role="alert">QR unavailable: invalid request origin</p> : <a href={result.url}>{result.url.replace(/^https?:\/\//, '')}</a>}
     </div>
     {result.size > 0 && <svg className="display-qr" role="img" aria-label={`Scan to request a song: ${result.url}`} data-url={result.url}

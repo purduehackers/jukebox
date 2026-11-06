@@ -847,24 +847,24 @@ export class JukeboxService {
     return pb.lease_device !== null && pb.lease_expires > now;
   }
 
+  private automaticDevice(deviceId: string) {
+    return !!this.db.prepare('select 1 from devices where id = ? and automatic = 1 and revoked = 0').get(deviceId);
+  }
+
   private displayConnect(tx: Tx, secret: string) {
-    if (!this.openNight()) throw new CommandError('NIGHT_CLOSED', 'An admin needs to start a session');
     const existing = this.db.prepare('select id, revoked from devices where automatic = 1 and token_hash = ?')
       .get(hash(secret)) as { id: string; revoked: number } | undefined;
     if (existing?.revoked) throw new CommandError('DEVICE_REVOKED', 'This display was disconnected by an admin');
-    if (this.leaseLive(tx.pb, tx.now)) {
-      if (existing?.id !== tx.pb.lease_device) throw new CommandError('LEASE_HELD', 'Sound is playing on another display', true);
-      // A lost connection response can be retried by this page only, without fencing itself.
-      tx.pb.lease_expires = tx.now + this.policy.leaseMs;
-      return { deviceId: existing.id, token: `${existing.id}.${secret}`, generation: tx.pb.generation, expiresAt: tx.pb.lease_expires };
-    }
     const deviceId = existing?.id ?? randomUUID();
-    // Automatic registrations are transient: retain only the current one, not a row per refresh.
-    this.db.prepare('delete from devices where automatic = 1 and id != ?').run(deviceId);
-    if (!existing) this.db.prepare('insert into devices(id, name, token_hash, paired_at, automatic) values(?, ?, ?, ?, 1)')
-      .run(deviceId, 'Display browser', hash(secret), tx.now);
-    const lease = this.claim(tx, deviceId, false);
-    return { deviceId, token: `${deviceId}.${secret}`, ...lease };
+    // Credentials identify reports, not an exclusive playback device. Keep a bounded
+    // set of recent pages; reconnecting/refreshing never waits for another tab.
+    if (!existing) {
+      this.db.prepare(`delete from devices where automatic = 1 and id not in
+        (select id from devices where automatic = 1 order by paired_at desc, rowid desc limit 31)`).run();
+      this.db.prepare('insert into devices(id, name, token_hash, paired_at, automatic) values(?, ?, ?, ?, 1)')
+        .run(deviceId, 'Display browser', hash(secret), tx.now);
+    }
+    return { deviceId, token: `${deviceId}.${secret}`, generation: tx.pb.generation, expiresAt: tx.now + this.policy.leaseMs };
   }
 
   private dropLease(tx: Tx) {
@@ -905,9 +905,16 @@ export class JukeboxService {
 
   private report(tx: Tx, deviceId: string, report: PlayerReport) {
     const pb = tx.pb;
-    this.requireLease(tx, deviceId, report.generation);
+    const automatic = this.automaticDevice(deviceId);
+    if (!automatic) this.requireLease(tx, deviceId, report.generation);
+    // A late unload report cannot change playback after the night ends.
+    if (automatic && !this.openNight()) return {};
     if (report.loadId > pb.load_id || report.epoch > pb.epoch) throw new CommandError('BAD_REQUEST', 'Report is ahead of desired state');
+    // Automatic displays use this timestamp only for observed health, never as a
+    // lease that can prevent playback. Multiple tabs may report the same load.
+    pb.lease_device = deviceId;
     pb.lease_expires = tx.now + this.policy.leaseMs;
+    if (automatic) this.db.prepare('update devices set paired_at = ? where id = ?').run(tx.now, deviceId);
     const suspended = pb.suspended ? (JSON.parse(pb.suspended) as Suspended) : null;
     if (report.previous && suspended && report.previous.loadId === suspended.loadId) {
       // Actual paused position of the interrupted mix replaces the last heartbeat.
@@ -919,17 +926,24 @@ export class JukeboxService {
       suspended.positionSec = report.positionSec;
       pb.suspended = JSON.stringify(suspended);
     }
-    if (report.loadId !== pb.load_id) return {}; // stale load: lease renewed, no transitions
+    if (report.loadId !== pb.load_id || report.epoch < pb.seek_epoch) return {}; // stale load/seek: no transitions
     const before = pb.observed ? (JSON.parse(pb.observed) as ObservedPlayback) : null;
     const acked = Math.max(pb.acked_epoch ?? 0, report.epoch);
+    // A pause has one checkpoint for its applied epoch. Repeated heartbeats
+    // (including other display tabs) cannot move it; an explicit seek/new intent
+    // changes the epoch and permits a new checkpoint.
+    const pausedCheckpoint = pb.intent === 'paused' && report.status === 'paused'
+      && before?.status === 'paused' && before.loadId === report.loadId
+      && before.ackedEpoch === pb.epoch && report.epoch === pb.epoch;
     const observed: ObservedPlayback = {
-      deviceId, status: report.status, loadId: report.loadId, ackedEpoch: acked, positionSec: report.positionSec,
+      deviceId, status: report.status, loadId: report.loadId, ackedEpoch: acked,
+      positionSec: pausedCheckpoint ? before.positionSec : report.positionSec,
       observedAt: tx.now, error: report.error ?? null,
     };
     pb.observed = JSON.stringify(observed);
     if (before?.status !== observed.status || pb.acked_epoch !== acked) tx.touched = true;
     pb.acked_epoch = acked;
-    if (pb.phase === 'master' && pb.current_id) pb.master_position = report.positionSec;
+    if (pb.phase === 'master' && pb.current_id) pb.master_position = observed.positionSec ?? report.positionSec;
     if (report.status === 'ended' && report.epoch >= pb.seek_epoch) {
       this.emit(tx, 'player.ended', { kind: pb.phase, entryId: pb.current_id });
       if (pb.phase === 'master') this.onMasterEnded(tx);
@@ -1178,7 +1192,7 @@ export class JukeboxService {
       : this.nextMaster(pb.master_cursor, pb.phase === 'master' && pb.current_id === null);
     const ready = !!this.nextReadyRequest();
     const due = pb.mode === 'auto' && pb.phase === 'master' && pb.period_started_at !== null && now - pb.period_started_at >= this.periodOf(pb) && ready;
-    const confirmation = pb.current_id === null ? 'none'
+    const confirmation = night?.status !== 'open' || pb.current_id === null ? 'none'
       : (pb.acked_epoch ?? -1) >= pb.epoch ? 'confirmed'
       : now - pb.desired_at >= this.policy.ackTimeoutMs ? 'unconfirmed' : 'requested';
     const identity = actor.kind === 'user' ? actor.identity : null;
@@ -1191,8 +1205,8 @@ export class JukeboxService {
         .all(...(isAdmin ? [nightRow.id, now - 3600_000] : [nightRow.id, identity?.key ?? '', now - 3600_000])) as unknown as RequestRow[]
       : [];
     const alerts: Alert[] = [];
-    if (pb.no_master) alerts.push({ code: 'no_master_available', message: 'No playable master music; playback is paused' });
-    if (pb.lease_device && !live) alerts.push({ code: 'player_offline', message: 'The paired display is offline' });
+    if (night?.status === 'open' && pb.no_master) alerts.push({ code: 'no_master_available', message: 'No playable master music; playback is paused' });
+    if (night?.status === 'open' && pb.lease_device && !live) alerts.push({ code: 'player_offline', message: 'Playback reports interrupted; the display reconnects automatically' });
     if (confirmation === 'unconfirmed') alerts.push({ code: 'unconfirmed_command', message: 'The player has not confirmed the latest change' });
 
     const snapshot: Snapshot = {
@@ -1222,7 +1236,7 @@ export class JukeboxService {
         ...(nextMasterRow.artwork_url ? { artworkUrl: nextMasterRow.artwork_url } : {}) } : null,
       suspendedMaster: suspended && suspendedRow ? { entryId: suspendedRow.id, title: suspendedRow.title, positionSec: suspended.positionSec } : null,
       playback: {
-        desiredEpoch: pb.current_id ? pb.epoch : null,
+        desiredEpoch: night?.status === 'open' && pb.current_id ? pb.epoch : null,
         ackedEpoch: pb.acked_epoch,
         confirmation,
         observed: role === 'public' || role === 'attendee' ? (observed ? { ...observed, deviceId: '', error: null } : null) : observed,
@@ -1254,9 +1268,17 @@ export class JukeboxService {
       snapshot.quota = { used, limit: this.policy.quotaPerNight, remaining: Math.max(0, this.policy.quotaPerNight - used) };
     }
     if (role === 'player') {
-      const holds = live && pb.lease_device === (actor as { deviceId: string }).deviceId;
+      const automatic = this.automaticDevice((actor as { deviceId: string }).deviceId);
+      const holds = !automatic && live && pb.lease_device === (actor as { deviceId: string }).deviceId;
       snapshot.lease = holds ? { deviceId: pb.lease_device!, generation: pb.generation, expiresAt: pb.lease_expires } : null;
-      snapshot.desired = holds ? this.desired(pb, currentRow) : null;
+      snapshot.desired = (automatic || holds) && night?.status === 'open' ? this.desired(pb, currentRow) : null;
+      if (automatic && snapshot.desired) {
+        // New/reloaded pages start near the durable checkpoint. Existing pages
+        // seek only when loadId/seekSeq changes, so reports never cause seek loops.
+        const checkpoint = observedRaw?.loadId === pb.load_id && (observedRaw.ackedEpoch ?? -1) >= pb.seek_epoch
+          ? observedRaw.positionSec : null;
+        snapshot.desired.startPositionSec = checkpoint ?? (pb.phase === 'master' ? pb.master_position : pb.start_position);
+      }
     }
     return snapshot;
   }

@@ -286,7 +286,7 @@ function MyRequests({ entries }: { entries: RequestEntryView[] }) {
               <li key={entry.id} className="flex flex-col gap-1 border border-border p-3">
                 <div className="flex items-start justify-between gap-3">
                   <strong className="q-text">{entry.title}</strong>
-                  <Badge color={STATUS_BADGE[copy.tone]}>{copy.label}</Badge>
+                  {entry.status !== 'preparing' && <Badge color={STATUS_BADGE[copy.tone]}>{copy.label}</Badge>}
                 </div>
                 <p className="q-text">{entry.artist ?? 'Unknown artist'} · {formatDuration(entry.durationSec)}</p>
               </li>
@@ -310,7 +310,6 @@ function Lineup({ entries }: { entries: RequestEntryView[] }) {
             <strong className={entry.mine ? 'text-primary' : undefined}>{entry.title}</strong>
             {entry.artist ? <span> {entry.artist}</span> : null}
             {entry.status === 'playing' && <> <Badge color="yellow">Playing now</Badge></>}
-            {entry.status === 'preparing' && <> <Badge color="pink">Getting ready</Badge></>}
             {entry.mine && <> <Badge color="outline">Yours</Badge></>}
           </li>
         ))}

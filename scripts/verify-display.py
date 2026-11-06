@@ -2,7 +2,7 @@
 """Phase 4C evidence: actual Firefox, automatic session player, real fixture audio.
 
 Uses isolated loopback service/worker and disposable Firefox profiles. No provider
-traffic, credentials, autoplay overrides, or production state. Screenshots and
+traffic, credentials, global autoplay overrides, or production state. Screenshots and
 measurements are written under .local/. HDMI and phone scanning remain venue gates.
 """
 from datetime import datetime, timezone
@@ -19,6 +19,7 @@ import uuid
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.firefox.service import Service
 import importlib.util
 spec = importlib.util.spec_from_file_location('player_verify', Path(__file__).with_name('verify-player.py'))
 helpers = importlib.util.module_from_spec(spec)
@@ -32,7 +33,10 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     report = {'atUTC': datetime.now(timezone.utc).isoformat(), 'checks': {}, 'measurements': {},
               'hardware': 'Headless Linux; HDMI, viewing distance, wall and phone scan pending',
-              'autoplayPreferencesOverridden': False}
+              'autoplayPreferencesOverridden': False, 'siteAutoplayPermission': 'Allow Audio and Video (persistent)'}
+    sink_name = f'jukebox_display_verify_{os.getpid()}'
+    sink_module = subprocess.check_output(['pactl', 'load-module', 'module-null-sink', f'sink_name={sink_name}'], text=True).strip()
+    browser_env = {**os.environ, 'PULSE_SINK': sink_name}
     children, drivers, logs = [], [], []
     temp = tempfile.TemporaryDirectory(prefix='jukebox-display-')
     work = Path(temp.name)
@@ -50,11 +54,12 @@ def main():
         options.add_argument('-headless')
         options.binary_location = '/usr/bin/firefox'
         if reduced: options.set_preference('ui.prefersReducedMotion', 1)
-        driver = webdriver.Firefox(options=options)
+        driver = webdriver.Firefox(options=options, service=Service(env=browser_env, service_args=['--allow-system-access']))
         drivers.append(driver)
         driver.set_window_size(1920, 1200)
         chrome_height = driver.execute_script('return outerHeight-innerHeight')
         driver.set_window_size(1920, 1080 + chrome_height)
+        helpers.allow_autoplay(driver, app)
         driver.get(app + path)
         return driver
 
@@ -102,9 +107,8 @@ def main():
         idle_began = time.monotonic()
         until(lambda: display.execute_script("return document.querySelector('main')?.dataset.state==='idle'"), 5)
         report['measurements']['idleAfterNavigationMs'] = round((time.monotonic()-idle_began)*1000, 2)
-        assert 'admin needs to start a session' in display.find_element(By.TAG_NAME, 'body').text.lower()
+        assert 'night not started' in display.find_element(By.TAG_NAME, 'body').text.lower()
         assert not display.find_elements(By.CSS_SELECTOR, '.display-now, .display-request, .display-device')
-        click(display, '#player-activate')
         until(lambda: not display.find_elements(By.ID, 'player-activate'))
         assert display.execute_script("return document.querySelector('audio').paused")
         screenshot(display, 'idle.png')
@@ -171,7 +175,6 @@ def main():
         assert display.execute_script("return document.querySelector('audio').paused")
         assert display.find_element(By.CSS_SELECTOR, '.display-kind').text == 'Request Queue'
         until(lambda: display.find_element(By.CSS_SELECTOR, '[data-testid=player]').get_attribute('data-generation'), 25)
-        if display.find_elements(By.ID, 'player-activate'): click(display, '#player-activate')
         command(admin, 'playback.play')
         until(lambda: canvas(display)['treble'] > .001)
         report['checks']['refreshReconnectsAutomaticallyAndRespectsBrowserSoundPermission'] = True
@@ -179,8 +182,13 @@ def main():
         until(lambda: canvas(display)['bass'] > .01)
         assert display.execute_script("return document.querySelector('audio').currentTime") > 1234
         report['checks']['suspendedMasterResumesAndAnalysisFollows'] = True
-        # Actual QR matrix decode, using a browser-reachable test origin. Phone scan pending.
-        qr = display.find_element(By.CSS_SELECTOR, '.display-qr')
+        panel = display.find_element(By.CSS_SELECTOR, '.display-request')
+        assert panel.find_element(By.TAG_NAME, 'h2').text.replace('\n', ' ') == 'SONG REQUESTS'
+        assert panel.find_element(By.TAG_NAME, 'a').get_attribute('href') == app + '/queue'
+        assert panel.find_elements(By.CSS_SELECTOR, 'svg.display-qr')
+        assert not panel.find_elements(By.TAG_NAME, 'p')
+        report['checks']['requestPanelKeepsQRWithoutAllowanceCopy'] = True
+        qr = panel.find_element(By.CSS_SELECTOR, '.display-qr')
         qr.screenshot(str(output / 'qr.png'))
         import zxingcpp
         from PIL import Image
@@ -237,6 +245,7 @@ def main():
                 (output / f'process-{i}.log').write_text(log.read())
         for log in logs: log.close()
         temp.cleanup()
+        subprocess.run(['pactl', 'unload-module', sink_module], check=False)
         print(json.dumps(report, indent=2))
 
 

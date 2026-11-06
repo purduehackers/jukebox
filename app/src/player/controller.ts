@@ -9,9 +9,10 @@ export interface PlayerState {
   generation: number | null;
   loadId: number | null;
   epoch: number;
+  positionSec: number | null;
   activated: boolean;
   message: string;
-  connection: 'waiting' | 'connecting' | 'connected' | 'elsewhere' | 'error';
+  connection: 'connecting' | 'connected' | 'error';
 }
 
 const WAIT_MS = 8000;
@@ -21,10 +22,10 @@ const position = (audio: HTMLAudioElement) => Number.isFinite(audio.currentTime)
 // one MediaElementAudioSourceNode, so hand its graph to the replacement controller.
 const graphs = new WeakMap<HTMLAudioElement, { context: AudioContext; analyser: AnalyserNode; closeTimer?: ReturnType<typeof setTimeout> }>();
 
-/** One native audio player. Session discovery, connection and renewal are automatic. */
+/** One native audio player. Connection persists across nights; all playback follows server state. */
 export class PlayerController {
   readonly audio: HTMLAudioElement;
-  state: PlayerState = { status: 'needs_activation', generation: null, loadId: null, epoch: 0, activated: false, message: '', connection: 'waiting' };
+  state: PlayerState = { status: 'paused', generation: null, loadId: null, epoch: 0, positionSec: null, activated: false, message: '', connection: 'connecting' };
   private device: Device | null = null;
   private sessionOpen = false;
   private snapshotRevision = -1;
@@ -32,14 +33,15 @@ export class PlayerController {
   private nextConnectAt = 0;
   private secret = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('');
   private changed: (state: PlayerState) => void;
+  private presented: (snapshot: Snapshot) => void;
+  private connectionError: (error: string | null) => void;
   private context: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
+  private resuming: Promise<void> | null = null;
   private desired: DesiredPlayback | null = null;
   private applied: DesiredPlayback | null = null;
   private previous: PlayerReport['previous'];
-  private safeStartAt = 0;
-  private deadline = 0;
-  private wallDeadline = 0;
+  private retryPlaybackAt = 0;
   private disposed = false;
   private busy = false;
   private reporting = false;
@@ -51,11 +53,15 @@ export class PlayerController {
   private heartbeat: ReturnType<typeof setInterval>;
   private removers: (() => void)[] = [];
   private cancellation = new AbortController();
+  private lifetime = new AbortController();
 
-  constructor(audio: HTMLAudioElement, changed: (state: PlayerState) => void) {
+  constructor(audio: HTMLAudioElement, changed: (state: PlayerState) => void, presented: (snapshot: Snapshot) => void = () => {}, connectionError: (error: string | null) => void = () => {}) {
     this.audio = audio;
     this.changed = changed;
+    this.presented = presented;
+    this.connectionError = connectionError;
     this.subscribe();
+    void this.connect();
     queueMicrotask(() => { if (!this.disposed) void this.activate(); });
     for (const name of ['playing', 'pause', 'waiting', 'stalled', 'ended', 'error'] as const) {
       const listener = () => {
@@ -69,80 +75,78 @@ export class PlayerController {
       audio.addEventListener(name, listener);
       this.removers.push(() => audio.removeEventListener(name, listener));
     }
-    const wake = () => {
-      if (this.state.generation !== null && !this.live()) this.halt('Reconnecting to the session…');
-    };
+    // Native time events update only this page's presentation, not network reports.
+    const progress = () => { if (!this.busy && this.applied) this.update({}); };
+    audio.addEventListener('timeupdate', progress);
+    this.removers.push(() => audio.removeEventListener('timeupdate', progress));
+    const wake = () => { this.retryPlaybackAt = 0; void this.activate(); };
     const hide = () => this.dispose();
     window.addEventListener('pageshow', wake);
+    window.addEventListener('online', wake);
     document.addEventListener('visibilitychange', wake);
+    document.addEventListener('pointerdown', wake);
+    document.addEventListener('keydown', wake);
     window.addEventListener('pagehide', hide);
-    this.removers.push(() => window.removeEventListener('pageshow', wake), () => document.removeEventListener('visibilitychange', wake), () => window.removeEventListener('pagehide', hide));
+    this.removers.push(() => window.removeEventListener('pageshow', wake), () => window.removeEventListener('online', wake),
+      () => document.removeEventListener('visibilitychange', wake), () => document.removeEventListener('pointerdown', wake),
+      () => document.removeEventListener('keydown', wake), () => window.removeEventListener('pagehide', hide));
     this.timer = setInterval(() => {
-      if (this.state.generation !== null && !this.live()) this.halt('Reconnecting to the session…');
       if (this.live() && !this.busy) void this.reconcile();
-      if (this.sessionOpen && this.state.generation === null && performance.now() >= this.nextConnectAt) void this.connect();
-    }, 100);
+      if (!this.device && performance.now() >= this.nextConnectAt) void this.connect();
+    }, 1000);
     this.heartbeat = setInterval(() => void this.report(), POLICY.heartbeatMs);
   }
 
   private update(patch: Partial<PlayerState>) {
-    this.state = { ...this.state, ...patch };
+    this.state = { ...this.state, ...patch, positionSec: position(this.audio) };
     if (!this.disposed) this.changed(this.state);
   }
 
   private live() {
-    return !this.disposed && this.state.generation !== null && performance.now() < this.deadline && Date.now() < this.wallDeadline;
+    return !this.disposed && this.device !== null;
   }
 
-  private renew(start: number, wall: number) {
-    // Use request START, not receipt: a delayed response can never extend local authority.
-    this.deadline = start + POLICY.leaseMs;
-    this.wallDeadline = wall + POLICY.leaseMs;
-  }
-
-  private halt(message: string) {
-    this.audio.pause();
-    this.audio.removeAttribute('src');
-    this.audio.load();
+  private stop() {
     this.cancellation.abort();
     this.cancellation = new AbortController();
+    this.audio.pause();
     publishAnalyser(null);
     this.desired = null;
     this.applied = null;
-    this.update({ generation: null, loadId: null, status: 'needs_activation', message, connection: 'waiting' });
+    this.update({ status: 'paused', message: '' });
+  }
+
+  private disconnect() {
+    this.stop();
+    this.device = null;
+    this.update({ generation: null, connection: 'connecting' });
+    this.subscribe();
   }
 
   private subscribe() {
     this.unsubscribe();
     this.unsubscribe = subscribeSnapshots((s) => this.snapshot(s), (error) => {
-      if (error) this.update({ message: 'Reconnecting to the session…' });
+      this.connectionError(error);
+      if (error === 'HTTP 401' && this.device) this.disconnect();
     }, this.device?.token);
   }
 
   private async connect() {
-    if (this.disposed || !this.sessionOpen || this.state.generation !== null || this.claiming) return;
+    if (this.disposed || this.device || this.claiming) return;
     this.claiming = true;
     this.nextConnectAt = performance.now() + 2000;
     this.update({ connection: 'connecting' });
-    const start = performance.now(), wall = Date.now();
     try {
-      const response = await this.bounded(sendCommand('display.connect', { secret: this.secret }, { attempts: 1 }));
+      const response = await this.bounded(sendCommand('display.connect', { secret: this.secret }, { attempts: 1 }), this.lifetime.signal);
       if (this.disposed) return;
       if (!response.ok) {
-        if (response.error.code === 'DEVICE_REVOKED') this.nextConnectAt = Infinity;
-        this.update({ connection: response.error.code === 'LEASE_HELD' ? 'elsewhere' : 'error',
-          message: response.error.code === 'LEASE_HELD' ? 'Sound is playing on another display.' : response.error.message });
+        this.update({ connection: 'error', message: response.error.message });
         return;
       }
-      const { deviceId, token, generation, expiresAt } = response.result;
+      const { deviceId, token, generation } = response.result;
       this.device = { deviceId, token };
       // Ignore any in-flight snapshot from before this successful connection.
       this.snapshotRevision = Math.max(this.snapshotRevision, response.revision);
-      // A revoked player can be disconnected from SSE. Let its local watchdog
-      // expire before this new holder produces audio; heartbeats renew our lease.
-      this.safeStartAt = performance.now() + POLICY.leaseMs;
-      this.renew(start, wall);
-      this.wallDeadline = Math.min(this.wallDeadline, expiresAt);
       this.applied = null;
       this.desired = null;
       this.previous = undefined;
@@ -156,20 +160,14 @@ export class PlayerController {
   }
 
   private async refresh() {
-    const generation = this.state.generation;
+    const device = this.device;
     try {
       const res = await fetch('/api/v1/snapshot', { headers: { authorization: `Bearer ${this.device!.token}` }, signal: AbortSignal.timeout(4000) });
-      if (this.disposed || generation !== this.state.generation) return;
-      if (!res.ok) { this.halt('Reconnecting to the session…'); this.device = null; this.subscribe(); return; }
+      if (this.disposed || device !== this.device) return;
+      if (res.status === 401) { this.disconnect(); return; }
+      if (!res.ok) return;
       this.snapshot(await res.json() as Snapshot);
-    } catch { /* Lease watchdog remains independent of network waits. */ }
-  }
-
-  /** The presentation also consumes authoritative public snapshots. A closed night
-   * must stop sound even when this controller's separate bearer stream is delayed.
-   * Reuse the same revision/time fences; public snapshots never grant playback. */
-  observeSession(snapshot: Snapshot | null) {
-    if (snapshot && snapshot.night?.status !== 'open') this.snapshot(snapshot);
+    } catch { /* The snapshot subscription retries automatically. */ }
   }
 
   private snapshot(snapshot: Snapshot) {
@@ -178,32 +176,27 @@ export class PlayerController {
     this.snapshotRevision = snapshot.revision;
     this.snapshotTime = snapshot.serverTime;
     this.sessionOpen = snapshot.night?.status === 'open';
-    if (!this.sessionOpen) {
-      if (this.state.generation !== null) {
-        this.release();
-        this.halt('');
+    // Presentation and native audio consume this exact same ordered snapshot.
+    // Apply stop/pause before publishing it, including during an in-flight load.
+    if (!this.sessionOpen || !snapshot.desired) {
+      const hadDesired = this.desired !== null;
+      if (hadDesired || this.busy) {
+        this.stop();
       }
-      this.update({ connection: 'waiting', message: '' });
+      if (hadDesired && this.sessionOpen) void this.report();
+      this.presented(snapshot);
       return;
     }
-    if (this.state.generation === null) {
-      if (performance.now() >= this.nextConnectAt) void this.connect();
-      return;
-    }
-    if (!snapshot.lease || snapshot.lease.deviceId !== this.device!.deviceId || snapshot.lease.generation !== this.state.generation || snapshot.lease.expiresAt <= snapshot.serverTime) {
-      this.halt('Reconnecting to the session…');
-      return;
-    }
+    if (!this.device) { this.presented(snapshot); return; }
     if (snapshot.desired && this.desired && snapshot.desired.epoch < this.desired.epoch) return;
-    const hadDesired = this.desired !== null;
-    this.desired = snapshot.desired ?? null;
-    if (!this.desired) {
-      this.audio.pause(); publishAnalyser(null);
-      this.update({ status: this.state.activated ? 'paused' : 'needs_activation' });
-      // Nothing to play (e.g. requests-only waiting): report the actual paused position now, so the
-      // suspended master's checkpoint is exact rather than up to one heartbeat old.
-      if (hadDesired) void this.report(); // transition only: report() refreshes, which re-enters this method
+    if (this.busy && this.desired && (snapshot.desired.loadId !== this.desired.loadId
+      || snapshot.desired.seekSeq !== this.desired.seekSeq || snapshot.desired.intent !== this.desired.intent)) {
+      this.cancellation.abort();
+      this.cancellation = new AbortController();
     }
+    this.desired = snapshot.desired;
+    if (snapshot.desired.intent === 'paused') this.audio.pause();
+    this.presented(snapshot);
     void this.reconcile();
   }
 
@@ -234,7 +227,7 @@ export class PlayerController {
       }
       // Firefox may leave resume pending until a local gesture. Do not turn that
       // permission wait into a media timeout/failure or consume a request allowance.
-      void this.context.resume().then(() => {
+      void this.resumeContext().then(() => {
         if (this.disposed) return;
         this.update({ activated: this.context?.state === 'running', message: '' });
         void this.reconcile();
@@ -244,12 +237,16 @@ export class PlayerController {
       this.update({ activated: this.context.state === 'running' });
       await this.reconcile();
     } catch {
-      this.update({ activated: false, status: 'needs_activation', message: 'Sound could not start. Try enabling it again.' });
+      this.update({ activated: false, status: 'needs_activation', message: 'Firefox blocked autoplay. Allow Audio and Video for this site.' });
     }
   }
 
-  private bounded<T>(promise: Promise<T>): Promise<T> {
-    const signal = this.cancellation.signal;
+  private resumeContext() {
+    if (!this.resuming) this.resuming = this.context!.resume().finally(() => { this.resuming = null; });
+    return this.resuming;
+  }
+
+  private bounded<T>(promise: Promise<T>, signal = this.cancellation.signal): Promise<T> {
     return new Promise((resolve, reject) => {
       const finish = (error?: unknown, value?: T) => {
         clearTimeout(timer); signal.removeEventListener('abort', cancel);
@@ -277,10 +274,10 @@ export class PlayerController {
   }
 
   private async reconcile() {
-    if (!this.live() || this.busy || !this.desired || performance.now() < this.safeStartAt) return;
+    if (!this.live() || this.busy || !this.desired || performance.now() < this.retryPlaybackAt) return;
     const desired = this.desired;
-    const generation = this.state.generation;
-    if (this.applied?.epoch === desired.epoch && (!this.state.activated || this.state.status !== 'needs_activation')) return;
+    const operation = this.cancellation.signal;
+    if (this.applied?.epoch === desired.epoch && this.state.status !== 'needs_activation') return;
     this.busy = true;
     this.update({ status: 'loading' });
     try {
@@ -288,7 +285,9 @@ export class PlayerController {
       const seek = newLoad || this.applied?.seekSeq !== desired.seekSeq;
       if (newLoad) {
         this.audio.pause();
-        if (this.applied) this.previous = { loadId: this.state.loadId ?? 0, positionSec: position(this.audio) };
+        if (this.applied && this.state.loadId === this.applied.loadId) {
+          this.previous = { loadId: this.applied.loadId, positionSec: position(this.audio) };
+        }
         this.terminalSent = false;
         this.update({ loadId: desired.loadId, status: 'loading' });
         await this.mediaEvent('loadedmetadata', () => { this.audio.src = desired.asset.url; this.audio.load(); });
@@ -299,44 +298,50 @@ export class PlayerController {
         if (Math.abs(position(this.audio) - target) > .001) await this.mediaEvent('seeked', () => { this.audio.currentTime = target; });
         if (Math.abs(position(this.audio) - target) > .35) throw new Error('Seek exceeded 350ms tolerance');
       }
-      if (!this.live() || generation !== this.state.generation) return;
+      if (!this.live() || operation.aborted) return;
       this.audio.volume = desired.volume;
       this.applied = desired;
       this.update({ epoch: desired.epoch });
       // Never start an obsolete load or intent after an asynchronous load/seek.
       if (this.desired?.epoch !== desired.epoch) { this.audio.pause(); return; }
-      if (!this.state.activated) {
-        this.audio.pause();
-        this.update({ status: 'needs_activation' });
-      } else if (desired.intent === 'paused') {
+      if (desired.intent === 'paused') {
         this.audio.pause();
         publishAnalyser(null);
-        this.update({ status: 'paused' });
+        this.update({ status: 'paused', message: '' });
       } else {
+        // Always try native playback. A suspended analyser must not invent an
+        // app-level permission gate before Firefox gets to evaluate autoplay.
+        void this.resumeContext().catch(() => {});
         await this.bounded(this.audio.play());
-        if (!this.live() || this.desired?.epoch !== desired.epoch) { this.audio.pause(); return; }
+        if (!this.live() || operation.aborted || this.desired?.epoch !== desired.epoch) { this.audio.pause(); return; }
+        if (this.context?.state !== 'running') throw new DOMException('Firefox blocked audio autoplay', 'NotAllowedError');
         publishAnalyser(this.analyser);
-        this.update({ status: this.audio.paused ? 'paused' : 'playing' });
+        this.update({ activated: true, status: this.audio.paused ? 'paused' : 'playing', message: '' });
       }
     } catch (error) {
       this.audio.pause();
-      if (!this.live() || generation !== this.state.generation) return;
+      if (!this.live() || operation.aborted) return;
       this.applied = desired;
       const activation = error instanceof DOMException && error.name === 'NotAllowedError';
+      if (activation) this.retryPlaybackAt = performance.now() + 1000;
       this.update({ epoch: desired.epoch, status: activation ? 'needs_activation' : 'error', ...(activation ? { activated: false } : {}), message: String(error) });
     } finally {
       this.busy = false;
       if (this.live()) void this.report();
+      if (this.desired && (operation.aborted || this.desired.epoch !== desired.epoch)) void this.reconcile();
     }
   }
 
   private async report() {
-    if (!this.live()) return;
+    // Loading resets the native position before seeking to the checkpoint. That
+    // transient zero is not an actual playback checkpoint or acknowledgement.
+    if (!this.live() || !this.sessionOpen || this.busy) return;
     if (this.reporting) { this.reportAgain = true; return; }
     this.reporting = true;
     const generation = this.state.generation!;
+    const device = this.device!;
     const previous = this.previous;
-    // Terminal events are acknowledged once; silent heartbeats keep ownership.
+    // Terminal events are acknowledged once; heartbeats save position and observed health.
     const status = this.terminalSent ? this.state.activated ? 'paused' : 'needs_activation' : !this.busy && this.state.activated && !['error', 'needs_activation'].includes(this.state.status)
       ? this.audio.ended ? 'ended' : this.audio.paused ? 'paused' : this.audio.readyState < 3 ? 'buffering' : 'playing'
       : this.state.status;
@@ -345,23 +350,20 @@ export class PlayerController {
       status, positionSec: position(this.audio), ...(previous ? { previous } : {}),
       ...(status === 'error' ? { error: this.state.message.slice(0, 300) } : {}),
     };
-    const start = performance.now(), wall = Date.now();
     try {
-      const response = await this.bounded(sendCommand('player.report', payload, { bearer: this.device!.token, attempts: 1 }));
-      if (this.disposed || generation !== this.state.generation) return;
+      const response = await this.bounded(sendCommand('player.report', payload, { bearer: this.device!.token, attempts: 1 }), this.lifetime.signal);
+      if (this.disposed || device !== this.device) return;
       if (!response.ok) {
-        if (['STALE_LEASE', 'DEVICE_REVOKED', 'UNAUTHENTICATED'].includes(response.error.code)) this.halt(response.error.message);
+        if (['DEVICE_REVOKED', 'UNAUTHENTICATED'].includes(response.error.code)) this.disconnect();
         return;
       }
-      if (!this.live()) { this.halt('Reconnecting to the session…'); return; }
-      this.renew(start, wall);
       if (this.previous === previous) this.previous = undefined;
       if (this.state.loadId === payload.loadId && this.applied?.loadId === payload.loadId && this.state.epoch === payload.epoch && ['ended', 'error'].includes(status)) this.terminalSent = true;
       // Position-only reports do not emit SSE revisions; refresh the current desired
       // state after every acknowledgement, including terminal transitions.
       await this.refresh();
     } catch {
-      if (this.live()) this.update({ message: 'Report not confirmed. Playback stops when the lease expires.' });
+      if (this.live()) this.update({ message: 'Report not confirmed. Reconnecting automatically.' });
     } finally {
       this.reporting = false;
       if (this.reportAgain) { this.reportAgain = false; void this.report(); }
@@ -372,15 +374,14 @@ export class PlayerController {
     const generation = this.state.generation;
     const finalPosition = position(this.audio);
     if (generation !== null && this.device) {
-      // Preserve the actual final checkpoint before releasing on refresh. Ordered
-      // within one best-effort keepalive request chain; expiry remains the fallback.
+      // Save the final checkpoint on refresh. There is no ownership to release.
       const token = this.device.token;
       const command = (type: string, payload: unknown) => fetch('/api/v1/commands', {
         method: 'POST', keepalive: true, headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({ commandId: crypto.randomUUID(), type, payload }),
       });
-      const checkpoint = this.applied ? command('player.report', { generation, epoch: this.state.epoch, loadId: this.state.loadId ?? 0, status: this.state.status === 'ended' ? 'ended' : 'paused', positionSec: finalPosition, ...(this.previous ? { previous: this.previous } : {}) }) : Promise.resolve();
-      void checkpoint.then(() => command('player.release', { generation })).catch(() => {});
+      const checkpoint = this.applied ? command('player.report', { generation, epoch: this.state.epoch, loadId: this.state.loadId ?? 0, status: this.state.status === 'needs_activation' ? 'needs_activation' : 'paused', positionSec: finalPosition, ...(this.previous ? { previous: this.previous } : {}) }) : Promise.resolve();
+      void checkpoint.catch(() => {});
     }
   }
 
@@ -390,6 +391,7 @@ export class PlayerController {
     this.disposed = true;
     this.audio.pause();
     this.cancellation.abort();
+    this.lifetime.abort();
     publishAnalyser(null);
     this.unsubscribe();
     clearInterval(this.timer); clearInterval(this.heartbeat);

@@ -64,6 +64,7 @@ when authorized rather than silently switching to the fake sign-in form.
 - The display has a real audio-reactive dithered visualizer, not just idle shader
   motion. Follow the user's sketch in `docs/jukebox/references/display-sketch.png`:
   large left visualizer, now-playing strip below, queue and request QR on the right.
+  Keep the QR, “Song requests” heading and URL; omit the PH ID/allowance line (2026-11-05).
   Detailed audio analysis/rendering choices belong to the display-phase discussion.
 - Reuse the existing PH ID implementation (`purduehackers/id`) when the auth phase
   begins; inspect current code and supported integration rather than inventing ID.
@@ -82,7 +83,12 @@ when authorized rather than silently switching to the fake sign-in form.
 - Shared queues/checkpoints must survive supported restarts and concurrent clients.
   Browser storage, module memory, or Edge Config alone is not queue authority.
 - Use stable command IDs, actual player acknowledgement, and explicit device
-  authority. The display connects automatically during an admin-started session (2026-11-01 user decision); keep a single background player lease, with no pairing/claim UI. No session means an empty display. Ask locally to enable sound only when browser policy requires it.
+  reports. The universal display stays connected across nights (2026-11-05 user
+  decision); no exclusive player lease, pairing/claim UI, linking, startup wait,
+  or app sound-enable button. Multiple tabs may play. No night shows “Night not
+  started”; Start/End night automatically starts/stops sound. Reloads resume near
+  the checkpoint. Always attempt native autoplay; Firefox's persistent site
+  permission is configured in the browser if blocked. See `docs/jukebox/PLAYER-CONNECTION-AUDIT.md`.
 - Keep the suspended master mix's audio asset pinned while requests play. Delete
   unused assets with bounded cache/cleanup behavior, including failed jobs/crashes.
 - Use local source/auth/player fixtures and a test clock for routine verification.

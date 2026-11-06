@@ -13,6 +13,7 @@ export function serverNowAt(snapshot: Snapshot, receivedAtLocal: number, localNo
 export type PlayerState = 'no_display' | 'offline' | 'needs_activation' | 'loading' | 'buffering' | 'playing' | 'paused' | 'ended' | 'error';
 
 export function playerState(snapshot: Snapshot): PlayerState {
+  if (snapshot.night?.status !== 'open') return 'paused';
   const observed = snapshot.playback.observed;
   if (!observed) return 'no_display';
   if (observed.status === 'offline') return 'offline';
@@ -20,9 +21,9 @@ export function playerState(snapshot: Snapshot): PlayerState {
 }
 
 export const PLAYER_LABEL: Record<PlayerState, string> = {
-  no_display: 'Display not open',
-  offline: 'Display offline',
-  needs_activation: 'Display needs a click',
+  no_display: 'Waiting for playback',
+  offline: 'Reconnecting',
+  needs_activation: 'Firefox blocked autoplay',
   loading: 'Loading',
   buffering: 'Buffering',
   playing: 'Playing',
