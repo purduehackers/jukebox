@@ -1,4 +1,4 @@
-// Queue service entry point. Loopback-only behind same-origin HTTPS ingress in production.
+// Queue service and built frontend behind same-origin HTTPS ingress.
 import { validateProduction } from './production.ts';
 import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -29,7 +29,7 @@ const { values } = parseArgs({
 validateProduction(process.env, { data: values.data!, devAuth: values['dev-auth'], fixtures: values['fixture-media'] || values['fixture-matching'] });
 
 const port = Number(values.port);
-const host = '127.0.0.1';
+const host = process.env.JUKEBOX_SERVICE_HOST ?? '127.0.0.1';
 const origin = process.env.JUKEBOX_ORIGIN ?? `http://${host}:${port}`;
 const data = resolve(values.data!);
 mkdirSync(data, { recursive: true });
@@ -78,7 +78,7 @@ const service = new JukeboxService({
   media,
   adminKeys: [...values['admin-key']!, ...(process.env.JUKEBOX_ADMIN_KEYS?.split(',').filter(Boolean) ?? [])],
 });
-const server = createHttpServer({ service, identity, origin, mediaProxy });
+const server = createHttpServer({ service, identity, origin, mediaProxy, frontendDir: resolve('dist/app') });
 // Server-side timer: due turns, lease expiry, and preparation progress never depend on a browser interval.
 const timer = setInterval(() => void service.reconcile().catch((error) => console.error('[jukebox] reconcile', error)), 1000);
 server.listen(port, host, () => {

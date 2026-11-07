@@ -1,0 +1,19 @@
+# Allow only build/runtime inputs; private state and credentials never enter context.
+**
+!Containerfile
+!.containerignore
+!package.json
+!package-lock.json
+!requirements.txt
+!vite.config.ts
+!app/
+!app/**
+!src/
+!src/**
+!jukebox/
+!jukebox/**
+!scripts/
+!scripts/run-production
+**/__pycache__/
+**/*.pyc
+**/.env*

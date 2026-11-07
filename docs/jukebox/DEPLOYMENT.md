@@ -15,7 +15,7 @@ Firefox; its browser obtains audio over the deployed same-origin `/media/*` path
 - `npm run build:app` creates portable `dist/app` static files.
 - `npm start` / `scripts/run-production` runs the Node service and Python worker.
 - `deploy/jukebox.env.example` lists production variables and persistent paths.
-- `deploy/Caddyfile` demonstrates HTTPS, SPA routes, API/auth/media forwarding and
+- `deploy/Caddyfile` demonstrates HTTPS forwarding of the whole site to Node with
   unbuffered SSE. The operator can adapt these rules to their existing proxy.
 - `deploy/jukebox.service` demonstrates systemd startup/restart and server storage.
 
@@ -69,8 +69,8 @@ need equivalent private networking and mounts and can launch `main.ts` directly.
    venue organizers `organizer` or `admin` roles. The whole `/display` page and
    `/visual` require organizer sign-in. `/queue` attendees still use ordinary PH ID.
    Plan a fresh venue sign-in before each night; sessions currently last 12 hours.
-6. Adapt/install the systemd unit and proxy configuration. Ensure the proxy can
-   read `dist/app`; keep secret configuration private. Start the service and check
+6. Adapt/install the systemd unit and proxy configuration. Proxy the whole site to Node (native default port 8980, container port 8080);
+   Node serves `dist/app`. Keep secret configuration private. Start the service and check
    its logs and private `/healthz`. The launcher terminates both child processes
    if either exits so the supervisor can restart the complete stack.
 7. Obtain the real server/ingress DNS target and make the change through
@@ -133,3 +133,44 @@ simultaneously against the same state.
 A disconnected browser can keep buffered audio playing until it reconnects;
 remote End night is not an offline physical mute. Keep a venue fallback and a
 local way to stop audio.
+
+## Podman container
+
+The root `Containerfile` builds the frontend with Vite and packages Node, the
+Python audio worker and FFmpeg. Node serves the built frontend as well as the API. It runs as the unprivileged `node` user and exposes HTTP
+on port 8080. Terminate HTTPS at the host ingress and proxy the entire site to
+this port, preserving Host/Origin and streaming responses. Node binds to `0.0.0.0:8080` inside the container; the worker remains private
+on container loopback. The host port is published on loopback only. Do not run another
+copy against the same volume.
+
+```sh
+podman build -t jukebox:local -f Containerfile .
+podman volume create jukebox-data
+podman run -d --name jukebox --restart=unless-stopped \
+  --env-file /etc/jukebox.env \
+  --env JUKEBOX_SERVICE_PORT=8080 \
+  -p 127.0.0.1:8080:8080 \
+  -v jukebox-data:/var/lib/jukebox \
+  jukebox:local
+podman logs jukebox
+```
+
+Use the production environment example and PH ID setup above. The image defaults
+to `/var/lib/jukebox/service` and `/var/lib/jukebox/worker`; keep those values when
+mounting the volume as shown. A fresh named volume inherits the image directory's
+ownership. Bind mounts need permissions for container UID 1000 (with rootless
+Podman UID mapping) and an appropriate SELinux label, such as `:Z` where enabled.
+Keep the environment file private; never pass secrets as build arguments.
+The allowlist in `.containerignore` excludes local state and credentials from the
+build context. Image upgrades preserve the named volume; back it up as described
+above. Base image tags can move: record image digests for reproducible releases.
+The health check probes the Node service; the production launcher
+separately supervises the worker. Host reboot startup requires operator setup,
+such as a Podman Quadlet/systemd service with the appropriate user linger policy.
+
+Node serves the built app shell at `/`, `/admin`, `/queue`, `/display` and
+`/visual`, plus the Vite-generated `/assets/*` files. Assets use immutable cache
+headers; the HTML shell is revalidated. Unknown API/auth/media paths and missing
+assets return 404 rather than HTML. Vite is only a build/development dependency;
+production runs no Vite server. Native installs keep the default loopback bind;
+`JUKEBOX_SERVICE_HOST` allows the container to bind its published interface.

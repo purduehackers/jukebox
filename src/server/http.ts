@@ -2,6 +2,7 @@
 // a PH ID session cookie (attendee/admin) or a paired-device bearer token (player).
 import { createHash, randomBytes } from 'node:crypto';
 import http from 'node:http';
+import { serveFrontend } from './frontend.ts';
 import type { Identity } from '../contract/types.ts';
 import type { IdentityPort } from '../core/ports.ts';
 import type { Actor, JukeboxService } from './service.ts';
@@ -13,6 +14,7 @@ export interface HttpOptions {
   origin: string;
   mediaProxy?: (assetId: string, req: http.IncomingMessage, res: http.ServerResponse) => Promise<void>;
   sessionTtlMs?: number;
+  frontendDir?: string;
 }
 
 const SESSION_COOKIE = 'jb_session';
@@ -205,6 +207,7 @@ export function createHttpServer(options: HttpOptions): http.Server {
       if (!options.mediaProxy) return json(res, 404, { error: { code: 'NOT_FOUND', message: 'No media worker configured', retryable: false } });
       return options.mediaProxy(url.pathname.slice('/media/'.length), req, res);
     }
+    if (options.frontendDir && await serveFrontend(options.frontendDir, url.pathname, req, res)) return;
     json(res, 404, { error: { code: 'NOT_FOUND', message: 'Not found', retryable: false } });
   }
 
