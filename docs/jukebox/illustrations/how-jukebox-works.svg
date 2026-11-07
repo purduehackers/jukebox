@@ -1,0 +1,236 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2320" viewBox="0 0 1600 2320" role="img" aria-labelledby="title desc">
+<title id="title">How the Purdue Hackers Jukebox works</title><desc id="desc">An annotated sketch of the approved plan: silent attendee and organizer pages talk to a durable shared brain; an audio worker prepares files for the sole Firefox venue player. A timeline explains fifteen-minute master periods, one request, mix resumption, quotas, and the build order.</desc>
+<defs>
+<pattern id="paper" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r=".8" fill="#27252a" opacity=".10"/></pattern>
+<pattern id="dots" width="7" height="7" patternUnits="userSpaceOnUse"><rect width="3" height="3" fill="#7e3cff"/></pattern>
+<filter id="wobble" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".025" numOctaves="2" seed="12" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="1.6" xChannelSelector="R" yChannelSelector="G"/></filter>
+<marker id="arrow" markerWidth="12" markerHeight="12" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1 L10 5 L1 10" fill="none" stroke="#27252a" stroke-width="2" stroke-linecap="round"/></marker>
+<style>text{font-family:'Comic Neue','Segoe Print','Bradley Hand','Chalkboard SE','Comic Sans MS',cursive;fill:#27252a} .ink{stroke:#27252a;stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round} .note{fill:#7e3cff} </style>
+</defs><rect width="1600" height="2320" fill="#fffdf5"/><rect width="1600" height="2320" fill="url(#paper)"/>
+
+<text x="70" y="70" font-size="19" font-weight="bold">PURDUE HACKERS  /  THE PLAN, ON ONE PAGE</text>
+<text x="68" y="140" font-size="58" font-weight="bold">How the Jukebox works</text>
+<path class="ink" d="M72 160 Q460 170 880 157" style="stroke:#7e3cff"/>
+<text x="73" y="197" font-size="26">Your picks join the night. One laptop makes the music.</text>
+<path d="M1124 72 Q1322.5 67 1523 73 L1527 185 Q1322.5 192 1120 188 Z" fill="#fff4be" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M1127 68 L1527 76 L1523 192" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<text x="1142" y="106" font-size="20">A plan — not a live app yet.</text>
+<text x="1142" y="135" font-size="20">First: prove real audio playback.</text>
+<text x="1142" y="164" font-size="20">Then build the shared pieces.</text>
+<circle cx="88" cy="256" r="22" fill="#fdd34a" stroke="#27252a" stroke-width="2"/>
+<text x="80" y="264" font-size="25" font-weight="bold">1</text>
+<text x="124" y="266" font-size="35" font-weight="bold">Who talks to whom</text>
+<text x="81" y="307" font-size="22">Arrows carry requests, instructions or files. Only the venue player makes sound.</text>
+<path d="M82 347 Q301.5 342 523 348 L527 661 Q301.5 668 78 664 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M85 343 L527 351 L523 668" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<path d="M106 371 Q126.0 366 148 372 L152 446 Q126.0 453 102 449 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M109 367 L152 375 L148 453" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<path class="ink" d="M116 439 L135 439"/>
+<text x="169" y="395" font-size="29" font-weight="bold">Attendee phone</text>
+<text x="169" y="429" font-size="23" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 169 429)">/queue  ·  silent</text>
+<text x="103" y="488" font-size="24">Scan the request QR on the wall.</text>
+<text x="103" y="522" font-size="24">Sign in with Purdue Hackers ID.</text>
+<text x="103" y="556" font-size="24">Paste a song link:</text>
+<text x="103" y="595" font-size="21" font-weight="bold">YouTube / Spotify / Apple Music</text>
+<text x="103" y="632" font-size="21">Valid requests join automatically.</text>
+<path d="M599 347 Q812.5 342 1028 348 L1032 661 Q812.5 668 595 664 Z" fill="#fff4be" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M602 343 L1032 351 L1028 668" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<text x="618" y="394" font-size="29" font-weight="bold">Shared queue service</text>
+<text x="618" y="432" font-size="22">The “brain” everyone agrees on</text>
+<text x="620" y="483" font-size="22">Master queue = organizer music</text>
+<text x="620" y="519" font-size="22">Request queue = attendee picks</text>
+<text x="620" y="555" font-size="22">Timer + per-person allowance</text>
+<text x="620" y="591" font-size="22">Saved position in a paused mix</text>
+<text x="620" y="639" font-size="23" font-weight="bold">Remembers through restarts.</text>
+<path class="ink" d="M526 510 Q558 505 589 510" marker-end="url(#arrow)"/>
+<text x="538" y="483" font-size="18">add</text>
+<path d="M1104 347 Q1311.0 342 1520 348 L1524 661 Q1311.0 668 1100 664 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M1107 343 L1524 351 L1520 668" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<path d="M1126 367 Q1149.5 362 1175 368 L1179 424 Q1149.5 431 1122 427 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M1129 363 L1179 371 L1175 431" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<path class="ink" d="M1129 385 L1170 385 M1129 405 L1170 405"/>
+<text x="1191" y="392" font-size="28" font-weight="bold">Audio worker</text>
+<text x="1191" y="425" font-size="21">+ temporary cache</text>
+<text x="1122" y="473" font-size="22">Link → AUDIO-ONLY file</text>
+<text x="1122" y="507" font-size="22">You can jump to a spot in it.</text>
+<text x="1122" y="541" font-size="22">Deletes old, unused files.</text>
+<text x="1122" y="575" font-size="22">Keeps a paused mix’s file safe.</text>
+<text x="1122" y="622" font-size="21" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 1122 622)">Existing server: evaluate first.</text>
+<path class="ink" d="M1031 510 Q1061 505 1093 510" marker-end="url(#arrow)"/>
+<text x="1037" y="481" font-size="16">prepare</text>
+<text x="1104" y="709" font-size="20" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 1104 709)">A Spotify link is not audio:</text>
+<text x="1104" y="737" font-size="20" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 1104 737)">match it to a playable recording.</text>
+<text x="1104" y="765" font-size="20" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 1104 765)">Apple Music links need matching too.</text>
+<path class="ink" d="M1430 684 Q1440 677 1440 666" marker-end="url(#arrow)" style="stroke:#7e3cff"/>
+<path d="M82 731 Q301.5 726 523 732 L527 1036 Q301.5 1043 78 1039 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M85 727 L527 735 L523 1043" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<path class="ink" d="M106 763 L149 765 L148 795 L105 795 Z M99 801 L157 801"/>
+<text x="175" y="777" font-size="29" font-weight="bold">Organizer</text>
+<text x="175" y="811" font-size="23" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 175 811)">/admin  ·  silent</text>
+<text x="103" y="860" font-size="23">Play / pause • volume • skip</text>
+<text x="103" y="896" font-size="23">Seek to a spot in the track</text>
+<text x="103" y="932" font-size="23">Reorder / remove queue entries</text>
+<text x="103" y="968" font-size="23">Start / end the night session</text>
+<path class="ink" d="M526 805 C565 805 564 603 588 603" marker-end="url(#arrow)"/>
+<text x="490" y="760" font-size="17">control</text>
+<path class="ink" d="M726 666 Q720 750 724 831" marker-end="url(#arrow)"/>
+<text x="610" y="709" font-size="18">playback</text>
+<text x="610" y="734" font-size="18">instructions</text>
+<path class="ink" d="M905 831 Q910 746 904 673" marker-end="url(#arrow)"/>
+<text x="929" y="738" font-size="18">actual</text>
+<text x="929" y="763" font-size="18">status</text>
+<rect x="630" y="787" width="650" height="37" fill="#fffdf5"/>
+<text x="639" y="815" font-size="24" font-weight="bold">Venue laptop → dedicated second monitor</text>
+<path d="M644 846 Q962.0 841 1282 847 L1286 1177 Q962.0 1184 640 1180 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M647 842 L1286 850 L1282 1184" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<text x="661" y="880" font-size="26" font-weight="bold">/display in Firefox</text>
+<text x="982" y="879" font-size="20" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 982 879)">ONE paired player</text>
+<path d="M666 902 Q961.0 897 1258 903 L1262 1149 Q961.0 1156 662 1152 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M669 898 L1262 906 L1258 1156" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<path class="ink" d="M1062 902 L1060 1150 M665 1091 L1058 1091"/>
+<path d="M681 1049 L701 1036 L722 1000 L741 1031 L761 975 L781 1020 L802 953 L825 1029 L845 1007 L866 1040 L887 983 L909 1029 L931 964 L951 1012 L970 996 L993 1038 L1040 1026 L1040 1073 L682 1073 Z" fill="url(#dots)"/>
+<text x="684" y="932" font-size="19">Real audio → dithered visualizer</text>
+<text x="683" y="1129" font-size="22">♫  Now playing  /  title + artist</text>
+<text x="1078" y="932" font-size="18">Queue</text>
+<text x="1078" y="960" font-size="18">1. next song</text>
+<text x="1078" y="988" font-size="18">2. next pick</text>
+<path d="M1167 1025 Q1198.0 1020 1231 1026 L1235 1089 Q1198.0 1096 1163 1092 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M1170 1021 L1235 1029 L1231 1096" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<rect x="1172" y="1032" width="18" height="18" fill="none" stroke="#27252a" stroke-width="4"/>
+<rect x="1207" y="1032" width="18" height="18" fill="none" stroke="#27252a" stroke-width="4"/>
+<rect x="1172" y="1067" width="18" height="18" fill="none" stroke="#27252a" stroke-width="4"/>
+<path class="ink" d="M1200 1063 L1210 1063 L1210 1075 L1224 1075 M1197 1085 L1201 1085"/>
+<text x="1078" y="1117" font-size="16">Request QR</text>
+<text x="1078" y="1140" font-size="16">(sketch only)</text>
+<path class="ink" d="M813 1182 L814 1200 M760 1202 L876 1202"/>
+<path class="ink" d="M1524 590 L1543 593 L1541 805 L1290 805 L1290 828 L1203 828 L1203 838" marker-end="url(#arrow)"/>
+<text x="1320" y="835" font-size="18">audio file</text>
+<path class="ink" d="M1286 1038 Q1336 1042 1377 1037" marker-end="url(#arrow)"/>
+<text x="1297" y="1017" font-size="19">HDMI</text>
+<path d="M1396 958 Q1441.5 953 1489 959 L1493 1131 Q1441.5 1138 1392 1134 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M1399 954 L1493 962 L1489 1138" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<circle cx="1442" cy="1002" r="17" class="ink"/><circle cx="1442" cy="1075" r="32" class="ink"/>
+<path class="ink" d="M1503 995 Q1527 1040 1505 1093 M1518 980 Q1554 1043 1521 1110"/>
+<text x="1388" y="1166" font-size="23">Speakers</text>
+<text x="1110" y="1233" font-size="24" font-weight="bold">The ONLY place sound comes out.</text>
+<text x="98" y="1084" font-size="20" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 98 1084)">Admin sees what the player ACTUALLY</text>
+<text x="98" y="1113" font-size="20" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 98 1113)">did — not just what was asked.</text>
+<path class="ink" d="M501 1093 Q568 1110 631 1058" marker-end="url(#arrow)" style="stroke:#7e3cff"/>
+<text x="98" y="1180" font-size="21" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 98 1180)">No video ever.</text>
+<text x="98" y="1209" font-size="21" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 98 1209)">No download, stream or hidden embed.</text>
+<text x="643" y="1237" font-size="21" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 643 1237)">Only one display is allowed to play.</text>
+<path class="ink" d="M79 1280 Q795 1274 1520 1282"/>
+<circle cx="88" cy="1335" r="22" fill="#fdd34a" stroke="#27252a" stroke-width="2"/>
+<text x="80" y="1343" font-size="25" font-weight="bold">2</text>
+<text x="124" y="1346" font-size="35" font-weight="bold">How a night plays out</text>
+<text x="80" y="1390" font-size="23">Master = the organizer’s music. Requests take one turn at a time.</text>
+<path d="M84 1452 Q195.0 1447 308 1453 L312 1769 Q195.0 1776 80 1772 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M87 1448 L312 1456 L308 1776" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<circle cx="104" cy="1447" r="22" fill="#fdd34a" stroke="#27252a" stroke-width="2"/>
+<text x="96" y="1455" font-size="25" font-weight="bold">1</text>
+<text x="98" y="1497" font-size="27" font-weight="bold">15 min</text>
+<text x="97" y="1541" font-size="22">Master music</text>
+<text x="97" y="1571" font-size="22">plays.</text>
+<text x="97" y="1623" font-size="20">Real elapsed time:</text>
+<text x="97" y="1651" font-size="20">pause / buffering</text>
+<text x="97" y="1679" font-size="20">doesn’t freeze it;</text>
+<text x="97" y="1707" font-size="20">seeking doesn’t</text>
+<text x="97" y="1735" font-size="20">jump the timer.</text>
+<path class="ink" d="M312 1528 L332 1528" marker-end="url(#arrow)"/>
+<path d="M344 1452 Q455.0 1447 568 1453 L572 1769 Q455.0 1776 340 1772 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M347 1448 L572 1456 L568 1776" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<circle cx="364" cy="1447" r="22" fill="#fdd34a" stroke="#27252a" stroke-width="2"/>
+<text x="356" y="1455" font-size="25" font-weight="bold">2</text>
+<text x="358" y="1497" font-size="27" font-weight="bold">Turn due</text>
+<text x="357" y="1541" font-size="22">Find the right</text>
+<text x="357" y="1571" font-size="22">stopping point.</text>
+<text x="357" y="1623" font-size="20">Song ≤ 6 min?</text>
+<text x="357" y="1651" font-size="20">Let it finish.</text>
+<text x="357" y="1679" font-size="20">Mix &gt; 6 min?</text>
+<text x="357" y="1707" font-size="20">Pause + save</text>
+<text x="357" y="1735" font-size="20">its exact spot.</text>
+<path class="ink" d="M572 1528 L592 1528" marker-end="url(#arrow)"/>
+<path d="M604 1452 Q715.0 1447 828 1453 L832 1769 Q715.0 1776 600 1772 Z" fill="#fff4be" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M607 1448 L832 1456 L828 1776" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<circle cx="624" cy="1447" r="22" fill="#fdd34a" stroke="#27252a" stroke-width="2"/>
+<text x="616" y="1455" font-size="25" font-weight="bold">3</text>
+<text x="618" y="1497" font-size="27" font-weight="bold">ONE song</text>
+<text x="617" y="1541" font-size="22">Play one</text>
+<text x="617" y="1571" font-size="22">attendee pick.</text>
+<text x="617" y="1623" font-size="20">Just one song</text>
+<text x="617" y="1651" font-size="20">per request turn.</text>
+<text x="617" y="1679" font-size="20">Then return to</text>
+<text x="617" y="1707" font-size="20">master music.</text>
+<path class="ink" d="M832 1528 L852 1528" marker-end="url(#arrow)"/>
+<path d="M864 1452 Q975.0 1447 1088 1453 L1092 1769 Q975.0 1776 860 1772 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M867 1448 L1092 1456 L1088 1776" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<circle cx="884" cy="1447" r="22" fill="#fdd34a" stroke="#27252a" stroke-width="2"/>
+<text x="876" y="1455" font-size="25" font-weight="bold">4</text>
+<text x="878" y="1497" font-size="27" font-weight="bold">Resume</text>
+<text x="877" y="1541" font-size="22">Mix returns to</text>
+<text x="877" y="1571" font-size="22">its saved spot.</text>
+<text x="877" y="1623" font-size="20">A fresh 15-minute</text>
+<text x="877" y="1651" font-size="20">master period</text>
+<text x="877" y="1679" font-size="20">starts after</text>
+<text x="877" y="1707" font-size="20">the request.</text>
+<path d="M1136 1447 Q1327.5 1442 1521 1448 L1525 1916 Q1327.5 1923 1132 1919 Z" fill="#fff4be" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M1139 1443 L1525 1451 L1521 1923" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<text x="1155" y="1488" font-size="27" font-weight="bold">Rules for attendees</text>
+<text x="1155" y="1531" font-size="21">3 accepted songs per person</text>
+<text x="1155" y="1562" font-size="21">per admin-managed night.</text>
+<text x="1155" y="1593" font-size="21">Requests must be under 6 min.</text>
+<text x="1155" y="1640" font-size="21">Valid songs auto-enter.</text>
+<text x="1155" y="1671" font-size="21">Admins can remove them.</text>
+<text x="1155" y="1719" font-size="19">Technical playback or prep failure?</text>
+<text x="1155" y="1748" font-size="19">You get that request allowance</text>
+<text x="1155" y="1777" font-size="19">back — not an automatic replay.</text>
+<text x="1155" y="1833" font-size="18">Admin removal / deliberate skip</text>
+<text x="1155" y="1860" font-size="18">does not automatically refund.</text>
+<text x="1155" y="1887" font-size="18">New session resets the allowance.</text>
+<text x="85" y="1814" font-size="20" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 85 1814)">Paused when a turn is due? Wait for the organizer to resume.</text>
+<path d="M84 1846 Q585.0 1841 1088 1847 L1092 1965 Q585.0 1972 80 1968 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M87 1842 L1092 1850 L1088 1972" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<text x="100" y="1882" font-size="23" font-weight="bold">Empty turn = another full 15 minutes of master music.</text>
+<text x="100" y="1920" font-size="23">9:15 empty  →  9:17 someone requests  →  ~9:30 next chance</text>
+<text x="100" y="1950" font-size="19">With uninterrupted master music; a normal song still finishes first.</text>
+<path class="ink" d="M79 2010 Q795 2003 1520 2012"/>
+<text x="80" y="2060" font-size="33" font-weight="bold">Build order</text>
+<text x="298" y="2059" font-size="23">Prove it first, then connect the pieces.</text>
+<path d="M84 2115 Q202.5 2110 323 2116 L327 2221 Q202.5 2228 80 2224 Z" fill="#fff4be" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M87 2111 L327 2119 L323 2228" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<circle cx="103" cy="2111" r="22" fill="#fdd34a" stroke="#27252a" stroke-width="2"/>
+<text x="95" y="2119" font-size="25" font-weight="bold">1</text>
+<text x="96" y="2164" font-size="22">Prove playback</text>
+<text x="96" y="2195" font-size="22">works</text>
+<path class="ink" d="M330 2176 L349 2176" marker-end="url(#arrow)"/>
+<path d="M361 2115 Q477.0 2110 595 2116 L599 2221 Q477.0 2228 357 2224 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M364 2111 L599 2119 L595 2228" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<circle cx="380" cy="2111" r="22" fill="#fdd34a" stroke="#27252a" stroke-width="2"/>
+<text x="372" y="2119" font-size="25" font-weight="bold">2</text>
+<text x="373" y="2164" font-size="22">Shared brain</text>
+<text x="373" y="2195" font-size="22">+ sign-in</text>
+<path class="ink" d="M602 2176 L621 2176" marker-end="url(#arrow)"/>
+<path d="M633 2115 Q779.0 2110 927 2116 L931 2221 Q779.0 2228 629 2224 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M636 2111 L931 2119 L927 2228" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<circle cx="652" cy="2111" r="22" fill="#fdd34a" stroke="#27252a" stroke-width="2"/>
+<text x="644" y="2119" font-size="25" font-weight="bold">3</text>
+<text x="645" y="2164" font-size="19">Player / Admin / Queue</text>
+<text x="645" y="2195" font-size="19">page / Display in parallel</text>
+<path class="ink" d="M934 2176 L953 2176" marker-end="url(#arrow)"/>
+<path d="M966 2115 Q1084.5 2110 1205 2116 L1209 2221 Q1084.5 2228 962 2224 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M969 2111 L1209 2119 L1205 2228" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<circle cx="985" cy="2111" r="22" fill="#fdd34a" stroke="#27252a" stroke-width="2"/>
+<text x="977" y="2119" font-size="25" font-weight="bold">4</text>
+<text x="978" y="2164" font-size="22">Full rehearsal</text>
+<text x="978" y="2195" font-size="22">on the real wall</text>
+<path class="ink" d="M1212 2176 L1231 2176" marker-end="url(#arrow)"/>
+<path d="M1243 2115 Q1379.5 2110 1518 2116 L1522 2221 Q1379.5 2228 1239 2224 Z" fill="#fffdf5" stroke="#27252a" stroke-width="2.3" filter="url(#wobble)"/>
+<path d="M1246 2111 L1522 2119 L1518 2228" fill="none" stroke="#27252a" opacity=".23" stroke-width="1.2"/>
+<circle cx="1262" cy="2111" r="22" fill="#fdd34a" stroke="#27252a" stroke-width="2"/>
+<text x="1254" y="2119" font-size="25" font-weight="bold">5</text>
+<text x="1255" y="2164" font-size="19">Go live at</text>
+<text x="1255" y="2195" font-size="19">jukebox.purduehackers.com</text>
+<text x="98" y="2260" font-size="21" fill="#7e3cff" font-weight="bold" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 98 2260)">↑ YOU ARE HERE</text>
+<text x="637" y="2260" font-size="18" fill="#7e3cff" style="fill:#7e3cff;font-style:italic" transform="rotate(-.6 637 2260)">After shared contracts are stable.</text>
+<text x="80" y="2300" font-size="17">Based on the approved plan • 30 Oct 2026 • Source support, server placement and real hardware still need proof.</text>
+</svg>
