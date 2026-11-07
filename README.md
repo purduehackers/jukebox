@@ -10,6 +10,8 @@ Intended production origin: `https://jukebox.purduehackers.com` (not deployed).
 
 Current behavior and remaining release gates: [implementation and deployment status](docs/jukebox/CURRENT-STATUS.md) (reviewed 2026-11-06).
 
+New chat: [current handoff](docs/jukebox/NEXT-CHAT.md).
+
 ## Run the complete local app
 
 For real PH ID sign-in, copy `.env.example` to `.env.local` and fill it in once;

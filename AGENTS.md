@@ -20,6 +20,9 @@ ask for the same product-plan approval again.
 
 ## Current baseline
 
+For a new chat, read `docs/jukebox/NEXT-CHAT.md` before continuing. It records
+the deployed-code baseline, private local setup location and remaining operator work.
+
 `main` is the consolidated app baseline. New work should start from the latest
 `origin/main` in an isolated worktree, not an older phase branch. Existing feature
 branches must merge/rebase current main before continuing; uncommitted edits in
