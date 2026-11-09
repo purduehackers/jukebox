@@ -5,7 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { Database as DatabaseSync } from 'bun:sqlite';
 import { test } from 'node:test';
 import { ValidationError, parseEnvelope } from '../src/contract/validate.ts';
 import { FakeClock, FakeMedia, FakeSource } from '../src/adapters/fakes.ts';

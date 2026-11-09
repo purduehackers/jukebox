@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import type { Snapshot } from '../src/contract/types.ts';
 import { FakeClock, FakeIdentity, FakeMedia } from '../src/adapters/fakes.ts';
 import { DEMO_YOUTUBE_LINKS, MATCHING_FIXTURE_URLS, fixtureMatchingSource } from '../src/adapters/matching-fixtures.ts';
-import { createHttpServer } from '../src/server/http.ts';
+import { createHttpServer } from './http-server.ts';
 import { JukeboxService } from '../src/server/service.ts';
 
 class Browser {

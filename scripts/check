@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-.venv/bin/python -m unittest discover -s tests -v
-node --test tests/turn.test.mjs
-node --check web/app.js
-[[ -x node_modules/.bin/tsc ]] || npm ci --no-audit --no-fund
-node_modules/.bin/tsc -p .
-node_modules/.bin/tsc -p app
-node_modules/.bin/vite build --logLevel warn
-node --test tests/*.test.ts
+uv run --locked python -m unittest discover -s tests -v
+bun run typecheck
+bun run build
+bun run test

@@ -1,0 +1,5 @@
+---
+import Page from '../layouts/Page.astro';
+import { AdminPage } from '../../app/src/admin/AdminPage.tsx';
+---
+<Page><AdminPage client:only="react" /></Page>

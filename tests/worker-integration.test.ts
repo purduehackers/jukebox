@@ -1,3 +1,4 @@
+import { bridge } from './http-server.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
@@ -24,7 +25,7 @@ test('real Python worker fixture resolve → prepare → job → retain → prox
     while(state.status==='preparing'&&Date.now()<jobDeadline){await new Promise(r=>setTimeout(r,100));state=await adapter.job(job.jobId);}
     assert.equal(state.status,'ready');if(state.status!=='ready')return;
     await adapter.retain(1,[state.asset.assetId]);
-    const proxy=createServer((req,res)=>proxyMedia(base,state.asset.assetId,req,res));await new Promise<void>(r=>proxy.listen(0,'127.0.0.1',r));
+    const proxy=createServer(bridge(req=>proxyMedia(base,state.asset.assetId,req)));await new Promise<void>(r=>proxy.listen(0,'127.0.0.1',r));
     const address=proxy.address();if(!address||typeof address==='string')throw Error('bad proxy address');
     try {const head=await fetch(`http://127.0.0.1:${address.port}/media/${state.asset.assetId}`,{method:'HEAD'});assert.equal(head.status,200);assert.equal(head.headers.get('content-type'),'audio/webm');}
     finally {proxy.close();}

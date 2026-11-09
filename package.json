@@ -3,33 +3,39 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:policy": "node --test tests/turn.test.mjs",
-    "test": "node --test tests/*.test.ts",
-    "typecheck": "tsc -p . && tsc -p app",
-    "service": "scripts/run-service",
-    "start": "scripts/run-production",
     "dev": "scripts/run-dev",
-    "build:app": "vite build"
+    "build": "bun --bun astro build",
+    "build:app": "bun run build",
+    "start": "scripts/run-production",
+    "test": "bun test tests/*.test.ts tests/turn.test.mjs",
+    "test:policy": "bun test tests/turn.test.mjs",
+    "typecheck": "bun --bun tsc -p . && bun --bun tsc -p app && bun --bun astro check",
+    "check": "scripts/check",
+    "worker": "uv run --locked python -m jukebox.server"
   },
   "devDependencies": {
+    "@astrojs/check": "0.9.12",
     "@tailwindcss/postcss": "^4.3.4",
+    "@types/bun": "1.4.4",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.2",
     "postcss": "^8.5.32",
     "postcss-prefix-selector": "^2.2.1",
     "tailwindcss": "^4.3.4",
-    "typescript": "^7.0.2",
-    "vite": "^8.3.5"
+    "typescript": "6.0.3"
   },
   "engines": {
-    "node": ">=22.18"
+    "bun": ">=1.4.4"
   },
   "dependencies": {
     "@fontsource/inconsolata": "^5.3.0",
     "qrcode-generator": "^2.0.4",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
-  }
+    "react-dom": "^19.3.1",
+    "astro": "7.4.8",
+    "@astrojs/node": "11.1.11",
+    "@astrojs/react": "7.1.5"
+  },
+  "packageManager": "bun@1.4.4"
 }

@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import type { Snapshot } from '../src/contract/types.ts';
 import { FakeClock, FakeIdentity, FakeMedia, FakeSource } from '../src/adapters/fakes.ts';
-import { createHttpServer } from '../src/server/http.ts';
+import { createHttpServer } from './http-server.ts';
 import { JukeboxService } from '../src/server/service.ts';
 import { URLS } from './helpers.ts';
 

@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import sqlite3
 import socket
 import subprocess
 import sys
@@ -107,7 +108,8 @@ def main():
     drivers, children, logs = [], [], []
     temp = tempfile.TemporaryDirectory(prefix='jukebox-player-')
     work = Path(temp.name)
-    wp, sp, ap = port(), port(), port()
+    wp, ap = port(), port()
+    sp = ap
     worker_url, service_url, app = f'http://127.0.0.1:{wp}', f'http://127.0.0.1:{sp}', f'http://127.0.0.1:{ap}'
 
     def start(argv, env=None):
@@ -172,7 +174,8 @@ def main():
         return until(lambda: not audio(d)['paused'] and audio(d)['status'] == 'playing' and (not kind or snap()['nowPlaying']['kind'] == kind))
 
     def due():
-        http(service_url + '/__test/due', {})
+        with sqlite3.connect(work/'service'/'state.sqlite3') as db:
+            db.execute('update playback set period_started_at = ?', (int(time.time()*1000)-15*60*1000-1000,))
 
     def measure(kind, payload, expect):
         before = snap()['playback']['desiredEpoch']
@@ -184,22 +187,17 @@ def main():
     try:
         worker = start([sys.executable, '-m', 'jukebox.server', '--port', str(wp), '--data', str(work/'worker')])
         until(lambda: http(worker_url + '/api/status'), 30)
-        service_args = ['node', 'scripts/player-fixture-server.ts', '--port', str(sp), '--worker', worker_url,
-                        '--data', str(work/'service'), '--origin', app]
-        env = {**os.environ, 'JUKEBOX_SERVICE': service_url}
+        env = {k:v for k,v in os.environ.items() if not k.startswith('JUKEBOX_')}
+        env.update({'NODE_ENV':'test', 'PORT':str(ap), 'JUKEBOX_ORIGIN':app,
+                    'JUKEBOX_DEV_AUTH':'1', 'JUKEBOX_WORKER_URL':worker_url,
+                    'JUKEBOX_SERVICE_DATA':str(work/'service')})
+        service_args = ['bun', '--no-env-file', 'scripts/start-web.ts']
         if args.dev_smoke:
-            # Keep the user's running app and private PH ID config untouched.
-            env.update({'JUKEBOX_APP_PORT': str(ap), 'JUKEBOX_ORIGIN': app,
-                        'JUKEBOX_PHID_CLIENT_ID': '', 'JUKEBOX_PHID_REDIRECT_URI': '',
-                        'JUKEBOX_PHID_CLIENT_SECRET': '', 'JUKEBOX_SESSION_SECRET': ''})
-            service = start(['./scripts/run-dev', '--worker', worker_url, '--port', str(sp), '--data', str(work/'service')], env)
-            report['runtime']='scripts/run-dev --worker (production service/policies)'
-        else:
-            service = start(service_args)
-            start([str(ROOT/'node_modules/.bin/vite'), '--port', str(ap), '--strictPort'], env)
-            report['runtime']='isolated test service; production heartbeat; injected scheduling anchor'
+            service_args = ['./scripts/run-dev', '--dev-auth', '--worker', worker_url, '--port', str(ap), '--data', str(work/'service')]
+        service = start(service_args, env)
+        report['runtime']='Astro/Bun integrated server; real worker; private SQLite scheduling anchor'
         until(lambda: http(service_url + '/healthz'), 30)
-        until(lambda: urllib.request.urlopen(app+'/display', timeout=2).status == 200, 30)
+        until(lambda: urllib.request.urlopen(app+'/admin', timeout=2).status == 200, 30)
         admin = browser('/admin')
         login(admin, 'phase3_admin', True)
         attendee = browser('/queue')
@@ -232,19 +230,12 @@ def main():
             return any(str(s['sink'])==sink_index and s.get('properties', {}).get('application.process.id')==str(player.capabilities['moz:processID']) for s in streams)
         until(routed_stream)
         report['checks']['ownedFirefoxOutputVerifiedOnNullSink'] = True
-        # Firefox WebDriver evaluation has its own module realm. Install a normal
-        # page module so this observer shares the visualizer's actual singleton.
-        player.execute_script("""const s=document.createElement('script');s.type='module';s.textContent=`
-          import {subscribeAnalyser} from '/src/shared/audio-tap.ts';
-          let analyser=null;subscribeAnalyser(a=>analyser=a);
-          function sample(){
-            let rms=0;if(analyser){const v=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(v);rms=Math.sqrt(v.reduce((s,x)=>s+x*x,0)/v.length);}
-            window.playerAnalysis={exists:!!analyser,state:analyser?.context.state,rms};requestAnimationFrame(sample);
-          }sample();`;document.head.append(s);""")
-        def rms():
-            return player.execute_script('return window.playerAnalysis?.rms||0')
-        until(lambda: rms()>.001)
-        report['measurements'].append({'masterAnalysisRms':rms()})
+        # Observe the production soundbar's measured FFT peak. Production builds
+        # do not expose Vite source-module URLs or a second analyser singleton.
+        def analysis_peak():
+            return player.execute_script("return Number(document.querySelector('.soundbar')?.dataset.peak||0)")
+        until(lambda: analysis_peak()>.001)
+        report['measurements'].append({'masterVisualizerFftPeak':analysis_peak()})
         for d in (admin, attendee):
             assert d.execute_script("return document.querySelectorAll('audio,video').length===0")
         report['checks']['separateAdminAttendeeProfilesSilent'] = True
@@ -284,8 +275,8 @@ def main():
         due()
         until(lambda: snap()['nowPlaying']['kind']=='request' and audio(player)['duration']<10 and not audio(player)['paused'])
         until(lambda: snap()['playback']['observed']['loadId']==int(audio(player)['loadId']))
-        until(lambda: rms()>.001)
-        report['measurements'].append({'requestAnalysisRms':rms()})
+        until(lambda: analysis_peak()>.001)
+        report['measurements'].append({'requestVisualizerFftPeak':analysis_peak()})
         saved = snap()['suspendedMaster']['positionSec']
         pins = http(worker_url+'/api/status')['assets']
         assert all(x['pinned'] for x in pins)
@@ -359,7 +350,7 @@ def main():
         load_before = audio(player)['loadId']
         service.terminate(); service.wait(timeout=8)
         time.sleep(.5)
-        service = start(service_args)
+        service = start(service_args, env)
         until(lambda: http(service_url+'/healthz'))
         playing(player)
         until(lambda: snap()['playback']['confirmation']=='confirmed')
@@ -369,7 +360,7 @@ def main():
         service.terminate(); service.wait(timeout=8)
         time.sleep(16)
         assert not audio(player)['paused']
-        service=start(service_args)
+        service=start(service_args, env)
         until(lambda: http(service_url+'/healthz'))
         playing(player)
         until(lambda: snap()['playback']['observed']['status']=='playing')

@@ -1,0 +1,19 @@
+{
+  "runtime": "Actual local Podman image; Bun 1.4.4, uv-managed Python, FFmpeg",
+  "network": "host networking on isolated ports 18080/18971; no phack.sh access",
+  "identity": "placeholder production PH ID configuration; no provider calls",
+  "checks": {
+    "imageBuild": true,
+    "productionWebAndWorkerStart": true,
+    "healthAndWorkerReadiness": true,
+    "adminAndQueueHtml": true,
+    "organizerGatedDisplayAndVisual": true,
+    "unknownApiAuthStatic404": true,
+    "namedVolumeReplacementPreservesNightAndSchema": true,
+    "finalImageHealthcheck": true,
+    "gracefulContainerStop": true
+  },
+  "schemaVersion": 4,
+  "limits": "No production login, provider egress, mapped networking/Caddy/DNS or HDMI test",
+  "imageId": "3eaa2bf1554c89e32e105096d8feae2333d338dab78f9123af9dad4a78918723"
+}

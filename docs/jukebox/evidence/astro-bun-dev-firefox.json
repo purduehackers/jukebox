@@ -1,0 +1,54 @@
+{
+  "atUTC": "2026-11-09T21:53:53.310841+00:00",
+  "checks": {
+    "organizerLoginRequiredBeforeDisplayAndAudio": true,
+    "nativeFirefoxBlockHasNoAppActivationButton": true,
+    "persistentSitePermissionStartsPlaybackAutomatically": true,
+    "ownedFirefoxOutputVerifiedOnNullSink": true,
+    "separateAdminAttendeeProfilesSilent": true
+  },
+  "measurements": [
+    {
+      "permissionToPlaybackMs": 2574.97
+    },
+    {
+      "masterVisualizerFftPeak": 0.7839
+    },
+    {
+      "command": "playback.pause",
+      "commandToServerObservedAckMs": 111.33
+    },
+    {
+      "command": "playback.seek",
+      "commandToServerObservedAckMs": 398.44
+    },
+    {
+      "command": "playback.volume",
+      "commandToServerObservedAckMs": 121.22
+    },
+    {
+      "command": "playback.play",
+      "commandToServerObservedAckMs": 122.86
+    }
+  ],
+  "hardware": "Headless development Linux; HDMI, wall and audible checks pending",
+  "autoplayPreferencesOverridden": false,
+  "siteAutoplayPermission": "Allow Audio and Video (persistent)",
+  "heartbeatMs": 5000,
+  "audioOutput": {
+    "routing": "dedicated PulseAudio null sink",
+    "sink": "jukebox_verify_49042",
+    "systemDefaultChanged": false
+  },
+  "runtime": "Astro/Bun integrated server; real worker; private SQLite scheduling anchor",
+  "browser": {
+    "browserName": "firefox",
+    "browserVersion": "159.0.1",
+    "moz:buildID": "20261104135453",
+    "moz:geckodriverVersion": "0.37.1",
+    "platformName": "linux",
+    "moz:headless": true
+  },
+  "result": "passed",
+  "finishedUTC": "2026-11-09T21:55:18.168310+00:00"
+}

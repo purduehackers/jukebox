@@ -1,5 +1,15 @@
 # Decisions and question backlog
 
+## Astro/Bun/uv migration approved (2026-11-09)
+
+The user approved replacing the handwritten web layer with Astro, using Bun for
+JavaScript execution/package management, retaining React for interactive UI and
+Python for audio processing, and adding uv for Python dependencies/execution.
+Target packaging is one Podman container on phack.sh behind its existing Caddy.
+The approved plan preserves UI, scheduling, identity, audio-only and persistence
+contracts. See [migration record](ASTRO-BUN-MIGRATION.md). This authorizes local
+implementation and container verification; production deployment remains later.
+
 ## Organizer-only display and stream authorization (2026-11-06)
 
 The user first accepted organizer login for the display, then explicitly clarified

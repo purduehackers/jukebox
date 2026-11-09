@@ -1,7 +1,7 @@
 // Print (and optionally render) the QR for the attendee page of a TEST or real origin.
 // Refuses loopback origins and, unless --no-check, confirms the service answers there first.
-//   node scripts/queue-qr.ts --origin https://jukebox.purduehackers.com
-//   node scripts/queue-qr.ts --origin http://192.168.1.20:5173 --png .local/queue-qr.png
+//   bun scripts/queue-qr.ts --origin https://jukebox.purduehackers.com
+//   bun scripts/queue-qr.ts --origin http://192.168.1.20:5173 --png .local/queue-qr.png
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { OriginError, queueEntryUrl } from '../app/src/queue/origin.ts';

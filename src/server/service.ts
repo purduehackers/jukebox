@@ -3,8 +3,7 @@
 // (source resolution, preparation, cache retention) happens outside transactions
 // and is re-validated when its result is applied.
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { closeSync, openSync, readFileSync, unlinkSync, writeSync } from 'node:fs';
-import type { DatabaseSync } from 'node:sqlite';
+import { Database } from 'bun:sqlite';
 import type {
   Alert, ApiError, MasterStatus, PreviewResult, AssetDescriptor, CommandEnvelope, CommandPayloads, CommandResponse, CommandType, DesiredPlayback,
   ErrorCode, EventRecord, RequestStatus, Identity, MediaPurpose, ObservedPlayback, Phase, PlayerReport, Policy, ResolvedSource,
@@ -88,7 +87,7 @@ const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 const PAIR_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
 export class JukeboxService {
-  readonly db: DatabaseSync;
+  readonly db: Database;
   readonly clock: Clock;
   readonly source: SourcePort;
   readonly media: MediaPort;
@@ -103,15 +102,14 @@ export class JukeboxService {
   private previewLimit: { max: number; windowMs: number };
   private previewTimes = new Map<string, number[]>();
 
-  private lockPath: string | null;
+  private writerLock: Database | null;
 
   constructor(options: ServiceOptions) {
-    this.lockPath = options.dbPath === ':memory:' ? null : `${options.dbPath}.lock`;
-    if (this.lockPath) acquireLock(this.lockPath);
+    this.writerLock = options.dbPath === ':memory:' ? null : acquireLock(`${options.dbPath}.authority-lock`);
     try {
       this.db = openDatabase(options.dbPath);
     } catch (error) {
-      if (this.lockPath) unlinkSync(this.lockPath);
+      this.writerLock?.close();
       throw error;
     }
     this.clock = options.clock;
@@ -123,16 +121,14 @@ export class JukeboxService {
     this.previewLimit = options.previewLimit ?? { max: 12, windowMs: 60_000 };
   }
 
+  async settle() {
+    await Promise.allSettled([...this.inflight.values(), ...(this.reconciling ? [this.reconciling] : [])]);
+  }
+
   close() {
     this.db.close();
-    if (this.lockPath) {
-      try {
-        unlinkSync(this.lockPath);
-      } catch {
-        // already gone
-      }
-      this.lockPath = null;
-    }
+    this.writerLock?.close();
+    this.writerLock = null;
   }
 
   onChange(listener: (revision: number) => void) {
@@ -1301,25 +1297,16 @@ export class JukeboxService {
 export type { CommandPayloads };
 
 /** One service process per database: command dedupe and scheduling assume a single writer. */
-function acquireLock(path: string) {
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const fd = openSync(path, 'wx');
-      writeSync(fd, String(process.pid));
-      closeSync(fd);
-      return;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-      const pid = Number(readFileSync(path, 'utf8'));
-      let alive = false;
-      try {
-        process.kill(pid, 0);
-        alive = true;
-      } catch {
-        alive = false;
-      }
-      if (alive) throw new Error(`Another Jukebox service (pid ${pid}) is using this database`);
-      unlinkSync(path); // stale lock from a crashed process
-    }
+function acquireLock(path: string): Database {
+  // OS-backed SQLite locking survives PID reuse and container PID namespaces.
+  // Hold a separate database's exclusive transaction for the authority's lifetime.
+  // The kernel releases it even after SIGKILL; never delete this lock database.
+  const lock = new Database(path);
+  try {
+    lock.exec('pragma busy_timeout = 0; begin exclusive; create table if not exists authority (id integer);');
+    return lock;
+  } catch {
+    lock.close();
+    throw Error('Another Jukebox service is using this database');
   }
 }

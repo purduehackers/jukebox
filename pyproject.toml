@@ -1,0 +1,12 @@
+[project]
+name = "purdue-hackers-jukebox-worker"
+version = "0.1.0"
+requires-python = ">=3.11,<3.15"
+dependencies = ["yt-dlp[default]==2026.10.26"]
+
+[dependency-groups]
+dev = ["selenium==4.52.0"]
+display = ["zxing-cpp==3.1.1", "pillow==13.0.0"]
+
+[tool.uv]
+package = false

@@ -13,7 +13,7 @@ def search(query):
     options = {'extract_flat': True, 'skip_download': True, 'playlistend': 10,
                'socket_timeout': 10, 'retries': 0, 'extractor_retries': 0,
                'quiet': True, 'noprogress': True, 'cachedir': False,
-               'remote_components': [], 'js_runtimes': {'node': {}}}
+               'remote_components': [], 'js_runtimes': {'bun': {}}}
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info('ytsearch10:' + query, download=False)
     return candidates(info)

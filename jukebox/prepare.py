@@ -37,7 +37,7 @@ def prepare(source, kind, directory):
         options = {'progress_hooks': [audit], 'format': FORMAT, 'noplaylist': True, 'socket_timeout': 15,
                    'retries': 1, 'fragment_retries': 1, 'extractor_retries': 1,
                    'max_filesize': MAX_ASSET_BYTES, 'concurrent_fragment_downloads': 1,
-                   'js_runtimes': {'node': {}}, 'remote_components': [],
+                   'js_runtimes': {'bun': {}}, 'remote_components': [],
                    'outtmpl': str(directory / 'input.%(ext)s'), 'quiet': True,
                    'noprogress': True, 'cachedir': False, 'fixup': 'never'}
         with yt_dlp.YoutubeDL(options) as ydl:

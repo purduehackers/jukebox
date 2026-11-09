@@ -1,3 +1,0 @@
-# Optional QR decoding for verify-display.py; install requirements-dev.txt first.
-zxing-cpp==3.1.1
-pillow==13.0.0

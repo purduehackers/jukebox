@@ -50,7 +50,7 @@ test('production launcher boots real worker/service using configured persistent 
   let output = ''; child.stdout.on('data', chunk => output += chunk); child.stderr.on('data', chunk => output += chunk);
   const stopped = new Promise<void>(resolve => child.once('exit', () => resolve()));
   try {
-    for (let attempt = 0; !output.includes('Jukebox queue service:'); attempt++) {
+    for (let attempt = 0; !output.includes('Server listening on'); attempt++) {
       if (child.exitCode !== null || attempt >= 150) throw Error(`Production startup failed: ${output}`);
       await new Promise(r => setTimeout(r, 50));
     }
@@ -58,7 +58,7 @@ test('production launcher boots real worker/service using configured persistent 
     assert.equal(response.status, 200);
     assert.ok(existsSync(join(dir, 'service', 'state.sqlite3')));
     assert.ok(existsSync(join(dir, 'worker', 'state.sqlite3')));
-    assert.match(output, /https:\/\/jukebox\.purduehackers\.com \(PH ID/);
+    assert.match(output, /Jukebox authority: PH ID/);
     assert.equal((await fetch(`http://127.0.0.1:${servicePort}/auth/fake`)).status, 404);
   } finally {
     child.kill('SIGTERM'); await stopped;

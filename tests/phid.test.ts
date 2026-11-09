@@ -62,7 +62,7 @@ test('unsafe return paths become / and discovery retries after failure', async (
 });
 
 test('rejects non-https discovery endpoints for non-loopback ID base', async () => {
-  const fakeFetch: typeof fetch = async (input) => {
+  const fakeFetch: (input: string | URL | Request, init?: RequestInit) => Promise<Response> = async (input) => {
     const url = String(input);
     if (url.includes('openid-configuration')) return new Response(JSON.stringify({ issuer: 'https://id.example/api/auth', authorization_endpoint: 'http://evil.test/auth', token_endpoint: 'https://id.example/token', userinfo_endpoint: 'https://id.example/userinfo' }), { status: 200 });
     throw new Error('unexpected');
@@ -72,7 +72,7 @@ test('rejects non-https discovery endpoints for non-loopback ID base', async () 
 });
 
 test('discovery rejects cross-origin HTTPS endpoints and unsafe return paths', async () => {
-  const fakeFetch: typeof fetch = async () => new Response(JSON.stringify({ issuer: 'https://id.example/api/auth', authorization_endpoint: 'https://evil.example/auth', token_endpoint: 'https://id.example/token', userinfo_endpoint: 'https://id.example/userinfo' }));
+  const fakeFetch: (input: string | URL | Request, init?: RequestInit) => Promise<Response> = async () => new Response(JSON.stringify({ issuer: 'https://id.example/api/auth', authorization_endpoint: 'https://evil.example/auth', token_endpoint: 'https://id.example/token', userinfo_endpoint: 'https://id.example/userinfo' }));
   await assert.rejects(new PhidIdentity(config('https://id.example', { fetch: fakeFetch })).beginLogin('/'), (e: IdentityError) => e.code === 'discovery_failed');
   const p = await FakeOidc.start();
   try {
@@ -81,9 +81,9 @@ test('discovery rejects cross-origin HTTPS endpoints and unsafe return paths', a
   } finally { await p.close(); }
 });
 
-test('PH ID CSRF guard rejects Node fetch metadata; back-channel transport completes login', async (t) => {
+test('PH ID CSRF guard rejects browser fetch metadata; back-channel transport completes login', async (t) => {
   const p = await FakeOidc.start(); t.after(() => p.close());
-  const browserLike = await fetch(`${p.base}/token`, { method: 'POST', body: new URLSearchParams({ grant_type: 'invalid' }) });
+  const browserLike = await fetch(`${p.base}/token`, { method: 'POST', headers: { 'sec-fetch-mode': 'cors' }, body: new URLSearchParams({ grant_type: 'invalid' }) });
   assert.equal(browserLike.status, 403);
   assert.equal((await browserLike.json() as { error: string }).error, 'invalid_request');
   p.clientSecret = 'secret';

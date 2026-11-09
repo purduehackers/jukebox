@@ -1,5 +1,4 @@
-# Host ingress: Node serves the frontend, API, auth, events and audio.
-# Native service defaults to 8980; the Podman example publishes host port 8080.
+# phack.sh host ingress: Astro serves pages, assets, API, auth, SSE and audio.
 jukebox.purduehackers.com {
     reverse_proxy 127.0.0.1:8080 {
         flush_interval -1

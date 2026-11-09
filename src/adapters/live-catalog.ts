@@ -5,12 +5,12 @@ import { PortError } from '../core/ports.ts';
 import { canonicalizeUrl } from '../core/sources.ts';
 import type { CatalogPort, CatalogTrack } from './matching-core.ts';
 
-type Config = { fetch?: typeof fetch; spotifyClientId?: string; spotifyClientSecret?: string; appleDeveloperToken?: string; timeoutMs?: number };
+type Config = { fetch?: (input: string | URL | Request, init?: RequestInit) => Promise<Response>; spotifyClientId?: string; spotifyClientSecret?: string; appleDeveloperToken?: string; timeoutMs?: number };
 const MAX_BYTES = 2 * 1024 * 1024;
 
 export class LiveCatalog implements CatalogPort {
   private readonly config: Config;
-  private readonly fetcher: typeof fetch;
+  private readonly fetcher: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
   private readonly cache = new Map<string, { until: number; track: CatalogTrack }>();
   private active = 0;
   private requests: number[] = [];

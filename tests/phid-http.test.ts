@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { PhidIdentity } from '../src/adapters/phid.ts';
 import { FakeClock, FakeMedia, FakeSource } from '../src/adapters/fakes.ts';
 import { JukeboxService } from '../src/server/service.ts';
-import { createHttpServer } from '../src/server/http.ts';
+import { createHttpServer } from './http-server.ts';
 import { FakeOidc } from './fixtures/fake-oidc.ts';
 
 test('OIDC sign-in creates a server session, assigns roles, and logout revokes it', async () => {

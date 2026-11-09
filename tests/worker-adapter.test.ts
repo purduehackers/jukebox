@@ -1,3 +1,4 @@
+import { bridge } from './http-server.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -47,7 +48,7 @@ test('job mapping, transient poll, retention, media proxy range/HEAD/header allo
     const ready=await a.job('ready');assert.equal(ready.status,'ready');if(ready.status==='ready'){assert.equal(ready.asset.assetId,id);assert.equal(ready.asset.byteLength,20);}
     const failed=await a.job('failed');assert.deepEqual(failed,{status:'failed',error:'bad',retryable:false});
     assert.deepEqual(await a.job('network'),{status:'preparing'});await a.retain(3,[id]);
-    const proxy=createServer((req,res)=>proxyMedia(w.base,id,req,res));await new Promise<void>(r=>proxy.listen(0,'127.0.0.1',r));
+    const proxy=createServer(bridge(req=>proxyMedia(w.base,id,req)));await new Promise<void>(r=>proxy.listen(0,'127.0.0.1',r));
     const address=proxy.address();if(!address||typeof address==='string')throw Error('bad proxy address');
     try {
       const range=await fetch(`http://127.0.0.1:${address.port}/media/${id}`,{headers:{Range:'bytes=0-0','If-Range':'ok','X-Evil':'x'}});

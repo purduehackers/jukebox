@@ -3,7 +3,7 @@ import { oidcHttp } from './oidc-http.ts';
 import type { Identity } from '../contract/types.ts';
 import type { IdentityPort, LoginStart } from '../core/ports.ts';
 
-type Config = { idBase: string; clientId: string; clientSecret?: string; redirectUri: string; stateSecret: string; scopes?: string; fetch?: typeof fetch; timeoutMs?: number; now?: () => number };
+type Config = { idBase: string; clientId: string; clientSecret?: string; redirectUri: string; stateSecret: string; scopes?: string; fetch?: (input: string | URL | Request, init?: RequestInit) => Promise<Response>; timeoutMs?: number; now?: () => number };
 type Discovery = { issuer: string; authorization_endpoint: string; token_endpoint: string; userinfo_endpoint: string };
 type StatePayload = { state: string; verifier: string; nonce: string; returnTo: string; iat: number };
 
@@ -19,7 +19,7 @@ export class PhidIdentity implements IdentityPort {
   readonly kind = 'phid' as const;
   private readonly config: Config;
   private discoveryPromise: Promise<Discovery> | null = null;
-  private readonly fetcher: typeof fetch;
+  private readonly fetcher: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
   private readonly timeoutMs: number;
   private readonly now: () => number;
   constructor(config: Config) {

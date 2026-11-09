@@ -1,22 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
-if [[ ! -x .venv/bin/python ]]; then
-  python -m venv .venv
-fi
-# The current YouTube extractor needs the matching EJS package, not just an
-# importable old yt-dlp left in a previous virtual environment.
-if ! .venv/bin/python - <<'PYTHON' 2>/dev/null
-from importlib.metadata import version
-from pathlib import Path
-import yt_dlp_ejs
-expected = Path('requirements.txt').read_text().strip().split('==')[1]
-assert version('yt-dlp') == expected
-PYTHON
-then
-  .venv/bin/python -m pip install -r requirements.txt
-fi
-for dependency in ffmpeg ffprobe node; do
-  command -v "$dependency" >/dev/null || { echo "Missing $dependency; see README.md" >&2; exit 1; }
+for dependency in uv bun ffmpeg ffprobe; do
+  command -v "$dependency" >/dev/null || { echo "Missing $dependency" >&2; exit 1; }
 done
-exec .venv/bin/python -m jukebox.server "$@"
+exec uv run --locked python -m jukebox.server "$@"

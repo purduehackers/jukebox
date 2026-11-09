@@ -13,11 +13,11 @@ async function freePort() {
 async function startup(args:string[], config:Record<string,string>={}) {
   const data=mkdtempSync(join(tmpdir(),'jukebox-runtime-')), port=await freePort();
   const env=Object.fromEntries(Object.entries(process.env).filter(([name])=>!name.startsWith('JUKEBOX_')));
-  const child=spawn(process.execPath,['src/server/main.ts','--port',String(port),'--data',data,...args],{env:{...env,...config},stdio:['ignore','pipe','pipe']});
+  const child=spawn(process.execPath,['--no-env-file','scripts/start-web.ts'],{env:{...env,NODE_ENV:'test',PORT:String(port),JUKEBOX_SERVICE_DATA:data,...Object.fromEntries(args.filter(x=>x.startsWith('--')).map(x=>['JUKEBOX_'+x.slice(2).toUpperCase().replaceAll('-','_'),'1'])),...config},stdio:['ignore','pipe','pipe']});
   let output='';child.stdout.on('data',x=>output+=x);child.stderr.on('data',x=>output+=x);
   try {
     for(let attempt=0;attempt<100;attempt++) {
-      if(output.includes('Jukebox queue service:')) return output;
+      if(output.includes('Server listening on')) return output;
       if(child.exitCode!==null) throw Error(output);
       await new Promise(r=>setTimeout(r,20));
     }
@@ -46,7 +46,7 @@ test('run-dev leaves an outdated existing worker running and identifies the need
   const data=mkdtempSync(join(tmpdir(),'jukebox-old-worker-'));
   const env=Object.fromEntries(Object.entries(process.env).filter(([name])=>!name.startsWith('JUKEBOX_')));
   try {
-    const child=spawn('./scripts/run-dev',['--data',data],{env:{...env,JUKEBOX_SERVICE_PORT:String(await freePort()),JUKEBOX_APP_PORT:String(await freePort()),JUKEBOX_WORKER_URL:`http://127.0.0.1:${address.port}`},stdio:['ignore','pipe','pipe']});
+    const child=spawn('./scripts/run-dev',['--data',data,'--dev-auth'],{env:{...env,JUKEBOX_SERVICE_PORT:String(await freePort()),JUKEBOX_APP_PORT:String(await freePort()),JUKEBOX_WORKER_URL:`http://127.0.0.1:${address.port}`},stdio:['ignore','pipe','pipe']});
     let output='';child.stdout.on('data',x=>output+=x);child.stderr.on('data',x=>output+=x);
     const code=await new Promise(r=>child.once('exit',r));
     assert.equal(code,1);assert.match(output,/existing audio worker needs an update/);assert.equal(old.listening,true);

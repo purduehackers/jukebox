@@ -1,0 +1,76 @@
+{
+  "atUTC": "2026-11-09T21:51:58.857886+00:00",
+  "checks": {
+    "organizerLoginRequiredBeforeDisplayAndAudio": true,
+    "requestsOnlyEmptyCheckpointMatchesPausedAudio": true,
+    "playNowCutsInAndMixResumesAtPausedAudio": true,
+    "requestsOnlyChainsRealRequestsBackToBack": true,
+    "requestsOnlyIdleSilentAndMixPinned": true,
+    "configuredIntervalDrivesServerSideTurn": true
+  },
+  "measurements": [
+    {
+      "requestsOnlyIdleResume": [
+        {
+          "cycle": 0,
+          "idleSec": 1.2,
+          "pausedAudioSec": 600.32,
+          "serverCheckpointSec": 600.32,
+          "checkpointErrorSec": 0.0,
+          "resumedSeekedSec": 600.32,
+          "resumeErrorVsPausedAudioSec": 0.0,
+          "returnedTo": "master"
+        },
+        {
+          "cycle": 1,
+          "idleSec": 7.0,
+          "pausedAudioSec": 600.928,
+          "serverCheckpointSec": 600.928,
+          "checkpointErrorSec": 0.0,
+          "resumedSeekedSec": 600.928,
+          "resumeErrorVsPausedAudioSec": 0.0,
+          "returnedTo": "auto"
+        },
+        {
+          "cycle": 2,
+          "idleSec": 2.6,
+          "pausedAudioSec": 602.784,
+          "serverCheckpointSec": 602.784,
+          "checkpointErrorSec": 0.0,
+          "resumedSeekedSec": 602.784,
+          "resumeErrorVsPausedAudioSec": 0.0,
+          "returnedTo": "master"
+        }
+      ]
+    },
+    {
+      "playNowResume": {
+        "pausedAudioSec": 606.976,
+        "serverCheckpointSec": 607.104,
+        "resumedSeekedSec": 607.104,
+        "resumeErrorSec": 0.128
+      }
+    },
+    {
+      "intervalTurnElapsedMs": 60653,
+      "configuredMs": 60000
+    }
+  ],
+  "hardware": "Headless development Linux; HDMI, wall and audible checks pending",
+  "autoplayPreferencesOverridden": false,
+  "siteAutoplayPermission": "Allow Audio and Video (persistent)",
+  "heartbeatMs": 5000,
+  "audioOutput": {
+    "routing": "dedicated PulseAudio null sink",
+    "sink": "jukebox_verify_45898",
+    "systemDefaultChanged": false
+  },
+  "browser": {
+    "browserName": "firefox",
+    "browserVersion": "159.0.1",
+    "platformName": "linux",
+    "moz:headless": true
+  },
+  "result": "passed",
+  "finishedUTC": "2026-11-09T21:54:39.866564+00:00"
+}

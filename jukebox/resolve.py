@@ -12,7 +12,7 @@ def main():
     options = {'format': FORMAT, 'noplaylist': True, 'socket_timeout': 15,
                'retries': 1, 'fragment_retries': 1, 'extractor_retries': 1,
                'max_filesize': 256 * 1024 * 1024, 'concurrent_fragment_downloads': 1,
-               'js_runtimes': {'node': {}}, 'remote_components': [], 'quiet': True,
+               'js_runtimes': {'bun': {}}, 'remote_components': [], 'quiet': True,
                'noprogress': True, 'cachedir': False, 'fixup': 'never', 'skip_download': True}
     with yt_dlp.YoutubeDL(options) as ydl:
         info = ydl.extract_info(source, download=False)

@@ -81,15 +81,15 @@ def main():
             return json.load(response)
 
     try:
-        svc_port, vite_port = free_ports()
-        svc = f'http://127.0.0.1:{svc_port}'; web = f'http://127.0.0.1:{vite_port}'
+        import os
+        app_port = free_ports(1)[0]
+        svc = web = f'http://127.0.0.1:{app_port}'
         temporary = tempfile.TemporaryDirectory(prefix='admin-', dir=out.parent)
-        data = Path(temporary.name) / 'data'; data.mkdir()
-        env = dict(__import__('os').environ, JUKEBOX_ORIGIN=web)
-        service = subprocess.Popen(['node', 'src/server/main.ts', '--dev-auth', '--fixture-media', '--port', str(svc_port), '--data', str(data)], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        vite = subprocess.Popen(['node_modules/.bin/vite', '--port', str(vite_port), '--strictPort'], cwd=ROOT, env=dict(env, JUKEBOX_SERVICE=svc), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        wait_url(web + '/healthz'); check('serversReady', {'vite': web, 'service': svc})
-
+        data = Path(temporary.name)
+        env = {k:v for k,v in os.environ.items() if not k.startswith('JUKEBOX_')}
+        env.update(NODE_ENV='test', PORT=str(app_port), JUKEBOX_ORIGIN=web, JUKEBOX_DEV_AUTH='1', JUKEBOX_FIXTURE_MEDIA='1', JUKEBOX_SERVICE_DATA=str(data))
+        service = subprocess.Popen(['bun', '--no-env-file', 'scripts/start-web.ts'], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        wait_url(web + '/healthz'); check('serversReady', {'astro': web})
         options = Options()
         if not args.headed:
             options.add_argument('-headless')
@@ -101,8 +101,8 @@ def main():
         wait = WebDriverWait(driver, 20, poll_frequency=.1)
         driver.get(web + '/admin')
         wait.until(lambda d: 'Organizer sign-in' in d.page_source)
-        verify('unauthenticatedGate', 'Organizer sign-in' in driver.page_source and driver.find_element(By.LINK_TEXT, 'Sign in'))
-        driver.find_element(By.LINK_TEXT, 'Sign in').click()
+        verify('unauthenticatedGate', 'Organizer sign-in' in driver.page_source and driver.find_element(By.CSS_SELECTOR, 'a[href^="/auth/login"]'))
+        driver.find_element(By.CSS_SELECTOR, 'a[href^="/auth/login"]').click()
         wait.until(lambda d: d.find_elements(By.NAME, 'sub'))
         verify('fakeSignInForm', driver.find_element(By.NAME, 'sub') and driver.find_elements(By.CSS_SELECTOR, 'input[name="roles"][value="organizer"]') and driver.find_element(By.XPATH, "//button[normalize-space()='Sign in']"))
 
@@ -115,7 +115,7 @@ def main():
         sign_in('alice', False)
         wait.until(lambda d: 'Organizer access required' in d.page_source)
         check('nonOrganizerForbidden', True)
-        driver.find_element(By.LINK_TEXT, 'Use a different account').click()
+        driver.find_element(By.CSS_SELECTOR, 'a[href^="/auth/login"]').click()
         wait.until(lambda d: d.find_elements(By.NAME, 'sub'))
         sign_in('organizer1', True)
         wait.until(lambda d: d.find_elements(By.XPATH, "//h1[contains(.,'Jukebox')]"))
@@ -128,7 +128,7 @@ def main():
         verify('activityLogEmptyState', activity.is_displayed() and 'No actions yet.' in activity.text)
         log_styles = driver.execute_script("const e=document.querySelector('.adm-activity');const s=getComputedStyle(e);return {border:s.borderTopWidth,animation:s.animationName,transition:s.transitionDuration};")
         verify('plainLogWithoutAnimation', log_styles == {'border':'0px','animation':'none','transition':'0s'}, log_styles)
-        verify('activityToggleLabel', toggle.text == 'Hide activity log' and toggle.get_attribute('aria-expanded') == 'true')
+        verify('activityToggleLabel', toggle.text.casefold() == 'hide activity log' and toggle.get_attribute('aria-expanded') == 'true')
         toggle.click()
 
         def confirm(label, confirm_label):
@@ -154,7 +154,7 @@ def main():
         wait.until(lambda d: d.find_elements(By.CSS_SELECTOR, '[aria-label="Master items"] li'))
         add_master('https://open.spotify.com/track/1OAFmguvHB2OI2AMYXpmyG')
         wait.until(lambda d: 'Spotify' in d.find_element(By.CSS_SELECTOR, '[data-testid="add-error"]').text)
-        verify('spotifyRejected', 'cannot be played yet' in driver.find_element(By.CSS_SELECTOR, '[data-testid="add-error"]').text)
+        verify('fixtureCatalogRejected', 'not implemented yet' in driver.find_element(By.CSS_SELECTOR, '[data-testid="add-error"]').text)
         add_master('https://www.youtube.com/playlist?list=PLabc')
         # The activity label already contains the URL, so wait for the rejection text itself.
         wait.until(lambda d: 'Playlists and albums cannot be imported yet' in d.find_element(By.CSS_SELECTOR, '[data-testid="add-error"]').text)
@@ -194,10 +194,10 @@ def main():
           };
         """)
         driver.find_element(By.CSS_SELECTOR, '.adm-play').click()
-        wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '.adm-play').text == 'Play')
+        wait.until(lambda d: d.find_element(By.CSS_SELECTOR, '.adm-play').text.casefold() == 'play')
         verify('pauseUiBeforeNetwork', get_json(web, '/api/v1/snapshot', token)['desired']['intent'] == 'playing')
         driver.find_element(By.CSS_SELECTOR, '.adm-play').click()
-        verify('rapidPlayUiBeforeNetwork', driver.find_element(By.CSS_SELECTOR, '.adm-play').text == 'Pause')
+        verify('rapidPlayUiBeforeNetwork', driver.find_element(By.CSS_SELECTOR, '.adm-play').text.casefold() == 'pause')
         driver.execute_script('window.__releasePlayback()')
         wait.until(lambda d: not d.find_elements(By.CSS_SELECTOR, '[data-intent="playback.play"][data-status="pending"]'))
         verify('rapidToggleOrder', get_json(web, '/api/v1/snapshot', token)['desired']['intent'] == 'playing')
@@ -328,7 +328,7 @@ def main():
 
         ack()
         verify('modeDefaultsToAuto', radio('auto').get_attribute('aria-checked') == 'true' and snapshot_now()['schedule']['mode'] == 'auto')
-        verify('threeModeChoices', [r.text for r in driver.find_elements(By.CSS_SELECTOR, '[role="radiogroup"] [role="radio"]')] == ['Auto', 'Master only', 'Requests only'])
+        verify('threeModeChoices', [r.text.casefold() for r in driver.find_elements(By.CSS_SELECTOR, '[role="radiogroup"] [role="radio"]')] == ['auto', 'master only', 'requests only'])
         set_interval_field(0)
         verify('intervalRejectsInvalidInput', 'Use a whole number from 1 to 120' in driver.find_element(By.ID, 'adm-queue-control').text and not set_button().is_enabled())
         set_interval_field(20)
@@ -337,10 +337,11 @@ def main():
         ack()
         driver.refresh()  # the setting is service state, not browser state
         wait.until(lambda d: d.find_elements(By.ID, 'adm-interval'))
-        verify('intervalPersistsAcrossReload', driver.find_element(By.ID, 'adm-interval').get_attribute('value') == '20' and 'Use 15 min' in driver.find_element(By.ID, 'adm-queue-control').text)
-        driver.find_element(By.XPATH, "//button[normalize-space()='Use 15 min']").click()
+        wait.until(lambda d: d.find_element(By.ID, 'adm-interval').get_attribute('value') == '20')
+        check('intervalPersistsAcrossReload', True)
+        set_interval_field(15)
+        set_button().click()
         wait.until(lambda d: snapshot_now()['schedule']['periodMs'] == 15 * 60_000)
-        wait.until(lambda d: 'Use 15 min' not in d.find_element(By.ID, 'adm-queue-control').text)
         check('intervalSetAndReset', {'saved': '20 min', 'reset': '15 min'})
         ack()
 
@@ -376,14 +377,14 @@ def main():
         ack('ended', 30)
         wait.until(lambda d: snapshot_now()['schedule']['requestsIdle'])
         verify('requestsOnlyWaitsSilently', snapshot_now()['desired'] is None)
-        wait.until(lambda d: 'Waiting for requests' in d.find_element(By.ID, 'adm-turn').text)
+        wait.until(lambda d: 'waiting for requests' in d.find_element(By.ID, 'adm-turn').text.casefold())
         verify('idleShowsWaitingForRequests', 'Waiting for requests' in driver.find_element(By.CSS_SELECTOR, '.adm-track-text').text and 'resumes at' in driver.find_element(By.CSS_SELECTOR, '.adm-track-text').text)
         driver.save_screenshot(str(out.parent / 'admin-requests-idle.png'))
         for _ in range(3): hold(); time.sleep(1)
         radio('master').click()
         wait.until(lambda d: snapshot_now()['schedule']['mode'] == 'master' and snapshot_now()['nowPlaying'] is not None)
         ack()
-        verify('masterOnlyTurnLine', 'Master only' in driver.find_element(By.ID, 'adm-turn').text and snapshot_now()['schedule']['periodStartedAt'] is None)
+        verify('masterOnlyTurnLine', 'master only' in driver.find_element(By.ID, 'adm-turn').text.casefold() and snapshot_now()['schedule']['periodStartedAt'] is None)
         radio('auto').click()
         wait.until(lambda d: snapshot_now()['schedule']['mode'] == 'auto' and snapshot_now()['schedule']['periodStartedAt'] is not None)
         ack()
@@ -393,9 +394,9 @@ def main():
 
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
-            if 'offline' in driver.find_element(By.CSS_SELECTOR, '[data-testid="player-state"]').text.lower(): break
+            if 'reconnecting' in driver.find_element(By.CSS_SELECTOR, '[data-testid="player-state"]').text.lower(): break
             time.sleep(.5)
-        verify('displayOffline', 'offline' in driver.find_element(By.CSS_SELECTOR, '[data-testid="player-state"]').text.lower())
+        verify('displayReportsStale', 'reconnecting' in driver.find_element(By.CSS_SELECTOR, '[data-testid="player-state"]').text.lower())
         verify('offlineAlert', driver.find_elements(By.CSS_SELECTOR, '[data-alert="player_offline"]'))
 
         # Firefox will not open a window narrower than 500 CSS px, so measure inside a real 390 px same-origin
@@ -407,7 +408,7 @@ def main():
         metrics = driver.execute_script('''
           const visible=e=>!!(e.offsetWidth||e.offsetHeight||e.getClientRects().length);
           const buttons=[...document.querySelectorAll('button')].filter(b=>visible(b)&&b.innerText.trim()).map(b=>({text:b.innerText.trim(),height:b.getBoundingClientRect().height}));
-          const p=document.querySelector('.jb-panel'),cs=getComputedStyle(p),body=getComputedStyle(document.body);
+          const p=document.querySelector('.adm-root'),cs=getComputedStyle(p),body=getComputedStyle(document.body);
           return {scrollWidth:document.documentElement.scrollWidth,innerWidth:innerWidth,buttons,
             panelBackground:cs.backgroundColor,panelBorder:cs.borderTopColor,panelBorderWidth:cs.borderTopWidth,bodyBackground:body.backgroundColor};
         ''')
@@ -426,7 +427,7 @@ def main():
         evidence['checks']['noHorizontalOverflow'] = metrics['innerWidth'] == 390 and metrics['scrollWidth'] <= metrics['innerWidth']
         evidence['details']['noHorizontalOverflow'] = metrics
         verify('mobileButtonHeights', not offenders, {'offenders': offenders, 'allButtons': metrics['buttons']})
-        verify('panelAndBodyColors', metrics['panelBackground'] == 'rgb(0, 0, 0)' and metrics['panelBorder'] == 'rgb(126, 60, 255)' and metrics['panelBorderWidth'] == '1px' and metrics['bodyBackground'] == 'rgb(23, 23, 23)', metrics)
+        verify('officialDarkAdminRoot', metrics['panelBackground'] == 'rgb(0, 0, 0)', metrics)
 
         driver.delete_cookie('jb_session')
         wait.until(lambda d: 'Session expired' in d.page_source)

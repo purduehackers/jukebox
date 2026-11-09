@@ -1,11 +1,14 @@
-# Allow only build/runtime inputs; private state and credentials never enter context.
+# Allow only build/runtime inputs. Secrets and local state never enter the image.
 **
 !Containerfile
 !.containerignore
 !package.json
-!package-lock.json
-!requirements.txt
-!vite.config.ts
+!bun.lock
+!pyproject.toml
+!uv.lock
+!astro.config.mjs
+!postcss.config.js
+!tsconfig.json
 !app/
 !app/**
 !src/
@@ -14,6 +17,8 @@
 !jukebox/**
 !scripts/
 !scripts/run-production
+!scripts/start-web.ts
+!scripts/launch.ts
 **/__pycache__/
 **/*.pyc
 **/.env*

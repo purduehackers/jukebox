@@ -20,7 +20,7 @@ test('an organizer display stays connected across nights, with no admin or atten
   await h.fails('FORBIDDEN', actor, 'master.add', { url: URLS.mix });
   await h.fails('FORBIDDEN', actor, 'request.submit', { url: URLS.r1 });
   assert.equal(h.snap(publicActor).lease, undefined);
-  assert.equal(h.svc.db.prepare("select count(*) as n from commands where type='display.connect'").get()!.n, 0);
+  assert.equal((h.svc.db.prepare("select count(*) as n from commands where type='display.connect'").get() as { n: number }).n, 0);
   const persisted = JSON.stringify(h.svc.db.prepare('select * from devices').all());
   assert.ok(!persisted.includes(key), 'the page secret must only be stored hashed');
 });
@@ -62,7 +62,7 @@ test('automatic registrations stay bounded without invalidating the other recent
   const h = harness(); t.after(() => h.svc.close());
   const devices = [];
   for (let i = 0; i < 40; i++) devices.push(await h.ok(h.admin, 'display.connect', { secret: secret() }));
-  assert.equal(h.svc.db.prepare('select count(*) as n from devices where automatic=1').get()!.n, 32);
+  assert.equal((h.svc.db.prepare('select count(*) as n from devices where automatic=1').get() as { n: number }).n, 32);
   for (const device of devices.slice(-32)) assert.equal(h.svc.authenticateDevice(device.token), device.deviceId);
 });
 
@@ -192,5 +192,5 @@ test('public visitors and attendees cannot register an automatic player', async 
   const h = harness(); t.after(() => h.svc.close());
   await h.fails('UNAUTHENTICATED', publicActor, 'display.connect', { secret: secret() });
   await h.fails('FORBIDDEN', h.alice, 'display.connect', { secret: secret() });
-  assert.equal(h.svc.db.prepare('select count(*) as n from devices').get()!.n, 0);
+  assert.equal((h.svc.db.prepare('select count(*) as n from devices').get() as { n: number }).n, 0);
 });

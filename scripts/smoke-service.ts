@@ -1,6 +1,6 @@
 // End-to-end local smoke: real phase-1 worker (owned fixtures only, no network) behind
 // the queue service, driven over HTTP by admin, attendee, and a paired player.
-// Usage: node scripts/smoke-service.ts   (needs .venv and ffmpeg; ~10s)
+// Usage: bun scripts/smoke-service.ts   (needs .venv and ffmpeg; ~10s)
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -14,7 +14,7 @@ const workerPort = 18971 + Math.floor(Math.random() * 500);
 const servicePort = workerPort + 1000;
 const children = [
   spawn(join(root, '.venv/bin/python'), ['-m', 'jukebox.server', '--port', String(workerPort), '--data', join(dir, 'worker')], { cwd: root, stdio: 'inherit' }),
-  spawn(process.execPath, ['src/server/main.ts', '--port', String(servicePort), '--data', join(dir, 'service'), '--dev-auth', '--worker', `http://127.0.0.1:${workerPort}`], { cwd: root, stdio: 'inherit', env: { ...process.env, JUKEBOX_PHID_CLIENT_ID: '' } }),
+  spawn(process.execPath, ['--no-env-file', 'scripts/start-web.ts'], { cwd: root, stdio: 'inherit', env: { ...Object.fromEntries(Object.entries(process.env).filter(([k])=>!k.startsWith('JUKEBOX_'))), NODE_ENV:'test', PORT:String(servicePort), JUKEBOX_DEV_AUTH:'1', JUKEBOX_SERVICE_DATA:join(dir,'service'), JUKEBOX_ORIGIN:`http://127.0.0.1:${servicePort}`, JUKEBOX_WORKER_URL:`http://127.0.0.1:${workerPort}` } }),
 ];
 const base = `http://127.0.0.1:${servicePort}`;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

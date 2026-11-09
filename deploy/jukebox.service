@@ -1,6 +1,6 @@
-# Example for a same-host Node/Python deployment. Install paths/user are operator choices.
+# Example for a same-host Astro/Bun/uv deployment. Install paths/user are operator choices.
 [Unit]
-Description=Purdue Hackers Jukebox queue and audio worker
+Description=Purdue Hackers Jukebox web app and audio worker
 Wants=network-online.target
 After=network-online.target
 

@@ -1,0 +1,90 @@
+{
+  "atUTC": "2026-11-09T21:45:04.636193+00:00",
+  "checks": {
+    "organizerLoginRequiredBeforeDisplayAndAudio": true,
+    "nativeFirefoxBlockHasNoAppActivationButton": true,
+    "persistentSitePermissionStartsPlaybackAutomatically": true,
+    "ownedFirefoxOutputVerifiedOnNullSink": true,
+    "separateAdminAttendeeProfilesSilent": true,
+    "suspendedMasterPinned": true,
+    "oneRequestNativeEndedThenMixResumed": true,
+    "normalSongEndedBeforeRequest": true,
+    "refreshMidRequestRestoredWithoutDoubleCharge": true,
+    "missingAssetTwoAttemptsRefundAndReturn": true,
+    "secondDisplayPlaysWithoutStealingOrBlockingFirst": true,
+    "shortReconnectKeepsLoad": true,
+    "longControlOutageKeepsAudioAndRecoversAutomatically": true,
+    "fiveEndStartCyclesStopAndResumeWithoutAnotherClick": true,
+    "playingRefreshResumesCheckpointWithoutClickOrLeaseWait": true,
+    "delayedOldSnapshotIgnored": true,
+    "organizerLogoutUnmountsAudioAndSignInRestoresPlayback": true,
+    "exhaustedMasterStaysSilentWithoutRepeatedErrors": true
+  },
+  "measurements": [
+    {
+      "permissionToPlaybackMs": 2787.53
+    },
+    {
+      "masterVisualizerFftPeak": 0.7831
+    },
+    {
+      "command": "playback.pause",
+      "commandToServerObservedAckMs": 104.22
+    },
+    {
+      "command": "playback.seek",
+      "commandToServerObservedAckMs": 384.47
+    },
+    {
+      "command": "playback.volume",
+      "commandToServerObservedAckMs": 88.04
+    },
+    {
+      "command": "playback.play",
+      "commandToServerObservedAckMs": 87.8
+    },
+    {
+      "requestVisualizerFftPeak": 0.5635
+    },
+    {
+      "resumeRequestedSec": 1235.14,
+      "resumeActualSeekedSec": 1235.14,
+      "resumeErrorSec": 0.0
+    },
+    {
+      "nightStartToPlaybackMs": 285.27
+    },
+    {
+      "nightStartToPlaybackMs": 317.11
+    },
+    {
+      "nightStartToPlaybackMs": 245.31
+    },
+    {
+      "nightStartToPlaybackMs": 253.33
+    },
+    {
+      "nightStartToPlaybackMs": 248.6
+    }
+  ],
+  "hardware": "Headless development Linux; HDMI, wall and audible checks pending",
+  "autoplayPreferencesOverridden": false,
+  "siteAutoplayPermission": "Allow Audio and Video (persistent)",
+  "heartbeatMs": 5000,
+  "audioOutput": {
+    "routing": "dedicated PulseAudio null sink",
+    "sink": "jukebox_verify_26601",
+    "systemDefaultChanged": false
+  },
+  "runtime": "Astro/Bun integrated server; real worker; private SQLite scheduling anchor",
+  "browser": {
+    "browserName": "firefox",
+    "browserVersion": "159.0.1",
+    "moz:buildID": "20261104135453",
+    "moz:geckodriverVersion": "0.37.1",
+    "platformName": "linux",
+    "moz:headless": true
+  },
+  "result": "passed",
+  "finishedUTC": "2026-11-09T21:47:25.591952+00:00"
+}

@@ -40,7 +40,8 @@ def main():
     children, drivers, logs = [], [], []
     temp = tempfile.TemporaryDirectory(prefix='jukebox-display-')
     work = Path(temp.name)
-    wp, sp, ap = port(), port(), port()
+    wp, ap = port(), port()
+    sp = ap
     worker, service, app = f'http://127.0.0.1:{wp}', f'http://127.0.0.1:{sp}', f'http://127.0.0.1:{ap}'
 
     def start(argv, env=None):
@@ -99,11 +100,11 @@ def main():
     try:
         start([sys.executable, '-m', 'jukebox.server', '--port', str(wp), '--data', str(work / 'worker')])
         until(lambda: http(worker + '/api/status'), 30)
-        start(['node', 'scripts/player-fixture-server.ts', '--port', str(sp), '--worker', worker,
-               '--data', str(work / 'service'), '--origin', app])
-        start([str(ROOT / 'node_modules/.bin/vite'), '--port', str(ap), '--strictPort'], {**os.environ, 'JUKEBOX_SERVICE': service})
+        env = {k:v for k,v in os.environ.items() if not k.startswith('JUKEBOX_')}
+        env.update(NODE_ENV='test', PORT=str(ap), JUKEBOX_ORIGIN=app, JUKEBOX_DEV_AUTH='1', JUKEBOX_WORKER_URL=worker, JUKEBOX_SERVICE_DATA=str(work/'service'))
+        start(['bun', '--no-env-file', 'scripts/start-web.ts'], env)
         until(lambda: http(service + '/healthz'), 30)
-        until(lambda: urllib.request.urlopen(app + '/display', timeout=2).status == 200, 30)
+        until(lambda: urllib.request.urlopen(app + '/admin', timeout=2).status == 200, 30)
         admin = browser('/auth/login?returnTo=/admin')
         until(lambda: admin.find_elements(By.NAME, 'sub'))
         admin.find_element(By.NAME, 'sub').send_keys('display_organizer')

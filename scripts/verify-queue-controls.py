@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import sqlite3
 import socket
 import subprocess
 import sys
@@ -79,7 +80,8 @@ def main():
     drivers, children, logs = [], [], []
     temp = tempfile.TemporaryDirectory(prefix='jukebox-player-')
     work = Path(temp.name)
-    wp, sp, ap = port(), port(), port()
+    wp, ap = port(), port()
+    sp = ap
     worker_url, service_url, app = f'http://127.0.0.1:{wp}', f'http://127.0.0.1:{sp}', f'http://127.0.0.1:{ap}'
 
     def start(argv, env=None):
@@ -145,7 +147,8 @@ def main():
         return until(lambda: not audio(d)['paused'] and audio(d)['status'] == 'playing' and (not kind or snap()['nowPlaying']['kind'] == kind))
 
     def due():
-        http(service_url + '/__test/due', {})
+        with sqlite3.connect(work/'service'/'state.sqlite3') as db:
+            db.execute('update playback set period_started_at = ?', (int(time.time()*1000)-15*60*1000-1000,))
 
     def titles():
         s = snap()
@@ -158,14 +161,12 @@ def main():
     try:
         worker = start([sys.executable, '-m', 'jukebox.server', '--port', str(wp), '--data', str(work/'worker')])
         until(lambda: http(worker_url + '/api/status'), 30)
-        service_args = ['node', 'scripts/player-fixture-server.ts', '--port', str(sp), '--worker', worker_url,
-                        '--data', str(work/'service'), '--origin', app]
-        env = {**os.environ, 'JUKEBOX_SERVICE': service_url}
-        service = start(service_args)
-        start([str(ROOT/'node_modules/.bin/vite'), '--port', str(ap), '--strictPort'], env)
-        report['runtime'] = 'isolated test service; production heartbeat and 15 minute policies; real worker'
+        env = {k:v for k,v in os.environ.items() if not k.startswith('JUKEBOX_')}
+        env.update(NODE_ENV='test', PORT=str(ap), JUKEBOX_ORIGIN=app, JUKEBOX_DEV_AUTH='1', JUKEBOX_WORKER_URL=worker_url, JUKEBOX_SERVICE_DATA=str(work/'service'))
+        service_args = ['bun', '--no-env-file', 'scripts/start-web.ts']
+        service = start(service_args, env)
         until(lambda: http(service_url + '/healthz'), 30)
-        until(lambda: urllib.request.urlopen(app+'/display', timeout=2).status == 200, 30)
+        until(lambda: urllib.request.urlopen(app+'/admin', timeout=2).status == 200, 30)
         admin = browser('/admin')
         login(admin, 'qc_admin', True)
         attendee = browser('/queue')

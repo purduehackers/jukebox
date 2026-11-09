@@ -1,57 +1,27 @@
 # Current implementation and deployment readiness
 
-Updated 2026-11-06 (America/Indiana/Indianapolis). This is the current-state
+Updated 2026-11-09 (America/Indiana/Indianapolis). This is the current-state
 companion to the original approved plan, not a new product approval request.
 Later user decisions in DECISIONS.md supersede the original plan where they differ.
 
 ## Baseline and local startup
 
-Original scan baseline: `32c265a` (approved stationary soundbar), present on
-`origin/main` and `feat/jukebox-visualizer-next` at review time. The local `main`
-branch was still at `5f526b4`; update it before beginning new implementation.
-The project-root planning checkout is historical and contains no runnable app.
-This review and documentation update use the existing visualizer worktree.
+The Astro/Bun/uv rewrite starts from `origin/main` at `e95376c` and lives on
+`feat/astro-bun-uv` until integrated. See [migration record](ASTRO-BUN-MIGRATION.md)
+for verification and [operator guide](DEPLOYMENT.md) for Podman on phack.sh.
 
-```sh
-./scripts/run-dev
-```
+Run `bun install --frozen-lockfile`, `uv sync --locked`, then `bun run dev`.
+Astro serves the entire app/API on 127.0.0.1:5173; the uv-managed Python worker
+remains private on :8971. Development loads private `.env.local` and requires
+real PH ID unless `--dev-auth` is explicitly requested. Real media is the default.
+Private configuration/state are not copied into fresh worktrees automatically.
+Production uses `bun run build` and `bun start`, with inherited runtime environment
+and absolute persistent paths; it never reads `.env.local`.
 
-Run from the current app checkout with its private `.env.local`. This starts the
-Vite frontend on 127.0.0.1:5173, Node queue service on :8980, and real Python
-worker on :8971 (or reuses a compatible worker). PH ID configuration is loaded
-privately; without it the development launcher uses labelled fake authentication.
-Fixture media requires an explicit flag. Defaults store service state in
-`.local/service` and worker data in `.local/dev-worker`; `--data` changes the
-service directory. Preserve the matching service and worker directories when
-reusing music; copying credentials does not copy queues or cached assets.
-
-The review started the normal stack with real PH ID, real worker and live catalog
-matching. `/admin` loaded its PH ID sign-in screen. No fresh live sign-in, source
-download, session mutation or physical audio check was performed for that scan.
-This is a development launcher, not a production process supervisor or ingress.
-
-## Security and deployment follow-up (2026-11-06)
-
-The user explicitly requires **organizer sign-in for the entire `/display` page**.
-It is not publicly viewable. This supersedes the earlier universal/public-display
-access decision. `/visual` also requires organizer access because it mounts the
-same player. After login, playback is automatic; no pairing or exclusive lease
-was reintroduced. Multiple signed-in organizer displays may still play.
-
-The server now checks credentials before every SSE snapshot using indexed local
-SQLite lookups (no PH ID network request in the update path). Logout immediately
-ends affected streams. Expiry/revocation closes idle streams by the next five-second
-heartbeat, and always before sending another snapshot. Automatic player tokens
-also require a currently valid organizer cookie on each HTTP request. Old public
-player tokens and copied tokens without an organizer session cannot report or
-subscribe as players. Legacy admin-issued paired credentials remain for fixtures.
-
-Production scaffolding is now included: `scripts/run-production`, operator env,
-Caddy and systemd examples under `deploy/`. See [operator deployment guide](DEPLOYMENT.md).
-No private environment file is loaded by that launcher. Production refuses fake
-identity/media, mismatched or local HTTP origins, missing PH ID configuration,
-and relative service-storage paths. The launcher requires explicit persistent
-worker storage too. This is code/configuration preparation, not a deployed server.
+Latest migration checks passed: 21 Python and 192 Bun tests, typechecks/build,
+18 production-player Firefox checks, 61 admin checks, six queue-controls checks,
+dev smoke and actual local Podman health/persistence checks. See the migration
+record for scope and remaining operator gates.
 
 ## How the app works now
 
@@ -84,7 +54,7 @@ worker storage too. This is code/configuration preparation, not a deployed serve
   consume none. Technical preparation/playback failures refund allowance.
   Deliberate admin removal/skip does not automatically refund. Night changes, not
   midnight, reset allowance. Request duration remains strictly under six minutes.
-- Node owns durable SQLite queues, commands, scheduling, sessions and checkpoints.
+- Bun owns durable SQLite queues, commands, scheduling, sessions and checkpoints.
   Browsers receive snapshots over SSE with polling recovery and acknowledge
   actual playback. SQLite supports one service writer, not a replicated fleet.
 - Python resolves/prepares bounded, completed, seekable audio-only assets. Active

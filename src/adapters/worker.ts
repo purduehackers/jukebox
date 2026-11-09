@@ -1,5 +1,3 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import { Readable } from 'node:stream';
 import type { AssetDescriptor, MediaPurpose, ResolvedSource, SourceRef } from '../contract/types.ts';
 import { canonicalizeUrl } from '../core/sources.ts';
 import { PortError } from '../core/ports.ts';
@@ -129,29 +127,24 @@ export class WorkerAdapter implements SourcePort, MediaPort, CandidateSearchPort
   }
 }
 
-export async function proxyMedia(baseUrl:string,assetId:string,req:IncomingMessage,res:ServerResponse):Promise<void> {
-  if(!UUID.test(assetId)){res.statusCode=400;res.end();return;}
-  const method=req.method === 'HEAD'?'HEAD':req.method === 'GET'?'GET':null;
-  if(!method){res.statusCode=405;res.setHeader('allow','GET, HEAD');res.end();return;}
-  const headers:Record<string,string>={};
-  for(const name of ['range','if-range']) { const value=req.headers[name]; if(typeof value==='string') headers[name]=value; }
-  const controller=new AbortController();
-  const abort=()=>controller.abort();
-  req.once('aborted',abort); res.once('close',()=>{if(!res.writableEnded) abort();});
+/** Stream the worker response without buffering tracks; preserve Firefox seeking. */
+export async function proxyMedia(baseUrl: string, assetId: string, req: Request): Promise<Response> {
+  if (!UUID.test(assetId)) return new Response(null, { status: 400 });
+  if (!['GET', 'HEAD'].includes(req.method)) return new Response(null, { status: 405, headers: { allow: 'GET, HEAD' } });
+  const headers = new Headers();
+  for (const name of ['range', 'if-range']) {
+    const value = req.headers.get(name);
+    if (value !== null) headers.set(name, value);
+  }
   try {
-    const upstream=await fetch(`${baseUrl.replace(/\/$/,'')}/media/${assetId}`,{method,headers,signal:controller.signal});
-    res.statusCode=upstream.status;
-    for(const name of ['content-type','content-length','content-range','accept-ranges','etag','cache-control','x-content-type-options']) {
-      const value=upstream.headers.get(name); if(value!==null) res.setHeader(name,value);
+    const upstream = await fetch(`${baseUrl.replace(/\/$/, '')}/media/${assetId}`, { method: req.method, headers, signal: req.signal });
+    const out = new Headers();
+    for (const name of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'cache-control', 'x-content-type-options']) {
+      const value = upstream.headers.get(name);
+      if (value !== null) out.set(name, value);
     }
-    if(method==='HEAD'||!upstream.body){res.end();return;}
-    await new Promise<void>((resolve,reject)=>{
-      const stream=Readable.fromWeb(upstream.body as import('node:stream/web').ReadableStream);
-      stream.once('error',reject); res.once('error',reject); res.once('finish',resolve); stream.pipe(res);
-    });
-  } catch(error) {
-    if(controller.signal.aborted) return;
-    if(!res.headersSent){res.statusCode=502;res.end();}
-    else res.destroy(error instanceof Error?error:undefined);
-  } finally { req.off('aborted',abort); }
+    return new Response(req.method === 'HEAD' ? null : upstream.body, { status: upstream.status, headers: out });
+  } catch {
+    return new Response(null, { status: 502 });
+  }
 }

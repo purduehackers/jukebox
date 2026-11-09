@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { AddressInfo } from 'node:net';
 import { FakeIdentity } from '../src/adapters/fakes.ts';
-import { createHttpServer } from '../src/server/http.ts';
+import { createHttpServer } from './http-server.ts';
 import type { Snapshot } from '../src/contract/types.ts';
 import { harness } from './helpers.ts';
 

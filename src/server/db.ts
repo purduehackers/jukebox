@@ -1,5 +1,5 @@
 // SQLite schema and migrations. One integration owner; append migrations, never edit old ones.
-import { DatabaseSync } from 'node:sqlite';
+import { Database } from 'bun:sqlite';
 
 export const MIGRATIONS: string[] = [
   `
@@ -137,8 +137,8 @@ export const MIGRATIONS: string[] = [
    alter table playback add column period_ms integer;`,
 ];
 
-export function openDatabase(path: string): DatabaseSync {
-  const db = new DatabaseSync(path);
+export function openDatabase(path: string): Database {
+  const db = new Database(path);
   db.exec('pragma journal_mode = wal; pragma synchronous = full; pragma foreign_keys = on; pragma busy_timeout = 5000;');
   const version = (db.prepare('pragma user_version').get() as { user_version: number }).user_version;
   if (version > MIGRATIONS.length) {

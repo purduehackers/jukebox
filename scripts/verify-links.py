@@ -52,7 +52,8 @@ def main():
     process = None
     with tempfile.TemporaryDirectory(prefix='jukebox-links-') as temp:
         work = Path(temp)
-        sp, ap, wp = port(), port(), port()
+        ap, wp = port(), port()
+        sp = ap
         app, service, worker = f'http://127.0.0.1:{ap}', f'http://127.0.0.1:{sp}', f'http://127.0.0.1:{wp}'
         # No secrets are copied into the test; fixtures do not alter the user's auth.
         env = {k: v for k, v in os.environ.items() if not k.startswith('JUKEBOX_')}
@@ -92,7 +93,7 @@ def main():
             return driver.find_element(By.TAG_NAME, 'body').text
 
         try:
-            process = subprocess.Popen(['./scripts/run-dev', '--data', str(work / 'service')], cwd=ROOT, env=env,
+            process = subprocess.Popen(['./scripts/run-dev', '--dev-auth', '--data', str(work / 'service')], cwd=ROOT, env=env,
                                        stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             until(lambda: http(service + '/healthz'), 45)
             until(lambda: http(app + '/healthz'), 30)

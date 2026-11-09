@@ -1,0 +1,7 @@
+{
+  "oldNodeDatabaseReopenedUnderBun": true,
+  "preservedExistingNight": true,
+  "schemaVersion": 4,
+  "secondWriterRejected": true,
+  "sigkillLockReleasedAndRestarted": true
+}

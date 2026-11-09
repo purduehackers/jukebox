@@ -73,7 +73,7 @@ test('candidate search results are canonicalized and unsafe candidates are ignor
 
 test('matching never calls fetch, including catalog and search failures', async () => {
   const previous = globalThis.fetch;
-  globalThis.fetch = (() => { throw new Error('fetch must not run'); }) as typeof fetch;
+  globalThis.fetch = (() => { throw new Error('fetch must not run'); }) as unknown as typeof fetch;
   try {
     const source = matching(new FakeSource().add('https://youtu.be/GFOtrack001', { title: 'A New Kind Of Love Pt 1', artist: 'Ghost Funk Orchestra', durationSec: 212 }));
     await source.resolve(canonicalizeUrl(MATCHING_FIXTURE_URLS.spotify), 'request');
