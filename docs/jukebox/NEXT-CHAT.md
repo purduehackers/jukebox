@@ -1,9 +1,9 @@
 # Start the next chat here
 
-Updated 2026-11-09. The Astro/Bun/uv rewrite is on `feat/astro-bun-uv` in
-`/home/patio/Projects/jukebox-astro-bun`, based on `origin/main` at `e95376c`.
+Updated 2026-11-09. The consolidated `main` baseline includes the Astro/Bun/uv
+rewrite and all subsequent local UI, visualizer, transition, ban and action-log work.
 Read [migration record](ASTRO-BUN-MIGRATION.md) and [deployment guide](DEPLOYMENT.md)
-for the current runtime. Until integrated, `main` retains the former Node app.
+for the current runtime. Start new work from freshly fetched `origin/main`.
 Do not restart completed phases. Read AGENTS.md, CURRENT-STATUS.md and DECISIONS.md.
 
 ## Current behavior and completed work
@@ -49,8 +49,30 @@ service/worker state. Inspect/reuse that local configuration for normal local
 previews without printing secrets. Do not silently switch to fixture auth/media
 or replace saved state. A fresh clone requires its own private configuration.
 
-The migration checkout reuses the same private configuration and service/worker
+The running local checkout is `/home/patio/Projects/jukebox-astro-bun`. It
+reuses the same private configuration and service/worker
 paths for the user-requested local preview. It has a private `.env.local` and
 a pre-preview SQLite backup under `.local/`. Neither is committed. Local tools
 for this session are under `/tmp/jukebox-toolchain/usr/bin`; add that directory
 to PATH if Bun/uv are not installed on the host.
+
+## Latest local work (2026-11-09)
+
+The user finalized the plain negative soundbar preset, now archived in
+`references/soundbar-display-settings-2026-11-09.json` and imported by /display.
+Master/request volume transitions are documented in VOLUME-TRANSITIONS.md.
+Reference Paper Design UI backdrops are on /admin (yellow) and /queue (purple).
+Top admin Ban… opens persistent username ban management; schema migration 5
+is appended. Request checks use verified PH ID usernames, requiring re-login
+for older sessions if any bans exist. Lower display row matches the dashboard
+clock height, 12rem + 2px (194 CSS px). Preserve the user's exact settings.
+Accepted queue additions record the verified actor username (saved display-name
+fallback for legacy sessions) and resolved song title in durable events. Admin
+action logs show these across organizers/reloads; older unattributed events are
+not assigned invented usernames. The visualizer follows actual outgoing master
+audio through fades and scales smoothly with the local volume envelope.
+
+The user approved the local result and requested committing/pushing all source
+work to main with updated docs. This publishes code, not a phack.sh deployment.
+The user asked to stop automated checks and will test locally; do not restart
+broad tests merely to recheck the completed work without a new reason/request.

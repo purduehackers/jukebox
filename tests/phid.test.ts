@@ -15,7 +15,7 @@ test('happy path, role filtering and organizer/no-role identities', async (t) =>
   const p = await FakeOidc.start(); t.after(() => p.close());
   p.users.set('next', { sub: 's123', preferred_username: 'purdue-user', roles: ['organizer', 'admin', 9] });
   const { result, auth } = await runLogin(p);
-  assert.deepEqual(result.identity, { key: `${p.base}/api/auth#s123`, issuer: `${p.base}/api/auth`, subject: 's123', displayName: 'purdue-user', roles: ['organizer', 'admin'] });
+  assert.deepEqual(result.identity, { key: `${p.base}/api/auth#s123`, issuer: `${p.base}/api/auth`, subject: 's123', displayName: 'purdue-user', username: 'purdue-user', roles: ['organizer', 'admin'] });
   assert.equal(result.returnTo, '/queue'); assert.equal(auth.searchParams.get('code_challenge_method'), 'S256');
   p.users.set('next', { sub: 'plain', name: 'Plain' });
   const second = await runLogin(p); assert.deepEqual(second.result.identity.roles, []); assert.equal(second.result.identity.displayName, 'Plain');

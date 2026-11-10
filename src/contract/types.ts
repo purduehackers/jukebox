@@ -42,6 +42,8 @@ export interface Identity {
   issuer: string;
   subject: string;
   displayName: string;
+  /** PH ID preferred_username, when supplied by the identity provider. Never derive from displayName. */
+  username?: string;
   /** PH ID `roles` claim values, e.g. organizer/admin. */
   roles: string[];
 }
@@ -224,11 +226,23 @@ export interface Snapshot {
   master?: MasterEntryView[];
   /** Admin only. */
   devices?: DeviceView[];
+  /** Exact normalized PH ID usernames blocked from future request submissions (admins only). */
+  bannedUsernames?: string[];
+  /** Recent accepted queue additions, persisted and visible to admins only. */
+  queueActivity?: QueueActivityEntry[];
   /** Signed-in attendee only. */
   quota?: { used: number; limit: number; remaining: number };
   /** Player only: automatic displays during an open night; legacy players also require a lease. */
   desired?: DesiredPlayback | null;
   lease?: { deviceId: string; generation: number; expiresAt: number } | null;
+}
+
+export interface QueueActivityEntry {
+  id: string;
+  at: number;
+  username: string;
+  title: string;
+  queue: 'master' | 'request';
 }
 
 export type Alert = { code: 'no_master_available' | 'player_offline' | 'unconfirmed_command'; message: string };
@@ -276,6 +290,8 @@ export interface CommandPayloads {
   // Admin: devices
   'device.pairing.create': { name: string };
   'device.revoke': { deviceId: string };
+  'requester.ban': { username: string };
+  'requester.unban': { username: string };
   // Attendee
   'request.submit': { url: string; /** Reject (GUARD_MISMATCH) if the link now resolves to a different recording than previewed. */ expectRecordingKey?: string };
   /** Read-only: resolve and judge a link without reserving allowance or touching the queue. */
@@ -341,6 +357,8 @@ export type ErrorCode =
   | 'NIGHT_CLOSED'
   | 'NIGHT_ALREADY_OPEN'
   | 'QUOTA_EXCEEDED'
+  | 'USERNAME_BANNED'
+  | 'USERNAME_REQUIRED'
   | 'DUPLICATE_REQUEST'
   | 'INVALID_SOURCE'
   | 'SOURCE_UNSUPPORTED'

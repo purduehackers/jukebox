@@ -1,7 +1,9 @@
 import { POLICY } from '../../../src/contract/types.ts';
 import type { DesiredPlayback, ObservedStatus, PlayerReport, Snapshot } from '../../../src/contract/types.ts';
 import { sendCommand, subscribeSnapshots } from '../shared/api.ts';
-import { publishAnalyser } from '../shared/audio-tap.ts';
+import { publishAnalyser, publishVisualGain } from '../shared/audio-tap.ts';
+import { VolumeTransition } from './volume-transition.ts';
+import type { TransitionOptions } from './volume-transition.ts';
 
 export interface Device { deviceId: string; token: string }
 export interface PlayerState {
@@ -45,6 +47,12 @@ export class PlayerController {
   private disposed = false;
   private busy = false;
   private reporting = false;
+  private reportDuringTransition = false;
+  private volume: VolumeTransition;
+  private boundary: { loadId: number; direction: 'request' | 'master'; faded: boolean; silentAt?: number } | null = null;
+  private requestAfterSong = false;
+  private tailFadeLoadId: number | null = null;
+  private lastEnded: { loadId: number; at: number } | null = null;
   private reportAgain = false;
   private claiming = false;
   private terminalSent = false;
@@ -55,8 +63,12 @@ export class PlayerController {
   private cancellation = new AbortController();
   private lifetime = new AbortController();
 
-  constructor(audio: HTMLAudioElement, changed: (state: PlayerState) => void, presented: (snapshot: Snapshot) => void = () => {}, connectionError: (error: string | null) => void = () => {}) {
+  constructor(audio: HTMLAudioElement, changed: (state: PlayerState) => void, presented: (snapshot: Snapshot) => void = () => {}, connectionError: (error: string | null) => void = () => {}, transition: TransitionOptions = {}) {
     this.audio = audio;
+    // Loading the next source during a silence must not trigger native autoplay.
+    // Native play() is still attempted automatically when the desired start is due.
+    this.audio.autoplay = false;
+    this.volume = new VolumeTransition(audio, { ...transition, onFactor: publishVisualGain });
     this.changed = changed;
     this.presented = presented;
     this.connectionError = connectionError;
@@ -66,6 +78,7 @@ export class PlayerController {
     for (const name of ['playing', 'pause', 'waiting', 'stalled', 'ended', 'error'] as const) {
       const listener = () => {
         if (!this.live()) { this.audio.pause(); return; }
+        if (name === 'ended' && this.applied) this.lastEnded = { loadId: this.applied.loadId, at: this.volume.clock.now() };
         if (this.busy || !this.applied || this.terminalSent) return;
         if (name === 'error') this.update({ status: 'error', message: `Audio error ${audio.error?.code}: ${audio.error?.message || 'unavailable media'}` });
         else if (name === 'ended') this.update({ status: 'ended' });
@@ -76,7 +89,7 @@ export class PlayerController {
       this.removers.push(() => audio.removeEventListener(name, listener));
     }
     // Native time events update only this page's presentation, not network reports.
-    const progress = () => { if (!this.busy && this.applied) this.update({}); };
+    const progress = () => { this.updateSongTailVolume(); if (!this.busy && this.applied) this.update({}); };
     audio.addEventListener('timeupdate', progress);
     this.removers.push(() => audio.removeEventListener('timeupdate', progress));
     const wake = () => { this.retryPlaybackAt = 0; void this.activate(); };
@@ -91,6 +104,7 @@ export class PlayerController {
       () => document.removeEventListener('visibilitychange', wake), () => document.removeEventListener('pointerdown', wake),
       () => document.removeEventListener('keydown', wake), () => window.removeEventListener('pagehide', hide));
     this.timer = setInterval(() => {
+      this.updateSongTailVolume();
       if (this.live() && !this.busy) void this.reconcile();
       if (!this.device && performance.now() >= this.nextConnectAt) void this.connect();
     }, 1000);
@@ -110,6 +124,10 @@ export class PlayerController {
     this.cancellation.abort();
     this.cancellation = new AbortController();
     this.audio.pause();
+    this.volume.setFactor(1);
+    this.boundary = null;
+    this.tailFadeLoadId = null;
+    this.reportDuringTransition = false;
     publishAnalyser(null);
     this.desired = null;
     this.applied = null;
@@ -176,6 +194,7 @@ export class PlayerController {
     this.snapshotRevision = snapshot.revision;
     this.snapshotTime = snapshot.serverTime;
     this.sessionOpen = snapshot.night?.status === 'open';
+    this.requestAfterSong = snapshot.schedule.turnDue && snapshot.requests.some(request => request.status === 'ready');
     // Presentation and native audio consume this exact same ordered snapshot.
     // Apply stop/pause before publishing it, including during an in-flight load.
     if (!this.sessionOpen || !snapshot.desired) {
@@ -195,6 +214,8 @@ export class PlayerController {
       this.cancellation = new AbortController();
     }
     this.desired = snapshot.desired;
+    this.volume.setVolume(snapshot.desired.volume);
+    this.updateSongTailVolume();
     if (snapshot.desired.intent === 'paused') this.audio.pause();
     this.presented(snapshot);
     void this.reconcile();
@@ -273,6 +294,22 @@ export class PlayerController {
     return this.bounded(event).finally(cleanup);
   }
 
+  private updateSongTailVolume() {
+    if (this.busy || !this.applied || this.applied.kind !== 'master' || this.desired?.loadId !== this.applied.loadId) return;
+    const duration = this.audio.duration, remaining = duration - position(this.audio);
+    if (this.requestAfterSong && this.desired.intent === 'playing' && !this.audio.paused
+      && duration <= POLICY.mixThresholdSec && this.volume.timing.fadeMs > 0
+      && remaining <= this.volume.timing.fadeMs / 1000) {
+      // Ordinary songs still finish: fade their final seven seconds when a ready
+      // request is due instead of trying to fade audio that has already ended.
+      this.volume.setFactor(Math.max(0, remaining / (this.volume.timing.fadeMs / 1000)));
+      this.tailFadeLoadId = this.applied.loadId;
+    } else if (this.tailFadeLoadId === this.applied.loadId) {
+      this.volume.setFactor(1);
+      this.tailFadeLoadId = null;
+    }
+  }
+
   private async reconcile() {
     if (!this.live() || this.busy || !this.desired || performance.now() < this.retryPlaybackAt) return;
     const desired = this.desired;
@@ -284,6 +321,28 @@ export class PlayerController {
       const newLoad = this.applied?.loadId !== desired.loadId;
       const seek = newLoad || this.applied?.seekSeq !== desired.seekSeq;
       if (newLoad) {
+        if (this.boundary?.loadId !== desired.loadId) {
+          this.boundary = this.applied && this.applied.kind !== desired.kind
+            ? { loadId: desired.loadId, direction: desired.kind, faded: false } : null;
+        }
+        const boundary = this.boundary;
+        if (boundary && desired.intent === 'playing' && !boundary.faded) {
+          this.reportDuringTransition = true;
+          if (boundary.direction === 'request') {
+            this.update({ status: this.audio.paused ? 'paused' : 'playing' });
+            if (!this.audio.paused && !this.audio.ended) await this.volume.fade(0, operation, () => !this.audio.ended);
+            this.audio.pause();
+            this.volume.setFactor(0);
+            boundary.silentAt = this.audio.ended && this.lastEnded?.loadId === this.applied?.loadId
+              ? this.lastEnded!.at : this.volume.clock.now();
+          } else {
+            this.audio.pause();
+            this.volume.setFactor(0);
+            boundary.silentAt = this.lastEnded && this.lastEnded.loadId === this.applied?.loadId ? this.lastEnded.at : this.volume.clock.now();
+          }
+          boundary.faded = true;
+          this.reportDuringTransition = false;
+        }
         this.audio.pause();
         if (this.applied && this.state.loadId === this.applied.loadId) {
           this.previous = { loadId: this.applied.loadId, positionSec: position(this.audio) };
@@ -299,33 +358,55 @@ export class PlayerController {
         if (Math.abs(position(this.audio) - target) > .35) throw new Error('Seek exceeded 350ms tolerance');
       }
       if (!this.live() || operation.aborted) return;
-      this.audio.volume = desired.volume;
-      this.applied = desired;
-      this.update({ epoch: desired.epoch });
-      // Never start an obsolete load or intent after an asynchronous load/seek.
-      if (this.desired?.epoch !== desired.epoch) { this.audio.pause(); return; }
-      if (desired.intent === 'paused') {
+      // Volume-only updates do not restart an in-flight fade or silence interval.
+      const latest = this.desired;
+      if (!latest || latest.loadId !== desired.loadId || latest.seekSeq !== desired.seekSeq || latest.intent !== desired.intent) return;
+      this.volume.setVolume(latest.volume);
+      this.applied = latest;
+      this.update({ epoch: latest.epoch, status: 'loading' });
+      const boundary = this.boundary?.loadId === latest.loadId ? this.boundary : null;
+      if (latest.intent === 'paused') {
+        this.volume.setFactor(1);
+        this.boundary = null;
         this.audio.pause();
         publishAnalyser(null);
         this.update({ status: 'paused', message: '' });
       } else {
+        if (boundary?.silentAt !== undefined) {
+          this.reportDuringTransition = true;
+          await this.volume.silenceSince(boundary.silentAt, operation);
+          this.reportDuringTransition = false;
+        }
+        if (!this.live() || operation.aborted) return;
+        this.volume.setFactor(boundary?.direction === 'master' ? 0 : 1);
         // Always try native playback. A suspended analyser must not invent an
         // app-level permission gate before Firefox gets to evaluate autoplay.
         void this.resumeContext().catch(() => {});
         await this.bounded(this.audio.play());
-        if (!this.live() || operation.aborted || this.desired?.epoch !== desired.epoch) { this.audio.pause(); return; }
+        if (!this.live() || operation.aborted) { this.audio.pause(); return; }
         if (this.context?.state !== 'running') throw new DOMException('Firefox blocked audio autoplay', 'NotAllowedError');
         publishAnalyser(this.analyser);
         this.update({ activated: true, status: this.audio.paused ? 'paused' : 'playing', message: '' });
+        if (boundary?.direction === 'master') {
+          this.reportDuringTransition = true;
+          await this.volume.fade(1, operation);
+          this.reportDuringTransition = false;
+        }
+        this.boundary = null;
       }
     } catch (error) {
       this.audio.pause();
+      this.volume.setFactor(1);
+      if (operation.aborted && this.applied?.kind === 'master' && desired.kind === 'request' && this.state.loadId === this.applied.loadId) {
+        this.previous = { loadId: this.applied.loadId, positionSec: position(this.audio) };
+      }
       if (!this.live() || operation.aborted) return;
       this.applied = desired;
       const activation = error instanceof DOMException && error.name === 'NotAllowedError';
       if (activation) this.retryPlaybackAt = performance.now() + 1000;
       this.update({ epoch: desired.epoch, status: activation ? 'needs_activation' : 'error', ...(activation ? { activated: false } : {}), message: String(error) });
     } finally {
+      this.reportDuringTransition = false;
       this.busy = false;
       if (this.live()) void this.report();
       if (this.desired && (operation.aborted || this.desired.epoch !== desired.epoch)) void this.reconcile();
@@ -335,7 +416,7 @@ export class PlayerController {
   private async report() {
     // Loading resets the native position before seeking to the checkpoint. That
     // transient zero is not an actual playback checkpoint or acknowledgement.
-    if (!this.live() || !this.sessionOpen || this.busy) return;
+    if (!this.live() || !this.sessionOpen || (this.busy && !this.reportDuringTransition)) return;
     if (this.reporting) { this.reportAgain = true; return; }
     this.reporting = true;
     const generation = this.state.generation!;
@@ -373,6 +454,8 @@ export class PlayerController {
   private release() {
     const generation = this.state.generation;
     const finalPosition = position(this.audio);
+    const previous = this.desired?.kind === 'request' && this.applied?.kind === 'master' && this.state.loadId === this.applied.loadId
+      ? { loadId: this.applied.loadId, positionSec: finalPosition } : this.previous;
     if (generation !== null && this.device) {
       // Save the final checkpoint on refresh. There is no ownership to release.
       const token = this.device.token;
@@ -380,7 +463,7 @@ export class PlayerController {
         method: 'POST', keepalive: true, headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({ commandId: crypto.randomUUID(), type, payload }),
       });
-      const checkpoint = this.applied ? command('player.report', { generation, epoch: this.state.epoch, loadId: this.state.loadId ?? 0, status: this.state.status === 'needs_activation' ? 'needs_activation' : 'paused', positionSec: finalPosition, ...(this.previous ? { previous: this.previous } : {}) }) : Promise.resolve();
+      const checkpoint = this.applied ? command('player.report', { generation, epoch: this.state.epoch, loadId: this.state.loadId ?? 0, status: this.state.status === 'needs_activation' ? 'needs_activation' : 'paused', positionSec: finalPosition, ...(previous ? { previous } : {}) }) : Promise.resolve();
       void checkpoint.catch(() => {});
     }
   }
@@ -393,6 +476,7 @@ export class PlayerController {
     this.cancellation.abort();
     this.lifetime.abort();
     publishAnalyser(null);
+    publishVisualGain(1);
     this.unsubscribe();
     clearInterval(this.timer); clearInterval(this.heartbeat);
     for (const remove of this.removers) remove();

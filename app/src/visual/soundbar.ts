@@ -1,7 +1,12 @@
 // Stationary spectrum: each x position is a fixed logarithmic frequency band.
-// Exact user-approved preset, 2026-11-05; archived in docs/jukebox/references/.
+// User-approved preset, 2026-11-05; wider outward edge fade requested 2026-11-09.
 export const approvedDefaults = {"gain": 2.3, "height": 0.85, "bands": 92, "attack": 12, "release": 125, "minHz": 20, "maxHz": 15500, "softness": 0, "size": 2, "density": 1, "edgeSoftness": 100, "floorDb": -77, "rangeDb": 63, "tilt": 0.5};
-export const defaults = { ...approvedDefaults };
+export const defaults = {
+  ...approvedDefaults, negativeSpace: 1,
+  negativeHeight: 0.45, negativeSoftness: 40,
+  pocketRim: 24, coreSolidness: 0.4,
+  blendTechnique: 0, blendAmount: 1, blendWidth: 48, blendCurve: 1, blendSoftness: 0.15,
+};
 export type Settings = typeof defaults;
 export const controls: { key: keyof Settings; label: string; min: number; max: number; step: number; unit?: string }[] = [
   { key: 'gain', label: 'Sensitivity', min: 0.1, max: 12, step: 0.1 },
@@ -17,8 +22,48 @@ export const controls: { key: keyof Settings; label: string; min: number; max: n
   { key: 'softness', label: 'Contour smoothing', min: 0, max: 8, step: 1 },
   { key: 'size', label: 'Dither pixel size', min: 0.5, max: 8, step: 0.5 },
   { key: 'density', label: 'Fill density', min: 0.05, max: 1, step: 0.01 },
-  { key: 'edgeSoftness', label: 'Edge softness', min: 0, max: 100, step: 1, unit: 'px' },
+  { key: 'coreSolidness', label: 'Core solidness', min: 0, max: 1, step: 0.01 },
+  { key: 'edgeSoftness', label: 'Edge softness', min: 0, max: 300, step: 1, unit: 'px' },
+  { key: 'negativeSpace', label: 'Negative depth', min: 0, max: 1, step: 0.01 },
+  { key: 'negativeHeight', label: 'Negative height', min: 0.05, max: 0.9, step: 0.01 },
+  { key: 'negativeSoftness', label: 'Negative edge softness', min: 0, max: 160, step: 1, unit: 'px' },
+  { key: 'pocketRim', label: 'Outline protection', min: 8, max: 100, step: 1, unit: 'px' },
+  { key: 'blendAmount', label: 'Layer mix', min: 0, max: 1, step: 0.01 },
+  { key: 'blendWidth', label: 'Edge blend distance', min: 8, max: 200, step: 1, unit: 'px' },
+  { key: 'blendCurve', label: 'Blend curve', min: 0.25, max: 3, step: 0.05 },
+  { key: 'blendSoftness', label: 'Soft-min radius', min: 0.01, max: 0.5, step: 0.01 },
 ];
+export const blendTechniques = [
+  { value: 0, label: 'Multiply', description: 'Gradually thins the purple as the negative field fades in.' },
+  { value: 1, label: 'Subtract', description: 'Cuts deeper holes with a stronger separation.' },
+  { value: 2, label: 'Soft minimum', description: 'Rounds and melts the junction between the layers.' },
+  { value: 3, label: 'Feathered dissolve', description: 'Eases the negative field fade for a softer transition.' },
+];
+
+function softMinimum(a: number, b: number, radius: number) {
+  const h = Math.max(radius - Math.abs(a - b), 0) / radius;
+  return Math.min(a, b) - h * h * radius * .25;
+}
+
+function blendNegative(shade: number, cut: number, settings: Settings) {
+  if (cut <= 0 || shade <= 0) return shade;
+  let carved: number;
+  switch (settings.blendTechnique) {
+    case 1: carved = Math.max(0, shade - cut); break;
+    case 2: {
+      // Normalize endpoints so no mask leaves the original intact, and a full
+      // mask reaches true black even where both scalar fields are equally bright.
+      const low = softMinimum(shade, 0, settings.blendSoftness);
+      const high = softMinimum(shade, 1, settings.blendSoftness);
+      carved = shade * (softMinimum(shade, 1 - cut, settings.blendSoftness) - low) / (high - low);
+      break;
+    }
+    case 3: carved = shade * (1 - smoothstep(0, 1, cut)); break;
+    default: carved = shade * (1 - cut);
+  }
+  return Math.max(0, Math.min(shade, shade + (carved - shade) * settings.blendAmount));
+}
+
 export function spectrum(fft: Float32Array, sampleRate: number, fftSize: number, settings: Settings): number[] {
   const low = Math.min(settings.minHz, sampleRate / 2), high = Math.min(settings.maxHz, sampleRate / 2);
   if (high <= low) return Array(settings.bands).fill(0);
@@ -58,20 +103,47 @@ export function envelope(values: number[], radius: number): number[] {
 }
 // One grayscale soundbar function; evaluated first, then passed to dither().
 export function soundbarField(amplitude: number, y: number, height: number, settings: Settings): number {
-  const distance = amplitude * settings.height * height * 0.48 - Math.abs(y - height / 2);
-  if (distance <= 0) return 0;
-  const t = settings.edgeSoftness ? Math.min(1, distance / settings.edgeSoftness) : 1;
+  if (amplitude <= 0) return 0;
+  const radius = amplitude * settings.height * height * 0.48;
+  const distance = radius - Math.abs(y - height / 2);
+  // Spread the fade across both sides of the measured contour, keeping the
+  // solid core while giving sparse Bayer pixels room outside the waveform.
+  // Shrink the spread with quiet bands so the halo also disappears into silence.
+  const spread = Math.min(settings.edgeSoftness, radius);
+  if (!spread) return distance > 0 ? settings.density : 0;
+  const t = Math.max(0, Math.min(1, (distance + spread) / (2 * spread)));
   return settings.density * t * t * (3 - 2 * t);
 }
+function smoothstep(low: number, high: number, value: number) {
+  const t = Math.max(0, Math.min(1, (value - low) / (high - low)));
+  return t * t * (3 - 2 * t);
+}
+
 export function drawSoundbar(context: CanvasRenderingContext2D, values: number[], width: number, height: number, cell: number, settings: Settings, dithered = true) {
   const points = envelope(values, settings.softness);
   const image = context.createImageData(width, height);
+  // The negative is the same soundbar function, scaled down vertically.
+  // No separate noise, warp, time function or independently moving geometry.
+  const negativeSettings = { ...settings, height: settings.height * settings.negativeHeight, density: 1, edgeSoftness: settings.negativeSoftness };
   for (let x = 0; x < width; x++) {
     const position = x / Math.max(1, width - 1) * (points.length - 1);
     const left = Math.floor(position), fraction = position - left;
     const amplitude = points[left]! * (1 - fraction) + points[Math.min(left + 1, points.length - 1)]! * fraction;
+    const radius = amplitude * settings.height * height * cell * .48;
     for (let y = 0; y < height; y++) {
-      const shade = soundbarField(amplitude, (y + .5) * cell, height * cell, settings);
+      let shade = soundbarField(amplitude, (y + .5) * cell, height * cell, settings);
+      const inset = radius - Math.abs((y + .5) * cell - height * cell / 2);
+      // Keep the live outline while subtracting the smaller mirrored field.
+      if (settings.negativeSpace > 0 && inset > settings.pocketRim) {
+        const mask = soundbarField(amplitude, (y + .5) * cell, height * cell, negativeSettings);
+        const interior = smoothstep(settings.pocketRim, settings.pocketRim + settings.blendWidth, inset) ** settings.blendCurve;
+        shade = blendNegative(shade, settings.negativeSpace * interior * mask, settings);
+      }
+      // Paper's warp field saturates to exactly 1 before Bayer quantization.
+      // Our blended masks otherwise leave near-white plateaus below 1, which
+      // preserve the zero-rank Bayer hole even at 99.99% brightness. Add a tunable
+      // solid plateau to the field; preserve the user's explicit density cap.
+      shade = Math.min(settings.density, shade / (1 - settings.coreSolidness * .25));
       const ink = dithered ? Number(dither(shade, x, y)) : shade;
       const index = (y * width + x) * 4;
       image.data[index] = 126 * ink;

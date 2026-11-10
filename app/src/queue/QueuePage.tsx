@@ -10,6 +10,7 @@ import { DitherButton } from '../components/ph/dither-button.tsx';
 import { Field } from '../components/ph/field.tsx';
 import { Input } from '../components/ph/input.tsx';
 import { fetchMe, sendCommand, useSnapshot } from '../shared/api.ts';
+import { DitheredSoup } from '../shared/DitheredSoup.tsx';
 import '../shared/ph-ui.css';
 import { RequestFlow, sessionIntentStore } from './controller.ts';
 import type { FlowState } from './controller.ts';
@@ -59,6 +60,7 @@ export function QueuePage() {
 
   return (
     <main className="ph-ui dark q-page">
+      <DitheredSoup fgColor="#7e3cff" />
       <div className="q-shell">
         <header>
           <h1 className="ph-headline text-6xl text-primary">Jukebox</h1>

@@ -21,6 +21,8 @@ function isHttpArtworkUrl(value: string): boolean {
   catch { return false; }
 }
 
+function normalizeUsername(value: string): string { return value.trim().toLowerCase(); }
+
 export type Actor =
   | { kind: 'public' }
   | { kind: 'user'; identity: Identity }
@@ -251,6 +253,7 @@ export class JukeboxService {
       const night = this.openNight();
       if (!night) throw new CommandError('NIGHT_CLOSED', 'Requests are closed until an organizer opens tonight’s session');
       const identity = (actor as { identity: Identity }).identity;
+      this.assertUsernameCanRequest(identity);
       if (this.quotaUsed(night.id, identity.key) >= this.policy.quotaPerNight) {
         throw new CommandError('QUOTA_EXCEEDED', `You have used all ${this.policy.quotaPerNight} requests for tonight`);
       }
@@ -289,6 +292,7 @@ export class JukeboxService {
     }
     this.previewTimes.set(identity.key, [...recent, now]);
     try {
+      this.assertUsernameCanRequest(identity);
       const ref = this.source.canonicalize((envelope.payload as { url: string }).url);
       const night = this.openNight();
       if (!night) throw new CommandError('NIGHT_CLOSED', 'Requests are closed until an organizer opens tonight’s session');
@@ -296,6 +300,7 @@ export class JukeboxService {
       const limit = this.policy.quotaPerNight;
       if (used >= limit) throw new CommandError('QUOTA_EXCEEDED', `You have used all ${limit} requests for tonight`);
       const resolved = await this.source.resolve(ref, 'request');
+      this.assertUsernameCanRequest(identity);
       if (!(resolved.durationSec > 0)) throw new PortError('SOURCE_UNAVAILABLE', 'Recording has no known duration');
       let verdict: PreviewResult['verdict'] = { accepted: true };
       if (resolved.durationSec >= this.policy.requestMaxSec) {
@@ -323,13 +328,13 @@ export class JukeboxService {
     switch (type) {
       case 'night.open': return this.nightOpen(tx);
       case 'night.close': return this.nightClose(tx);
-      case 'master.add': return this.masterAdd(tx, resolved!);
+      case 'master.add': return this.masterAdd(tx, resolved!, (actor as { identity: Identity }).identity, envelope.commandId);
       case 'master.remove': return this.masterRemove(tx, p.entryId as string);
       case 'master.move': return this.move(tx, 'master_items', p.entryId as string, p.afterEntryId as string | null);
       case 'request.remove': return this.requestRemove(tx, p.entryId as string);
       case 'request.move': return this.move(tx, 'requests', p.entryId as string, p.afterEntryId as string | null);
       case 'request.preview': throw new Error('request.preview is handled before the transaction');
-      case 'request.submit': return this.requestSubmit(tx, (actor as { identity: Identity }).identity, resolved!);
+      case 'request.submit': return this.requestSubmit(tx, (actor as { identity: Identity }).identity, resolved!, envelope.commandId);
       case 'playback.play': return this.play(tx);
       case 'playback.pause': return this.pause(tx);
       case 'playback.seek': return this.seek(tx, p.entryId as string, p.positionSec as number);
@@ -344,6 +349,8 @@ export class JukeboxService {
       }
       case 'device.pairing.create': return this.pairingCreate(tx, p.name as string);
       case 'device.revoke': return this.deviceRevoke(tx, p.deviceId as string);
+      case 'requester.ban': return this.setUsernameBan(tx, p.username as string, true);
+      case 'requester.unban': return this.setUsernameBan(tx, p.username as string, false);
       case 'device.pair': return this.devicePair(tx, p.code as string);
       case 'display.connect': return this.displayConnect(tx, p.secret as string);
       case 'player.claim': return this.claim(tx, (actor as { deviceId: string }).deviceId, p.takeover === true);
@@ -631,14 +638,14 @@ export class JukeboxService {
     return {};
   }
 
-  private masterAdd(tx: Tx, resolved: ResolvedSource) {
+  private masterAdd(tx: Tx, resolved: ResolvedSource, identity: Identity, commandId: string) {
     const id = randomUUID();
     const max = (this.db.prepare('select max(order_key) as k from master_items').get() as { k: number | null }).k ?? 0;
     this.db.prepare(`insert into master_items(id, order_key, source_url, provider, title, artist, artwork_url, duration_sec, recording_key,
       selection, status, created_at) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'preparing', ?) `)
       .run(id, max + 1, resolved.ref.canonicalUrl, resolved.ref.provider, resolved.title, resolved.artist, resolved.artworkUrl ?? null, resolved.durationSec,
         resolved.recordingKey, JSON.stringify(resolved.selection ?? null), tx.now);
-    this.emit(tx, 'master.added', { entryId: id });
+    this.emit(tx, 'master.added', { entryId: id, commandId, username: identity.username ?? identity.displayName, title: resolved.title });
     return { entryId: id };
   }
 
@@ -981,7 +988,8 @@ export class JukeboxService {
 
   // ----------------------------------------------------- attendee commands
 
-  private requestSubmit(tx: Tx, identity: Identity, resolved: ResolvedSource) {
+  private requestSubmit(tx: Tx, identity: Identity, resolved: ResolvedSource, commandId: string) {
+    this.assertUsernameCanRequest(identity);
     const night = this.openNight();
     if (!night) throw new CommandError('NIGHT_CLOSED', 'Requests are closed until an organizer opens tonight’s session');
     const used = this.quotaUsed(night.id, identity.key);
@@ -995,9 +1003,38 @@ export class JukeboxService {
       duration_sec, recording_key, selection, status, created_at) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'preparing', ?) `)
       .run(id, night.id, identity.key, identity.displayName, max + 1, resolved.ref.canonicalUrl, resolved.ref.provider, resolved.title,
         resolved.artist, resolved.artworkUrl ?? null, resolved.durationSec, resolved.recordingKey, JSON.stringify(resolved.selection ?? null), tx.now);
-    this.emit(tx, 'request.submitted', { entryId: id });
+    this.emit(tx, 'request.submitted', { entryId: id, commandId, username: identity.username ?? identity.displayName, title: resolved.title });
     const limit = this.policy.quotaPerNight;
     return { entryId: id, quota: { used: used + 1, limit, remaining: limit - used - 1 } };
+  }
+
+  private usernameBanError(identity: Identity): CommandError | null {
+    const hasBans = !!this.db.prepare('select 1 from banned_usernames limit 1').get();
+    if (!hasBans) return null;
+    if (!identity.username) return new CommandError('USERNAME_REQUIRED', 'Sign in again so your Purdue Hackers ID username can be checked');
+    const username = normalizeUsername(identity.username);
+    if (this.db.prepare('select 1 from banned_usernames where username = ?').get(username)) {
+      return new CommandError('USERNAME_BANNED', 'This Purdue Hackers ID username cannot submit requests');
+    }
+    return null;
+  }
+
+  private assertUsernameCanRequest(identity: Identity) {
+    const error = this.usernameBanError(identity);
+    if (error) throw error;
+  }
+
+  private setUsernameBan(tx: Tx, raw: string, banned: boolean) {
+    const username = normalizeUsername(raw);
+    if (!/^[a-z0-9._-]{1,40}$/.test(username)) throw new CommandError('BAD_REQUEST', 'Enter a valid PH ID username');
+    if (banned) {
+      const result = this.db.prepare('insert or ignore into banned_usernames(username, created_at) values(?, ?)').run(username, tx.now);
+      if (Number(result.changes)) this.emit(tx, 'requester.banned', { username });
+    } else {
+      const result = this.db.prepare('delete from banned_usernames where username = ?').run(username);
+      if (Number(result.changes)) this.emit(tx, 'requester.unbanned', { username });
+    }
+    return { username, banned };
   }
 
   // ---------------------------------------------------------- reconcile
@@ -1263,6 +1300,16 @@ export class JukeboxService {
       }));
       snapshot.devices = (this.db.prepare('select * from devices order by paired_at').all() as { id: string; name: string; revoked: number; paired_at: number }[])
         .map((d) => ({ id: d.id, name: d.name, revoked: !!d.revoked, pairedAt: d.paired_at, holdsLease: live && pb.lease_device === d.id }));
+      snapshot.bannedUsernames = (this.db.prepare('select username from banned_usernames order by username').all() as { username: string }[])
+        .map((row) => row.username);
+      snapshot.queueActivity = (this.db.prepare(`select seq, at, type, data from events
+        where type in ('master.added', 'request.submitted') and json_type(data, '$.username') = 'text'
+        order by seq desc limit 12`).all() as { seq: number; at: number; type: string; data: string }[])
+        .map(row => {
+          const data = JSON.parse(row.data) as { commandId?: string; username: string; title: string };
+          return { id: data.commandId ?? `event-${row.seq}`, at: row.at, username: data.username,
+            title: data.title, queue: row.type === 'master.added' ? 'master' as const : 'request' as const };
+        });
     }
     if (identity && night?.status === 'open') {
       const used = this.quotaUsed(night.id, identity.key);

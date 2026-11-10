@@ -6,8 +6,8 @@ Later user decisions in DECISIONS.md supersede the original plan where they diff
 
 ## Baseline and local startup
 
-The Astro/Bun/uv rewrite starts from `origin/main` at `e95376c` and lives on
-`feat/astro-bun-uv` until integrated. See [migration record](ASTRO-BUN-MIGRATION.md)
+The consolidated `main` includes the Astro/Bun/uv rewrite (original parent
+`e95376c`) and the subsequent 2026-11-09 local changes. See [migration record](ASTRO-BUN-MIGRATION.md)
 for verification and [operator guide](DEPLOYMENT.md) for Podman on phack.sh.
 
 Run `bun install --frozen-lockfile`, `uv sync --locked`, then `bun run dev`.
@@ -22,6 +22,20 @@ Latest migration checks passed: 21 Python and 192 Bun tests, typechecks/build,
 18 production-player Firefox checks, 61 admin checks, six queue-controls checks,
 dev smoke and actual local Podman health/persistence checks. See the migration
 record for scope and remaining operator gates.
+
+Latest local changes (2026-11-09): display uses the user's exact selected preset
+in `references/soundbar-display-settings-2026-11-09.json`; both lower boxes match
+the dashboard clock's 194 CSS px height at the default root size. Master/request
+changes have 7-second master-only volume ramps and 3-second silent gaps. The
+request never fades out. See [volume transitions](VOLUME-TRANSITIONS.md).
+Admin/queue have the Checkpoints reference's animated dither backdrops in yellow
+and purple. The top `Ban…` menu manages persistent, server-enforced PH ID username
+bans; legacy sessions need re-login to request while any bans exist. Schema is 5.
+The visualizer follows actual outgoing playback and the volume envelope during
+fades. Accepted queue additions persist actor usernames and song titles in the
+admin action log, shared across organizers and reloads. Further tests were
+stopped at the user's request for manual local verification. Publication checks
+are limited to repository hygiene; no new runtime/venue validation is claimed.
 
 ## How the app works now
 
@@ -39,7 +53,7 @@ record for scope and remaining operator gates.
   extra live preview while listening in Firefox.
 - The display uses the approved stationary mirrored soundbar, real FFT analysis,
   purple/black Bayer dithering, now-playing strip, queue and request QR. The exact
-  preset is `references/soundbar-approved-settings.json`; lab storage does not
+  preset is `references/soundbar-display-settings-2026-11-09.json`; lab storage does not
   override it. Experimental wisp/warp renderers were removed.
 - Auto mode defaults to one request after 15 elapsed master minutes. Pause,
   buffering and disconnect do not freeze that interval; seeking does not jump it.

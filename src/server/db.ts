@@ -135,6 +135,7 @@ export const MIGRATIONS: string[] = [
   // Queue playback controls: shared mode and request-interval override (null = policy default).
   `alter table playback add column mode text not null default 'auto' check(mode in ('auto','master','requests'));
    alter table playback add column period_ms integer;`,
+  `create table banned_usernames(username text primary key, created_at integer not null);`,
 ];
 
 export function openDatabase(path: string): Database {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAnalyser } from '../shared/audio-tap.ts';
+import { useAnalyser, useVisualGain } from '../shared/audio-tap.ts';
 import { drawSoundbar, defaults, spectrum } from './soundbar.ts';
 import type { Settings } from './soundbar.ts';
 import './soundbar.css';
@@ -7,6 +7,8 @@ import './soundbar.css';
 /** Consumes the player's analyser; creates no audio element or playback session. */
 export function Soundbar({ settings = defaults, playing, dithered = true }: { settings?: Settings; playing: boolean; dithered?: boolean }) {
   const analyser = useAnalyser();
+  const visualGain = useVisualGain();
+  const level = useRef(visualGain); level.current = visualGain;
   const shape = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [failure, setFailure] = useState(false);
@@ -44,7 +46,7 @@ export function Soundbar({ settings = defaults, playing, dithered = true }: { se
         const height = Math.max(1, Math.ceil(shape.current.clientHeight / cell));
         if (target.width !== width || target.height !== height) { target.width = width; target.height = height; }
         target.style.width = `${width * cell}px`; target.style.height = `${height * cell}px`;
-        drawSoundbar(context!, values, width, height, cell, s, mode.current);
+        drawSoundbar(context!, values.map(value => value * level.current), width, height, cell, s, mode.current);
         shape.current.dataset.peak = Math.max(...values).toFixed(4);
       }
     }

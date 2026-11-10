@@ -1,8 +1,9 @@
 # Jukebox project plan
 
-Status: local phases 1–4 are integrated, including PH ID, dark admin/queue UI,
-organizer-authenticated automatic Firefox playback and the approved stationary soundbar. Production and
-venue gates remain open. Updated 2026-11-06.
+Status: `main` includes the Astro/Bun/uv application and 2026-11-09 UI,
+visualizer, volume transitions, username bans and attributed queue action log.
+Podman deployment packaging is included; production and venue gates remain open.
+Updated 2026-11-09.
 
 Read [Current implementation and deployment readiness](CURRENT-STATUS.md) first
 for actual behavior, startup, baseline and release blockers. The original plan

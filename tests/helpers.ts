@@ -27,7 +27,7 @@ export const URLS = {
 };
 
 export function user(subject: string, roles: string[] = []): Actor {
-  return { kind: 'user', identity: { key: `test#${subject}`, issuer: 'test', subject, displayName: subject, roles } };
+  return { kind: 'user', identity: { key: `test#${subject}`, issuer: 'test', subject, displayName: subject, username: subject, roles } };
 }
 
 export function harness(policy: Partial<Policy> = {}, dir = mkdtempSync(join(tmpdir(), 'jukebox-test-'))) {

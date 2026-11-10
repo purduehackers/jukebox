@@ -24,3 +24,6 @@
 
 .visual-mode { width: 100%; margin: 0 0 20px; font: inherit; color: #efb9ff; background: #171717; border: 1px solid #7e3cff; padding: 10px; cursor: pointer; }
 .visual-mode[aria-pressed="true"] { background: #7e3cff; color: white; }
+
+.visual-controls select { width: 100%; padding: 9px 10px; color: #efb9ff; background: #171717; border: 1px solid #7e3cff; font: inherit; border-radius: 0; }
+.visual-controls .visual-blend-hint { margin: -2px 0 18px; }

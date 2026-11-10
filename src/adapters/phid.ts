@@ -84,7 +84,10 @@ export class PhidIdentity implements IdentityPort {
     }
     const issuer = discovery.issuer;
     const name = [user.preferred_username, user.name, user.sub].find((x) => typeof x === 'string' && x.length > 0) as string;
-    const identity: Identity = { key: `${issuer}#${user.sub}`, issuer, subject: user.sub, displayName: name.slice(0, 80), roles: Array.isArray(user.roles) ? user.roles.filter((r: unknown): r is string => typeof r === 'string') : [] };
+    const username = typeof user.preferred_username === 'string' && /^[a-zA-Z0-9._-]{1,40}$/.test(user.preferred_username)
+      ? user.preferred_username : undefined;
+    const identity: Identity = { key: `${issuer}#${user.sub}`, issuer, subject: user.sub, displayName: name.slice(0, 80),
+      ...(username ? { username } : {}), roles: Array.isArray(user.roles) ? user.roles.filter((r: unknown): r is string => typeof r === 'string') : [] };
     return { identity, returnTo: payload.returnTo };
   }
 

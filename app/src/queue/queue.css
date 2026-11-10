@@ -2,6 +2,9 @@
    from the shared Purdue Hackers theme (.ph-ui.dark). Mobile first, 44px touch targets. */
 .q-page {
   box-sizing: border-box;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   min-height: 100dvh;
   background: var(--background);
   color: var(--foreground);
@@ -10,6 +13,8 @@
 .q-page *::before,
 .q-page *::after { box-sizing: border-box; }
 .q-page .q-shell {
+  position: relative;
+  z-index: 1;
   max-width: 34rem;
   margin: 0 auto;
   padding: 1.5rem 1rem 3rem;

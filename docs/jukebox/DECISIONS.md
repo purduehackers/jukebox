@@ -1,5 +1,168 @@
 # Decisions and question backlog
 
+## Consolidated Astro/Bun main baseline (2026-11-09)
+
+The user approved the local result and requested committing and pushing all work
+to `main`, including updated docs. This promotes the Astro/Bun/uv rewrite and
+all subsequent UI, selected soundbar preset, master/request volume transitions,
+visualizer fade synchronization, username bans and attributed queue action log.
+Private configuration, databases, audio caches and disposable local artifacts
+remain untracked. Prior verification evidence is retained; no new automated
+runtime checks were run, honoring the user's manual-testing preference.
+Production deployment, DNS and phack.sh operator checks remain pending.
+
+## Username and song title in action log (2026-11-09)
+
+The user requested entries such as “username added song to master/request queue”.
+Accepted additions now store the server-verified actor's username and resolved
+song title in the existing durable event record. Recent entries are included
+only in admin snapshots, appear across organizers/reloads, and deduplicate the
+matching local command by its stable ID. Pending/failed and other local actions
+also include the signed-in organizer's name. Legacy sessions without an explicit
+username use their saved display name; historical events without attribution
+are not assigned an invented actor. No additional schema migration is needed.
+
+## Visualizer follows outgoing audio during fades (2026-11-09)
+
+The user reported that the visualizer disappears as master fade-out starts and
+requested a smooth close. The display now drives analysis from actual local
+playback status, even when the authoritative next track already has a different
+load/epoch. The player publishes the same local volume-envelope factor to the
+soundbar, which scales its height smoothly to zero across fade-out and back up
+across fade-in. The 3-second gaps stay black; the saved preset is unchanged.
+No new automated checks were run, following the user's manual-testing preference.
+
+## Username bans and matching lower display row (2026-11-09)
+
+The user requested PH ID username bans and a top-of-admin `Ban…` button opening
+a submenu. The menu adds/lists/unbans exact usernames. Server checks use only
+PH ID's verified preferred_username (case-insensitive), never the display-name
+fallback or a submitted identity value. Bans persist across nights/restarts via
+append-only schema migration 5. Existing accepted requests and allowance are
+unchanged. While any bans exist, older sessions without a verified username
+must sign in again before preview/submission; admin controls remain available.
+These are implementation defaults within the requested username-ban scope.
+
+The user requested matching the dashboard clock panel's exact height for both
+the now-playing and request-QR boxes. In the dashboard source at `d0ca517`,
+`src/components/dash/dash.tsx` gives the clock a `text-8xl` (6rem, line-height 1)
+child, `py-12` (3rem each side) and 1px borders: `12rem + 2px`, or 194 CSS px
+with its default 16px root. Both Jukebox boxes now use that same height at the
+same 32px screen inset; artwork/QR and metadata fit the shorter row.
+
+The user explicitly stopped further automated verification to test locally.
+The existing fade Firefox run had already completed successfully before it was
+stopped: roughly 7-second ramps and 3-second gaps, no request fade-out, and exact
+paused/resumed checkpoint. Later ban/menu and display-height edits have not been
+retested after the user's instruction.
+
+## Selected display preset, volume transitions and UI backdrops (2026-11-09)
+
+The user supplied the final `/visual` JSON and requested it on `/display`. It is
+committed as `references/soundbar-display-settings-2026-11-09.json` and the display
+imports a dedicated typed preset rather than lab defaults/browser storage.
+The selected effect is the plain negative soundbar, not the removed procedural
+pockets. Existing 2026-11-05 values remain historical references.
+
+The user requested 7 seconds of master volume fade-out, 3 seconds of silence,
+request playback, 3 seconds of silence, then a 7-second master fade-in. They
+explicitly clarified there is no fade-out on the request. This is implemented as
+local volume envelopes, preserving actual pause checkpoints and immediate manual
+stop/pause. See [volume transition behavior](VOLUME-TRANSITIONS.md) for ordinary
+song endings, cancellation, reload and verification scope.
+
+The user referenced `purduehackers/checkpoints-website`, branch `monish/ui-revamp`
+(commit `1ac10ec`), and requested its slight animated dither behind `/queue` in
+purple and `/admin` in yellow. Reused its actual Paper Design 4x4 warp component,
+size 2, speed 0.04, scale 1 and vertical fade, with the source branch's pinned
+0.0.82 package. Queue foreground is #7e3cff; admin foreground is the reference's
+muted yellow #897309. Reduced motion freezes the animation; it never mounts audio.
+
+## Plain negative soundbar replaces procedural pockets (2026-11-09)
+
+The user requested a plain negative function in the middle, removing warp and
+other procedural shaping. The negative is now the same mirrored soundbar scalar
+function at a smaller height, subtracted inside the protected live outline.
+The independent mask grid, trigonometric pattern, drift clock and their controls
+are removed. Negative depth, height and edge softness replace pocket shaping;
+outline protection, layer blend options and solidness remain available. Saved
+obsolete procedural controls are ignored on load. This supersedes the procedural
+pocket implementation and its tuning discussions below.
+
+## Match dashboard solid plateaus before dithering (2026-11-09)
+
+The user flagged repeating black grids inside purple fill. Compared the exact
+`@paper-design/shaders` 0.0.71 source used by the dashboard: the Bayer4 matrix and
+threshold already match; its warp scalar clamps to 1 through smoothstep. Jukebox's
+blended fields can remain just below 1, retaining one black pixel per 4x4 tile.
+Core solidness now gives the scalar a tunable white plateau before dithering
+(default 0.4 maps 0.9 to full density). The Bayer operation is unchanged, zero
+solidness restores the previous mapping, and explicit Fill density below 1 still
+caps coverage. No saved user settings were reset.
+
+## Pocket layer blending controls (2026-11-09)
+
+The user requested selectable blending techniques and sliders between the soundbar
+and pocket layers. The lab now offers Multiply, Subtract, Soft minimum and
+Feathered dissolve, plus Layer mix, Edge blend distance and Blend curve sliders.
+Soft minimum also exposes its smoothing radius. Each technique acts inside the
+protected live outline and only removes ink; zero mix restores the plain waveform.
+Technique and slider values save/copy with the other lab settings. The default
+Multiply blend now feathers over 48 px instead of 24 px. Lab choices remain local
+and do not automatically replace the display preset.
+
+## Revert independent pocket guide; protect live edges (2026-11-09)
+
+The user rejected the decoupled audio guide because it cuts through the waveform
+and asked to revert it. The fixed/slow guide and its Audio influence/response
+controls are removed. Pockets now preserve a 24 px rim inside the actual live
+contour, blending their depth over the next 24 px. This replaces the per-band
+thickness/density attenuation that left broad internal bridges while preserving
+the top, bottom and outer dither fringe. The lab exposes Outline protection to
+adjust the rim; other pocket controls and saved settings remain available.
+This supersedes the independent-guide experiment below.
+
+## Decouple pockets from individual frequencies (2026-11-09)
+
+The user rejected purple bridges that pinch pockets at individual frequency dips
+and requested less audio reactivity. Pocket clipping now follows its own broad,
+slowly filtered spectrum guide, with 15% audio influence and a 1,800 ms response
+by default. It no longer gates each hole against the instantaneous per-band fill
+or thickness. Audio influence zero gives a fixed guide while the pockets drift;
+the original soundbar still bounds visible ink, so silence remains black.
+Both controls are available in the lab and saved with the other pocket settings.
+
+## Slow negative space and dashboard inset (2026-11-09)
+
+The user requested slowly warping empty pockets in dense soundbar fill, superseding
+the previous exclusion of autonomous masks inside the audio-driven shape. A smooth
+mask now subtracts ink only from the dense interior before ordered dithering;
+outer fringes remain intact. After the user reported a static oversized cutout,
+the mask scale was reduced to separate pockets, drift increased to be visible
+within a few seconds, and thin bands protected from deep carving. It drifts
+during playback, freezes when paused or
+reduced motion is requested, and cannot create light in silence. `/visual` has
+a Pockets section with depth, size, horizontal stretch, coverage, edge softness,
+shape warp, shape detail and drift speed controls (expanded at the user’s request).
+Zero depth or coverage restores the plain field. Saved lab settings merge new
+controls with defaults and remain local to that browser.
+This extends the shared display/lab renderer without changing audio response.
+
+The user also requested exact dashboard screen-edge spacing. The reference repo
+`purduehackers/hack-night-dashboard` at `d0ca5177638d11bca158cb78468b2ce85105dedd`
+uses `p-8` (32 px) on its canvas wrapper in `src/app/layout.tsx`. Jukebox already
+used 32 px at full wall size; its smaller-screen 24/16 px overrides now use 32 px
+too. Existing 1 px purple panel borders are retained.
+
+## Wider soundbar dither fringe (2026-11-09)
+
+The user requested a more spread-out gradient with sparse dither pixels extending
+farther into black, matching the supplied dashboard density reference. The shared
+soundbar field now fades across both sides of its measured contour, retaining
+its solid core and extending the outer fringe. Spread shrinks with quiet bands
+and silence stays black. Edge softness can be tuned up to 300 px in `/visual`.
+The original preset values remain archived; this supersedes the inward-only fade.
+
 ## Astro/Bun/uv migration approved (2026-11-09)
 
 The user approved replacing the handwritten web layer with Astro, using Bun for

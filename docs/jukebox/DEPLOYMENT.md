@@ -116,7 +116,9 @@ Stop/remove the old container, build/select the new image, and start its replace
 with the same named volume and environment. Record source commit and image digest
 for each release. Restore both data directories and matching code/image if rolling
 back across an incompatible migration; code rollback alone is insufficient.
-This rewrite adds no schema migration. The new authority lock is a separate
+The runtime rewrite itself adds no schema migration; the later username-ban
+feature appends migration 5. Back up before upgrading, and restore compatible
+data when rolling back to code that only understands schema 4. The new authority lock is a separate
 `state.sqlite3.authority-lock` SQLite file; the OS releases it after a crash.
 Do not delete it while a process is running. Do not run old and new writers together.
 

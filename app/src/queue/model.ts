@@ -44,6 +44,8 @@ const ERROR_COPY: Record<ErrorCode, Omit<ErrorCopy, 'retry' | 'body'> & { body: 
   NIGHT_CLOSED: { title: 'Requests are closed', body: 'There is no open night right now. Ask an organizer, or try again when one starts.', tone: 'info', blocksLink: true },
   NIGHT_ALREADY_OPEN: { title: 'Night already open', body: 'A night session is already open.', tone: 'info', blocksLink: true },
   QUOTA_EXCEEDED: { title: 'You’re out of requests', body: 'You’ve used all your requests for tonight. A new night starts with a fresh allowance.', tone: 'info', blocksLink: true },
+  USERNAME_BANNED: { title: 'Requests are unavailable', body: 'This PH ID username cannot submit requests. Ask an organizer if you think this is a mistake.', tone: 'error', blocksLink: true },
+  USERNAME_REQUIRED: { title: 'Sign in again', body: 'An organizer updated request access. Sign in again so your PH ID username can be checked.', tone: 'warn', blocksLink: true },
   DUPLICATE_REQUEST: { title: 'Already in the queue', body: 'That recording is already in the queue. Pick another song, or look for it in the list below.', tone: 'info', blocksLink: false },
   INVALID_SOURCE: { title: 'That link doesn’t work', body: 'Paste a full https link to one YouTube, Spotify, or Apple Music track.', tone: 'error', blocksLink: false },
   SOURCE_UNSUPPORTED: {

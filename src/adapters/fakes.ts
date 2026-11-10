@@ -126,7 +126,7 @@ export class FakeIdentity implements IdentityPort {
     const subject = callback.get('sub') ?? '';
     if (!/^[a-z0-9_-]{1,40}$/.test(subject)) throw new Error('Fake login needs a simple sub');
     const roles = (callback.get('roles') ?? '').split(',').filter((r) => r === 'organizer' || r === 'admin');
-    const identity: Identity = { key: `fake#${subject}`, issuer: 'fake', subject, displayName: subject, roles };
+    const identity: Identity = { key: `fake#${subject}`, issuer: 'fake', subject, displayName: subject, username: subject, roles };
     return { identity, returnTo };
   }
 }

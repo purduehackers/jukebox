@@ -15,7 +15,7 @@ export function Player({ onSnapshot, onError, onState }: { onState?: (state: Pla
   }, [onSnapshot, onError, onState]);
   return <section className="display-player" aria-label="Display sound" data-testid="player" data-status={state?.status ?? 'paused'}
     data-generation={state?.generation ?? ''} data-load-id={state?.loadId ?? ''} data-epoch={state?.epoch ?? 0}>
-    <audio id="jukebox-audio" ref={audio} preload="auto" autoPlay />
+    <audio id="jukebox-audio" ref={audio} preload="auto" />
     {state?.status === 'needs_activation' && <p className="display-player-notice" role="status">
       Firefox blocked autoplay. Set this site’s Autoplay permission to “Allow Audio and Video”.
     </p>}

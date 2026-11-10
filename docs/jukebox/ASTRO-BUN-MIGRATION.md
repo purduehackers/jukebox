@@ -2,7 +2,8 @@
 
 Implemented 2026-11-09 from `origin/main` at `e95376c`, on `feat/astro-bun-uv`.
 The user approved this migration, retaining React and Python, then added uv.
-This is a local source rewrite and deployment package; phack.sh is not deployed.
+The rewrite and subsequent local changes are now consolidated on `main`.
+This is a source rewrite and deployment package; phack.sh is not deployed.
 
 ## Resulting architecture
 
@@ -18,7 +19,8 @@ This is a local source rewrite and deployment package; phack.sh is not deployed.
 - `src/server/transport.ts` uses standard Request/Response, cancellable SSE and
   streamed audio proxy responses with HEAD/Range support. Existing command IDs,
   local session checks and automatic-player organizer requirements are retained.
-- `bun:sqlite` opens existing databases with the same four migrations. An exclusive
+- `bun:sqlite` opens existing databases with the same four migrations at migration time (username bans subsequently
+  append migration 5). An exclusive
   transaction on a separate lock database prevents concurrent new authorities;
   the OS releases it after SIGKILL, including across container PID reuse.
 - Python dependencies are in `pyproject.toml` and `uv.lock`. Worker execution uses

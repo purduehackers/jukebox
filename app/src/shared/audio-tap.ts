@@ -26,3 +26,21 @@ export function useAnalyser() {
   useEffect(() => subscribeAnalyser(setAnalyser), []);
   return analyser;
 }
+
+// The transition envelope is separate from FFT power, so the visual closes with
+// the audible fade even when browser analysis happens before media volume.
+let visualGain = 1;
+const gainListeners = new Set<(gain: number) => void>();
+export function publishVisualGain(gain: number) {
+  visualGain = Math.max(0, Math.min(1, gain));
+  for (const listener of gainListeners) listener(visualGain);
+}
+export function useVisualGain() {
+  const [gain, setGain] = useState(visualGain);
+  useEffect(() => {
+    gainListeners.add(setGain);
+    setGain(visualGain);
+    return () => { gainListeners.delete(setGain); };
+  }, []);
+  return gain;
+}

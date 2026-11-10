@@ -6,7 +6,7 @@ import type { LocalPlayback } from './model.ts';
 import { displayModel, duration, safeArtwork } from './model.ts';
 import { RequestQr } from './RequestQr.tsx';
 import { Soundbar } from '../visual/Soundbar.tsx';
-import { approvedDefaults } from '../visual/soundbar.ts';
+import { displaySettings } from '../visual/display-preset.ts';
 import '@fontsource/inconsolata/400.css';
 import '@fontsource/inconsolata/700.css';
 import './display.css';
@@ -30,7 +30,7 @@ export function DisplayView({ snapshot, error, now, local }: { snapshot: Snapsho
   const status = model.status.replaceAll('_', ' ');
   return <main className="jukebox-display" data-testid="display" data-state={model.status}>
     <div className="display-left">
-      <section className="display-visualizer" aria-label="Audio-reactive soundbar"><Soundbar settings={approvedDefaults} playing={model.playing} /></section>
+      <section className="display-visualizer" aria-label="Audio-reactive soundbar"><Soundbar settings={displaySettings} playing={local ? local.status === 'playing' : model.playing} /></section>
       <section className="display-now" aria-label="Now playing">
         <Artwork url={track?.artworkUrl} />
         <div className="display-metadata">

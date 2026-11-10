@@ -45,7 +45,8 @@ starts prepared music; End night stops it and shows **Night not started**.
 Reloads resume near the last checkpoint. Multiple display tabs can play, so use
 one for venue output. There is no pairing, exclusive lease or sound-enable UI.
 Admin and attendee pages remain silent. `/visual?silent=1` is a silent tuning view;
-lab settings do not change the display's approved stationary soundbar preset.
+lab settings do not change the display's selected preset, archived in
+`docs/jukebox/references/soundbar-display-settings-2026-11-09.json`.
 
 ## Production
 
@@ -65,6 +66,7 @@ backup and upgrade guidance: [DEPLOYMENT.md](docs/jukebox/DEPLOYMENT.md).
 ```sh
 bun run check
 uv run --locked python scripts/verify-player.py
+uv run --locked python scripts/verify-fades.py
 uv run --locked python scripts/verify-admin.py
 uv run --locked --group display python scripts/verify-display.py
 uv run --locked python scripts/verify-queue-controls.py

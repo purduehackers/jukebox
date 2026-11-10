@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import '../shared/ph-ui.css';
 import './admin.css';
-import { AccessGate, ActivityPanel, AddBar, AlertsBand, Header, MasterQueuePanel, NightPanel, NowPlayingPanel, QueueControls, RequestQueuePanel, TurnPanel } from './views.tsx';
+import { AccessGate, ActivityPanel, AddBar, AlertsBand, BanMenu, Header, MasterQueuePanel, NightPanel, NowPlayingPanel, QueueControls, RequestQueuePanel, TurnPanel } from './views.tsx';
 import type { Actions } from './views.tsx';
 import { Button } from '../components/ph/button.tsx';
 import { Card } from '../components/ph/card.tsx';
+import { DitheredSoup } from '../shared/DitheredSoup.tsx';
 import { useControls, useLive, useServerNow, useTicker } from './state.ts';
 
 export function AdminPage() {
@@ -43,12 +44,14 @@ export function AdminPage() {
     playNow: (entryId, title) => runner.run(`Play “${title}” now`, 'request.playNow', { entryId }),
     removeRequest: (entryId, title) => runner.run(`Remove request “${title}”`, 'request.remove', { entryId }),
     moveRequest: (entryId, afterEntryId, title) => runner.run(`Move request “${title}”`, 'request.move', { entryId, afterEntryId }),
+    banUsername: (username) => runner.run(`Ban PH ID username ${username}`, 'requester.ban', { username }),
+    unbanUsername: (username) => runner.run(`Unban PH ID username ${username}`, 'requester.unban', { username }),
     retry: (id) => void runner.retry(id),
   }), [runner, volume]);
 
   if (live.access.state !== 'admin' || !live.snapshot) {
-    if (live.access.state === 'admin') return <main className="ph-ui dark adm-root" aria-busy="true"><div className="adm-shell"><Card className="adm-card adm-gate"><p>Loading…</p></Card></div></main>;
-    return <AccessGate access={live.access} onRetry={live.recheck} />;
+    if (live.access.state === 'admin') return <main className="ph-ui dark adm-root" aria-busy="true"><DitheredSoup fgColor="#897309" /><div className="adm-shell"><Card className="adm-card adm-gate"><p>Loading…</p></Card></div></main>;
+    return <div className="ph-ui dark adm-backdrop-page"><DitheredSoup fgColor="#897309" /><AccessGate access={live.access} onRetry={live.recheck} /></div>;
   }
   const snapshot = live.snapshot;
   const adds = intents.filter((i) => i.type === 'master.add' || i.type === 'request.submit');
@@ -60,9 +63,11 @@ export function AdminPage() {
 
   return (
     <div className="ph-ui dark adm-root">
+      <DitheredSoup fgColor="#897309" />
       <div className="adm-shell">
         <Header name={live.access.name} link={live.link} linkError={live.linkError} onSignOut={() => void signOut()}>
           <NightPanel snapshot={snapshot} actions={actions} />
+          <BanMenu snapshot={snapshot} actions={actions} />
           <Button variant="outline" aria-expanded={showActivity} aria-controls="adm-activity" onClick={() => setShowActivity((shown) => !shown)}>
             {showActivity ? 'Hide activity log' : 'Show activity log'}
           </Button>
@@ -78,7 +83,7 @@ export function AdminPage() {
           <MasterQueuePanel snapshot={snapshot} actions={actions} />
           <RequestQueuePanel snapshot={snapshot} actions={actions} />
         </div>
-        <ActivityPanel intents={intents} actions={actions} hidden={!showActivity} />
+        <ActivityPanel intents={intents} actions={actions} hidden={!showActivity} activity={snapshot.queueActivity} actorName={live.access.name} />
         <footer className="adm-credits">
           Icons: <a href="https://github.com/hackernoon/pixel-icon-library" target="_blank" rel="noreferrer">HackerNoon Pixel Icon Library</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>
         </footer>

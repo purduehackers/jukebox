@@ -1,0 +1,31 @@
+{
+  "atUTC": "2026-11-09T23:51:45.550788+00:00",
+  "checks": {
+    "sevenSecondMasterFadeOut": true,
+    "threeSecondPreRequestSilence": true,
+    "requestAtNormalVolume": true,
+    "requestHasNoFadeOut": true,
+    "threeSecondPostRequestSilence": true,
+    "sevenSecondMasterFadeIn": true,
+    "actualPausedCheckpointResumed": true,
+    "requestMarkedPlayed": true,
+    "adminSilent": true
+  },
+  "measurements": {
+    "masterFadeOutMs": 6947,
+    "silenceBeforeRequestMs": 3003,
+    "silenceAfterRequestMs": 3009,
+    "masterFadeInMs": 7003,
+    "actualPausedMasterSec": 107.018666,
+    "savedMasterSec": 107.018666,
+    "resumedSeekSec": 107.018666
+  },
+  "scope": "Headless Firefox, actual audio-only fixture files, dedicated null sink; no HDMI or audible claim",
+  "browser": {
+    "browserName": "firefox",
+    "browserVersion": "159.0.1",
+    "moz:buildID": "20261104135453"
+  },
+  "result": "passed",
+  "finishedUTC": "2026-11-09T23:52:35.717279+00:00"
+}

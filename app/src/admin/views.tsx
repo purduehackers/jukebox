@@ -2,8 +2,8 @@
 // (offline display, unconfirmed command, conflicts) can be rendered from a fixture snapshot.
 // Visuals are the official Purdue Hackers components (app/src/components/ph/*) in dark mode.
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import type { MasterEntryView, QueueMode, RequestEntryView, Snapshot } from '../../../src/contract/types.ts';
+import type { FormEvent, ReactNode } from 'react';
+import type { MasterEntryView, QueueMode, RequestEntryView, Snapshot, QueueActivityEntry } from '../../../src/contract/types.ts';
 import { POLICY } from '../../../src/contract/types.ts';
 import { Badge } from '../components/ph/badge.tsx';
 import { Button } from '../components/ph/button.tsx';
@@ -39,6 +39,8 @@ export interface Actions {
   playNow(entryId: string, title: string): Done;
   removeRequest(entryId: string, title: string): Done;
   moveRequest(entryId: string, afterEntryId: string | null, title: string): Done;
+  banUsername(username: string): Done;
+  unbanUsername(username: string): Done;
   retry(intentId: string): void;
 }
 
@@ -194,6 +196,48 @@ export function NightPanel({ snapshot, actions }: { snapshot: Snapshot; actions:
       ) : (
         <DitherButton onClick={() => void actions.openNight()}>Start night</DitherButton>
       )}
+    </div>
+  );
+}
+
+/** Compact organizer menu for future-submission bans. */
+export function BanMenu({ snapshot, actions }: { snapshot: Snapshot; actions: Actions }) {
+  const [open, setOpen] = useState(false);
+  const [username, setUsername] = useState('');
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') { setOpen(false); root.current?.querySelector<HTMLButtonElement>('button[aria-controls]')?.focus(); } };
+    const onPointer = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false); };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onPointer);
+    return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('pointerdown', onPointer); };
+  }, [open]);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const value = username.trim();
+    if (!/^[a-zA-Z0-9._-]{1,40}$/.test(value)) return;
+    const intent = await actions.banUsername(value);
+    if (intent.status === 'ok') setUsername('');
+  };
+  return (
+    <div className="adm-ban-menu" ref={root}>
+      <Button variant="outline" aria-expanded={open} aria-controls="adm-ban-submenu" aria-haspopup="dialog" onClick={() => setOpen((value) => !value)}>Ban…</Button>
+      {open ? <div id="adm-ban-submenu"><Card className="adm-ban-submenu">
+        <h2 className="ph-subheadline">Request bans</h2>
+        <p className="adm-small">Blocks new submissions by this PH ID username. Existing requests stay in the queue.</p>
+        <form className="adm-ban-form" onSubmit={(event) => void submit(event)}>
+          <Field label="PH ID username" htmlFor="adm-ban-username" hint="Letters, numbers, dot, underscore or hyphen.">
+            <Input id="adm-ban-username" autoFocus autoComplete="off" maxLength={40} value={username} onChange={(event) => setUsername(event.target.value)} />
+          </Field>
+          <Button type="submit" disabled={!/^[a-zA-Z0-9._-]{1,40}$/.test(username.trim())}>Ban username</Button>
+        </form>
+        <ul className="adm-ban-list" aria-label="Banned usernames">
+          {(snapshot.bannedUsernames ?? []).length ? (snapshot.bannedUsernames ?? []).map((name) => <li key={name}>
+            <span>{name}</span><Button variant="ghost" size="sm" onClick={() => void actions.unbanUsername(name)}>Unban</Button>
+          </li>) : <li className="adm-dim adm-small">No banned usernames.</li>}
+        </ul>
+      </Card></div> : null}
     </div>
   );
 }
@@ -571,8 +615,16 @@ export function AddBar({ actions, lastAdd, nightOpen, children }: { actions: Act
 
 // ---------------------------------------------------------------- activity
 
-export function ActivityPanel({ intents, actions, hidden = false }: { intents: readonly Intent[]; actions: Actions; hidden?: boolean }) {
-  const visible = intents.filter((i) => i.type !== 'playback.volume' || i.status === 'failed');
+export function ActivityPanel({ intents, actions, hidden = false, activity = [], actorName }: { intents: readonly Intent[]; actions: Actions; hidden?: boolean; activity?: readonly QueueActivityEntry[]; actorName?: string }) {
+  const logged = new Set(activity.map(entry => entry.id));
+  const accepted: Intent[] = activity.map(entry => ({
+    id: entry.id, label: `${entry.username} added “${entry.title}” to ${entry.queue} queue`,
+    type: entry.queue === 'master' ? 'master.add' : 'request.submit', payload: {}, status: 'ok',
+    error: null, replayed: false, startedAt: entry.at, finishedAt: entry.at, attempts: 1,
+  }));
+  const local = intents.filter(i => !logged.has(i.id) && (i.type !== 'playback.volume' || i.status === 'failed'))
+    .map(intent => ({ ...intent, label: actorName ? `${actorName} — ${intent.label}` : intent.label }));
+  const visible = [...accepted, ...local].sort((a, b) => b.startedAt - a.startedAt).slice(0, 24);
   return (
     <section id="adm-activity" className="adm-section" aria-labelledby="adm-activity-title" hidden={hidden}>
       <h2 id="adm-activity-title" className="adm-headline adm-section-title">Action log</h2>
