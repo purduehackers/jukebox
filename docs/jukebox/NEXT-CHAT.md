@@ -88,3 +88,12 @@ old schema count, and the ban test closed SQLite before background work settled.
 Fixtures now recreate the old schema correctly, verify the migrated bans table,
 and settle work before restart/close. All 31 tests in the three affected files
 passed on rerun. No application behavior changed. No browser/HDMI tests were rerun.
+
+## Local visualizer improvements (2026-11-10)
+
+Reuses the canvas image buffer and skips pixels outside the soundbar field.
+CPU-only comparisons at 640x400 measured 7–9x faster sampled nonzero frames;
+96 byte-for-byte comparisons preserved coverage. These are not Firefox frame
+measurements. The visualizer and now-playing border now use the dashboard
+clock's live Lightning Time OKLCH gradient, superseding solid purple ink.
+Changes are also applied to the existing local preview checkout.

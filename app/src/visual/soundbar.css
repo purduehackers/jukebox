@@ -1,2 +1,2 @@
-.soundbar { position: absolute; inset: 0; overflow: hidden; }
-.soundbar canvas { display: block; image-rendering: pixelated; }
+.soundbar { position: absolute; inset: 0; overflow: hidden; isolation: isolate; }
+.soundbar canvas { display: block; image-rendering: pixelated; mix-blend-mode: multiply; }

@@ -1,3 +1,4 @@
+import { useLightningTimeClock } from '@purduehackers/time/react';
 import { useEffect, useRef, useState } from 'react';
 import { useAnalyser, useVisualGain } from '../shared/audio-tap.ts';
 import { drawSoundbar, defaults, spectrum } from './soundbar.ts';
@@ -6,6 +7,9 @@ import './soundbar.css';
 
 /** Consumes the player's analyser; creates no audio element or playback session. */
 export function Soundbar({ settings = defaults, playing, dithered = true }: { settings?: Settings; playing: boolean; dithered?: boolean }) {
+  const { colors } = useLightningTimeClock();
+  // Exact gradient from hack-night-dashboard/src/components/dash/clock.tsx.
+  const gradient = `linear-gradient(120deg in oklch, ${colors.boltColor}, ${colors.zapColor}, ${colors.sparkColor})`;
   const analyser = useAnalyser();
   const visualGain = useVisualGain();
   const level = useRef(visualGain); level.current = visualGain;
@@ -46,7 +50,7 @@ export function Soundbar({ settings = defaults, playing, dithered = true }: { se
         const height = Math.max(1, Math.ceil(shape.current.clientHeight / cell));
         if (target.width !== width || target.height !== height) { target.width = width; target.height = height; }
         target.style.width = `${width * cell}px`; target.style.height = `${height * cell}px`;
-        drawSoundbar(context!, values.map(value => value * level.current), width, height, cell, s, mode.current);
+        drawSoundbar(context!, values.map(value => value * level.current), width, height, cell, s, mode.current, true);
         shape.current.dataset.peak = Math.max(...values).toFixed(4);
       }
     }
@@ -56,7 +60,7 @@ export function Soundbar({ settings = defaults, playing, dithered = true }: { se
       if (analyser) { analyser.fftSize = previousFftSize!; analyser.smoothingTimeConstant = previousSmoothing!; }
     };
   }, [analyser]);
-  return <div ref={shape} className="soundbar">
+  return <div ref={shape} className="soundbar" style={{ backgroundImage: gradient }}>
     <canvas ref={canvas} aria-label={dithered ? 'Audio soundbar with ordered dithering' : 'Underlying soundbar function without dithering'} />
     {failure && <p role="alert">Canvas rendering unavailable</p>}
   </div>;

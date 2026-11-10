@@ -171,3 +171,22 @@ test('near-solid cores saturate before exact dashboard Bayer dithering', () => {
   const reducedDensity = render(.4, .8);
   assert.ok(middle.some(i => reducedDensity[i] === 0), 'explicitly reduced fill density remains an intentional dither');
 });
+
+test('renderer reuses its image buffer and clears old ink before quiet frames', () => {
+  let allocations = 0;
+  let output: ImageData;
+  const context = {
+    createImageData(width: number, height: number) {
+      allocations++;
+      return { width, height, data: new Uint8ClampedArray(width * height * 4) };
+    },
+    putImageData(image: ImageData) { output = image; },
+  } as unknown as CanvasRenderingContext2D;
+  drawSoundbar(context, [1, 1], 40, 30, 2, defaults);
+  assert.ok(output!.data.some((v, i) => i % 4 !== 3 && v > 0));
+  drawSoundbar(context, [0, 0], 40, 30, 2, defaults);
+  assert.equal(allocations, 1);
+  assert.ok(output!.data.every((v, i) => v === (i % 4 === 3 ? 255 : 0)));
+  drawSoundbar(context, [0, 0], 41, 30, 2, defaults);
+  assert.equal(allocations, 2);
+});

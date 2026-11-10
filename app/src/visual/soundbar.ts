@@ -119,9 +119,19 @@ function smoothstep(low: number, high: number, value: number) {
   return t * t * (3 - 2 * t);
 }
 
-export function drawSoundbar(context: CanvasRenderingContext2D, values: number[], width: number, height: number, cell: number, settings: Settings, dithered = true) {
+const opaqueBlack = new Uint8Array(new Uint32Array([0xff000000]).buffer)[3] === 255 ? 0xff000000 : 0x000000ff;
+const imageBuffers = new WeakMap<CanvasRenderingContext2D, ImageData>();
+
+export function drawSoundbar(context: CanvasRenderingContext2D, values: number[], width: number, height: number, cell: number, settings: Settings, dithered = true, monochrome = false) {
   const points = envelope(values, settings.softness);
-  const image = context.createImageData(width, height);
+  let image = imageBuffers.get(context);
+  if (!image || image.width !== width || image.height !== height) {
+    image = context.createImageData(width, height);
+    imageBuffers.set(context, image);
+  }
+  // Clear old ink in one native operation; restore opaque black on either byte order.
+  const pixels = new Uint32Array(image.data.buffer);
+  pixels.fill(opaqueBlack);
   // The negative is the same soundbar function, scaled down vertically.
   // No separate noise, warp, time function or independently moving geometry.
   const negativeSettings = { ...settings, height: settings.height * settings.negativeHeight, density: 1, edgeSoftness: settings.negativeSoftness };
@@ -130,7 +140,12 @@ export function drawSoundbar(context: CanvasRenderingContext2D, values: number[]
     const left = Math.floor(position), fraction = position - left;
     const amplitude = points[left]! * (1 - fraction) + points[Math.min(left + 1, points.length - 1)]! * fraction;
     const radius = amplitude * settings.height * height * cell * .48;
-    for (let y = 0; y < height; y++) {
+    // Outside radius + spread the field is exactly zero. The negative mask
+    // only removes ink, so it cannot extend that support.
+    const extent = radius + Math.min(settings.edgeSoftness, radius);
+    const first = Math.max(0, Math.floor(height / 2 - extent / cell - .5));
+    const end = Math.min(height, Math.ceil(height / 2 + extent / cell + .5));
+    for (let y = first; y < end; y++) {
       let shade = soundbarField(amplitude, (y + .5) * cell, height * cell, settings);
       const inset = radius - Math.abs((y + .5) * cell - height * cell / 2);
       // Keep the live outline while subtracting the smaller mirrored field.
@@ -146,8 +161,8 @@ export function drawSoundbar(context: CanvasRenderingContext2D, values: number[]
       shade = Math.min(settings.density, shade / (1 - settings.coreSolidness * .25));
       const ink = dithered ? Number(dither(shade, x, y)) : shade;
       const index = (y * width + x) * 4;
-      image.data[index] = 126 * ink;
-      image.data[index + 1] = 60 * ink;
+      image.data[index] = (monochrome ? 255 : 126) * ink;
+      image.data[index + 1] = (monochrome ? 255 : 60) * ink;
       image.data[index + 2] = 255 * ink;
       image.data[index + 3] = 255;
     }

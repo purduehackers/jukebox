@@ -777,3 +777,16 @@ old schema count, and the ban test closed SQLite before background work settled.
 Fixtures now recreate the old schema correctly, verify the migrated bans table,
 and settle work before restart/close. All 31 tests in the three affected files
 passed on rerun. No application behavior changed. No browser/HDMI tests were rerun.
+
+## Lightning Time visualizer gradient (2026-11-10)
+
+The user requested the Hack Night dashboard clock's color code across the
+visualizer. Soundbar now uses the same `@purduehackers/time/react` clock hook and
+`linear-gradient(120deg in oklch, boltColor, zapColor, sparkColor)` from the
+dashboard's `src/components/dash/clock.tsx`. A monochrome canvas multiplies over
+the CSS gradient, preserving black gaps and Bayer coverage without computing
+color interpolation in the pixel loop. This supersedes the solid purple color;
+the approved audio response, shape and other settings remain unchanged.
+
+The now-playing box also uses this live gradient as its border image on all
+four sides, matching the dashboard clock border.

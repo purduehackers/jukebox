@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { useLightningTimeClock } from '@purduehackers/time/react';
 import { OrganizerGate } from '../shared/OrganizerGate.tsx';
 import { Player } from '../player/Player.tsx';
 import type { Snapshot } from '../shared/api.ts';
@@ -10,6 +11,15 @@ import { displaySettings } from '../visual/display-preset.ts';
 import '@fontsource/inconsolata/400.css';
 import '@fontsource/inconsolata/700.css';
 import './display.css';
+
+/** Same live border gradient as the Hack Night dashboard clock. */
+function NowPlayingBox({ children }: { children: ReactNode }) {
+  const { colors } = useLightningTimeClock();
+  return <section className="display-now" aria-label="Now playing" style={{
+    borderImageSource: `linear-gradient(120deg in oklch, ${colors.boltColor}, ${colors.zapColor}, ${colors.sparkColor})`,
+    borderImageSlice: 1,
+  }}>{children}</section>;
+}
 
 function Artwork({ url }: { url?: string }) {
   const [failed, setFailed] = useState(false);
@@ -31,7 +41,7 @@ export function DisplayView({ snapshot, error, now, local }: { snapshot: Snapsho
   return <main className="jukebox-display" data-testid="display" data-state={model.status}>
     <div className="display-left">
       <section className="display-visualizer" aria-label="Audio-reactive soundbar"><Soundbar settings={displaySettings} playing={local ? local.status === 'playing' : model.playing} /></section>
-      <section className="display-now" aria-label="Now playing">
+      <NowPlayingBox>
         <Artwork url={track?.artworkUrl} />
         <div className="display-metadata">
           <div className="display-kicker"><span className="display-kind" data-kind={track?.kind}>{track ? track.kind === 'request' ? 'Request Queue' : 'Master Queue' : 'JUKEBOX'}</span>
@@ -42,7 +52,7 @@ export function DisplayView({ snapshot, error, now, local }: { snapshot: Snapsho
             <progress aria-label="Track progress" value={model.progress ?? 0} max={track?.durationSec || 1} />
             <span>{duration(track?.durationSec)}</span></div>
         </div>
-      </section>
+      </NowPlayingBox>
     </div>
     <aside className="display-sidebar" aria-label="Request queue">
       <div className="display-queue-panel">
