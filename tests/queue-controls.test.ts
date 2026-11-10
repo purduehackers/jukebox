@@ -587,7 +587,7 @@ test('concurrent admins: two Play now commands start exactly one request; racing
 
 // ------------------------------------------------------------------ migration
 
-test('a v3 database upgrades in place to v4 keeping queue, quota, lease, suspended mix and period anchor', async () => {
+test('a v3 database upgrades in place to the current schema keeping queue, quota, lease, suspended mix and period anchor', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'jukebox-v3-'));
   const dbPath = join(dir, 'state.sqlite3');
   const clock = new FakeClock();
@@ -620,7 +620,7 @@ test('a v3 database upgrades in place to v4 keeping queue, quota, lease, suspend
   const svc = new JukeboxService({ dbPath, clock, source, media: new FakeMedia() });
   try {
     assert.equal((svc.db.prepare('pragma user_version').get() as { user_version: number }).user_version, MIGRATIONS.length);
-    assert.equal(MIGRATIONS.length, 4);
+    assert.deepEqual(svc.db.prepare('select username from banned_usernames').all(), []);
     const admin = { kind: 'user' as const, identity: { key: 'test#organizer1', issuer: 'test', subject: 'organizer1', displayName: 'organizer1', roles: ['organizer'] } };
     const alice = { kind: 'user' as const, identity: { key: 'test#alice', issuer: 'test', subject: 'alice', displayName: 'alice', roles: [] as string[] } };
     const s = svc.snapshot(admin);

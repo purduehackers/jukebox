@@ -1,5 +1,14 @@
 # Decisions and question backlog
 
+## Testing scope clarification (2026-11-09)
+
+The user clarified that the earlier request to stop testing applied only to the
+specific audio visualizer work while they tested it manually. Normal unit and
+Bun tests and other relevant verification should continue for other changes.
+The broader restriction previously recorded in the handoff was an assistant
+misinterpretation, not a user decision. The initial main promotion ran only
+repository hygiene checks; normal checks are being resumed for the other work.
+
 ## Consolidated Astro/Bun main baseline (2026-11-09)
 
 The user approved the local result and requested committing and pushing all work
@@ -8,7 +17,8 @@ all subsequent UI, selected soundbar preset, master/request volume transitions,
 visualizer fade synchronization, username bans and attributed queue action log.
 Private configuration, databases, audio caches and disposable local artifacts
 remain untracked. Prior verification evidence is retained; no new automated
-runtime checks were run, honoring the user's manual-testing preference.
+runtime checks were run at promotion time because the assistant misinterpreted
+the visualizer-specific testing pause. See the testing clarification above.
 Production deployment, DNS and phack.sh operator checks remain pending.
 
 ## Username and song title in action log (2026-11-09)
@@ -30,7 +40,7 @@ playback status, even when the authoritative next track already has a different
 load/epoch. The player publishes the same local volume-envelope factor to the
 soundbar, which scales its height smoothly to zero across fade-out and back up
 across fade-in. The 3-second gaps stay black; the saved preset is unchanged.
-No new automated checks were run, following the user's manual-testing preference.
+No new automated checks were run for this visualizer edit while the user tested it manually.
 
 ## Username bans and matching lower display row (2026-11-09)
 
@@ -50,7 +60,8 @@ child, `py-12` (3rem each side) and 1px borders: `12rem + 2px`, or 194 CSS px
 with its default 16px root. Both Jukebox boxes now use that same height at the
 same 32px screen inset; artwork/QR and metadata fit the shorter row.
 
-The user explicitly stopped further automated verification to test locally.
+The user stopped further audio-visualizer verification to test locally; the
+assistant initially misinterpreted this as a broader testing pause.
 The existing fade Firefox run had already completed successfully before it was
 stopped: roughly 7-second ramps and 3-second gaps, no request fade-out, and exact
 paused/resumed checkpoint. Later ban/menu and display-height edits have not been
@@ -756,3 +767,13 @@ remain pending; these results do not close the public-deployment gates.
 
 The user requested removing “turn” from the display countdown. Its visible label
 and accessible section name now read “Next request”; scheduling is unchanged.
+
+## Normal verification resumed (2026-11-09)
+
+21 Python tests, both TypeScript checks, Astro check and production build passed.
+The full Bun run passed 200 tests and found three test-fixture failures: the
+pre-artwork downgrade retained the new bans table, the v3 upgrade asserted the
+old schema count, and the ban test closed SQLite before background work settled.
+Fixtures now recreate the old schema correctly, verify the migrated bans table,
+and settle work before restart/close. All 31 tests in the three affected files
+passed on rerun. No application behavior changed. No browser/HDMI tests were rerun.

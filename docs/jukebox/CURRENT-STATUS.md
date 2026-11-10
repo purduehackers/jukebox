@@ -33,9 +33,10 @@ and purple. The top `Ban…` menu manages persistent, server-enforced PH ID user
 bans; legacy sessions need re-login to request while any bans exist. Schema is 5.
 The visualizer follows actual outgoing playback and the volume envelope during
 fades. Accepted queue additions persist actor usernames and song titles in the
-admin action log, shared across organizers and reloads. Further tests were
-stopped at the user's request for manual local verification. Publication checks
-are limited to repository hygiene; no new runtime/venue validation is claimed.
+admin action log, shared across organizers and reloads. The user's testing pause
+was specific to repeated audio-visualizer verification while testing manually.
+Normal unit/Bun tests, typechecks, builds and relevant checks for other work
+remain expected. No new venue validation is claimed.
 
 ## How the app works now
 
@@ -152,3 +153,13 @@ Localhost was restarted with the same private PH ID/worker configuration and
 saved data. Health checks pass; anonymous automatic registration returns HTTP 401.
 The actual operator host/proxy configuration, live organizer role, production
 identity/source access, backups/restore and HDMI remain unverified.
+
+## Normal verification resumed (2026-11-09)
+
+21 Python tests, both TypeScript checks, Astro check and production build passed.
+The full Bun run passed 200 tests and found three test-fixture failures: the
+pre-artwork downgrade retained the new bans table, the v3 upgrade asserted the
+old schema count, and the ban test closed SQLite before background work settled.
+Fixtures now recreate the old schema correctly, verify the migrated bans table,
+and settle work before restart/close. All 31 tests in the three affected files
+passed on rerun. No application behavior changed. No browser/HDMI tests were rerun.

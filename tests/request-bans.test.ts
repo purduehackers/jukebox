@@ -17,6 +17,7 @@ test('organizers can ban and unban normalized usernames; bans persist across res
   assert.equal(h.snap(h.admin).requests.some((r) => r.id === prior.entryId), true, 'ban does not remove prior requests');
   assert.equal(h.snap(h.alice).quota?.used, 1, 'rejection does not change quota');
 
+  await h.svc.settle();
   h.restart();
   await h.fails('USERNAME_BANNED', h.alice, 'request.submit', { url: URLS.r2 });
   await h.ok(h.admin, 'night.close', {});
@@ -25,6 +26,7 @@ test('organizers can ban and unban normalized usernames; bans persist across res
   await h.ok(h.admin, 'requester.unban', { username: 'ALICE' });
   assert.deepEqual(h.snap(h.admin).bannedUsernames, []);
   assert.ok((await h.cmd(h.alice, 'request.submit', { url: URLS.r2 })).ok);
+  await h.svc.settle();
   h.svc.close();
 });
 
@@ -40,6 +42,7 @@ test('legacy sessions without a verified username cannot bypass active bans', as
   assert.equal(preview.ok, false);
   if (!preview.ok) assert.equal(preview.error.code, 'USERNAME_REQUIRED');
   assert.equal(h.snap(h.admin).requests.length, 0);
+  await h.svc.settle();
   h.svc.close();
 });
 
@@ -52,5 +55,6 @@ test('ban commands reject invalid names and request payloads cannot provide an i
   });
   assert.equal(response.ok, false);
   if (!response.ok) assert.equal(response.error.code, 'BAD_REQUEST');
+  await h.svc.settle();
   h.svc.close();
 });

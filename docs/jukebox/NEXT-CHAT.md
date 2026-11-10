@@ -74,5 +74,17 @@ audio through fades and scales smoothly with the local volume envelope.
 
 The user approved the local result and requested committing/pushing all source
 work to main with updated docs. This publishes code, not a phack.sh deployment.
-The user asked to stop automated checks and will test locally; do not restart
-broad tests merely to recheck the completed work without a new reason/request.
+Testing clarification (2026-11-09): the earlier testing pause applied only to
+repeated audio-visualizer verification while the user tested it manually. Run
+normal unit/Bun tests, typechecks, builds and relevant checks for other changes.
+Do not interpret that pause as a project-wide testing restriction.
+
+## Normal verification resumed (2026-11-09)
+
+21 Python tests, both TypeScript checks, Astro check and production build passed.
+The full Bun run passed 200 tests and found three test-fixture failures: the
+pre-artwork downgrade retained the new bans table, the v3 upgrade asserted the
+old schema count, and the ban test closed SQLite before background work settled.
+Fixtures now recreate the old schema correctly, verify the migrated bans table,
+and settle work before restart/close. All 31 tests in the three affected files
+passed on rerun. No application behavior changed. No browser/HDMI tests were rerun.
