@@ -31,3 +31,18 @@ test('OIDC sign-in creates a server session, assigns roles, and logout revokes i
     assert.equal(((await (await fetch(`${base}/auth/me`, { headers: { cookie: session } })).json()) as any).role, 'public');
   } finally { await new Promise<void>((resolve) => server.close(() => resolve())); service.close(); await provider.close(); }
 });
+
+test('failed browser sign-in offers a fresh login without raw provider errors', async () => {
+  const service = new JukeboxService({ dbPath: ':memory:', clock: new FakeClock(), source: new FakeSource(), media: new FakeMedia() });
+  const { FakeIdentity } = await import('../src/adapters/fakes.ts');
+  const server = createHttpServer({ service, identity: new FakeIdentity(), origin: 'http://127.0.0.1' });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const response = await fetch(`http://127.0.0.1:${(server.address() as AddressInfo).port}/auth/callback?code=used`);
+    assert.equal(response.status, 401);
+    assert.match(response.headers.get('content-type')!, /text\/html/);
+    const page = await response.text(); assert.match(page, /Sign in with PH ID/);
+    assert.ok(!page.includes('Missing login state'));
+    assert.match(response.headers.get('set-cookie')!, /Max-Age=0/i);
+  } finally { await new Promise<void>(resolve => server.close(() => resolve())); service.close(); }
+});

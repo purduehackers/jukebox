@@ -1,3 +1,4 @@
+import { LookupCache, timedLookup } from './lookup-cache.ts';
 import type { MediaPurpose, ResolvedSource, SourceRef } from '../contract/types.ts';
 import { PortError, type SourcePort } from '../core/ports.ts';
 import { canonicalizeUrl } from '../core/sources.ts';
@@ -10,6 +11,7 @@ import {
 type Finding = { candidate: Candidate; ref: SourceRef; titleArtist: boolean; conflict: boolean; durationOk: boolean; notes: string[] };
 
 export class MatchingSource implements SourcePort {
+  private readonly cache = new LookupCache<ResolvedSource>();
   private readonly inner: SourcePort;
   private readonly catalog: CatalogPort;
   private readonly search: CandidateSearchPort;
@@ -26,14 +28,18 @@ export class MatchingSource implements SourcePort {
 
   async resolve(ref: SourceRef, purpose: MediaPurpose): Promise<ResolvedSource> {
     if (ref.provider !== 'spotify' && ref.provider !== 'apple_music') return this.inner.resolve(ref, purpose);
+    return this.cache.get(`${purpose}:${ref.canonicalUrl}`, () => this.resolveCatalog(ref, purpose));
+  }
+
+  private async resolveCatalog(ref: SourceRef, purpose: MediaPurpose): Promise<ResolvedSource> {
     try {
-      const track = await this.catalog.lookup(ref);
+      const track = await timedLookup('catalog', () => this.catalog.lookup(ref));
       if (!track) throw new PortError('SOURCE_UNAVAILABLE', "That track isn't in the catalog");
       if (track.durationMs === null || track.durationMs <= 0) {
         throw this.failure(track, [], 'no_match', 'The catalog has no usable duration, so no confident match is possible. Paste a YouTube link.');
       }
       if (purpose === 'request' && track.durationMs >= 360000) throw new PortError('DURATION_REJECTED', 'The full catalog recording must be strictly under six minutes');
-      const raw = await this.search.search(track);
+      const raw = await timedLookup('youtube_search', () => this.search.search(track));
       const findings: Finding[] = [];
       for (const candidate of raw.slice(0, 10)) {
         let candidateRef: SourceRef;
@@ -89,7 +95,7 @@ export class MatchingSource implements SourcePort {
       for (const attempt of attempts) {
         chosen = attempt;
         try {
-          resolved = await this.inner.resolve(chosen.ref, purpose);
+          resolved = await timedLookup('audio_source', () => this.inner.resolve(chosen.ref, purpose));
           if (purpose === 'request' && resolved.durationSec >= 360) throw new PortError('DURATION_REJECTED', 'The resolved recording must be strictly under six minutes');
         } catch (error) {
           if (!(error instanceof PortError) || error.details?.kind !== 'audio_format_unavailable') throw error;

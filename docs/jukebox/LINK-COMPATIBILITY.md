@@ -239,3 +239,23 @@ include `is`. Both are accepted as disposable context and stripped from canonica
 recording URLs. The Python worker and TypeScript validator agree on YouTube
 context. Exact reported links and Apple Music track-sharing parameters have
 regression coverage; provider playback is separate from URL validation.
+
+## Lookup latency and sign-in recovery (2026-11-13)
+
+Catalog matches now reuse successful validated results for five minutes (128
+entries), coalesce concurrent requests for the same canonical track/purpose,
+and retry failures normally. This avoids repeating the entire catalog/search/
+audio-source sequence between preview and submission or simultaneous lookups.
+It does not make a first uncached upstream lookup instantaneous. Matching rules,
+full-duration checks and audio-only extraction remain unchanged.
+
+Structured `music_lookup` logs report `catalog`, `youtube_search`, and
+`audio_source` stage durations and success, without submitted URLs or identity.
+These measure server-side stages; no production stage timings have been collected
+in this change. The reported 15-second delay cannot yet be assigned to a stage.
+
+Failed browser OAuth callbacks now return a friendly fresh-sign-in page, clear
+stale login state, and log a bounded failure code instead of exposing raw JSON.
+The reported PH ID “Continue now” behavior may duplicate a one-use authorization
+code; that hypothesis is unverified. Jukebox contains no such button. Sentry was
+explicitly deferred by the user.

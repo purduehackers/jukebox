@@ -194,7 +194,8 @@ export function createTransport(options: TransportOptions) {
         headers.append('set-cookie', cookie(LOGIN_COOKIE, '', 0));
         return new Response(null, { status: 303, headers });
       } catch (error) {
-        return json(401, { error: { code: 'UNAUTHENTICATED', message: `Sign-in failed: ${(error as Error).message}`, retryable: true } });
+        console.warn(JSON.stringify({ event: 'sign_in_failed', code: typeof (error as { code?: unknown })?.code === 'string' ? (error as { code: string }).code : 'login_failed' }));
+        return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sign in again · Jukebox</title><body style="background:#000;color:#fff;font:20px system-ui;max-width:32rem;margin:12vh auto;padding:24px"><h1>Let’s try signing in again</h1><p>Your sign-in link may have expired or already been used. Start a fresh sign-in to continue.</p><p><a style="color:#ffd900" href="/auth/login?returnTo=/queue">Sign in with PH ID</a></p><p><a style="color:#fff" href="/queue">Back to song requests</a></p></body></html>`, { status: 401, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'set-cookie': cookie(LOGIN_COOKIE, '', 0) } });
       }
     }
     if (method === 'POST' && url.pathname === '/auth/logout') {
