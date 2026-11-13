@@ -1001,7 +1001,7 @@ export class JukeboxService {
     const max = (this.db.prepare('select max(order_key) as k from requests where night_id = ?').get(night.id) as { k: number | null }).k ?? 0;
     this.db.prepare(`insert into requests(id, night_id, requester_key, requester_name, order_key, source_url, provider, title, artist, artwork_url,
       duration_sec, recording_key, selection, status, created_at) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'preparing', ?) `)
-      .run(id, night.id, identity.key, identity.displayName, max + 1, resolved.ref.canonicalUrl, resolved.ref.provider, resolved.title,
+      .run(id, night.id, identity.key, identity.username ?? identity.displayName, max + 1, resolved.ref.canonicalUrl, resolved.ref.provider, resolved.title,
         resolved.artist, resolved.artworkUrl ?? null, resolved.durationSec, resolved.recordingKey, JSON.stringify(resolved.selection ?? null), tx.now);
     this.emit(tx, 'request.submitted', { entryId: id, commandId, username: identity.username ?? identity.displayName, title: resolved.title });
     const limit = this.policy.quotaPerNight;

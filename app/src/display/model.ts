@@ -33,12 +33,14 @@ export function displayModel(snapshot: Snapshot | null, now: number, disconnecte
   let turn = 'Waiting for master playback';
   let detail = 'One request per turn';
   if (snapshot?.night?.status !== 'open') turn = snapshot ? 'Requests closed' : 'Connecting…';
-  else if (snapshot.schedule.mode === 'master') {
+  else if (snapshot.nowPlaying?.kind === 'request') {
+    turn = 'Now Playing'; detail = '';
+  } else if (snapshot.schedule.mode === 'master') {
     turn = 'Master music'; detail = 'Request turns are off';
   } else if (snapshot.schedule.mode === 'requests') {
     turn = snapshot.schedule.requestsIdle ? 'Waiting for requests' : 'Requests only'; detail = 'Requests play one after another';
   } else if (snapshot.schedule.phase === 'request') {
-    turn = 'Request turn'; detail = `Then ${Math.round(snapshot.schedule.periodMs / 60_000)} minutes of master music`;
+    turn = 'Now Playing'; detail = '';
   } else if (snapshot.schedule.periodStartedAt != null) {
     const remaining = Math.max(0, snapshot.schedule.periodMs - (now - snapshot.schedule.periodStartedAt));
     turn = remaining > 0 ? `in ${duration(Math.ceil(remaining / 1000))}` : 'Turn due';
@@ -49,7 +51,7 @@ export function displayModel(snapshot: Snapshot | null, now: number, disconnecte
       : (snapshot.nowPlaying?.durationSec ?? 0) > POLICY.mixThresholdSec ? '' : 'Master song will finish first';
   }
   return { status, confirmed, playing, progress, turn, detail, observed,
-    requests: snapshot?.requests.filter((entry) => entry.status === 'ready' || entry.status === 'preparing') ?? [] };
+    requests: snapshot?.requests.filter((entry) => entry.status === 'playing' || entry.status === 'ready' || entry.status === 'preparing').sort((a, b) => Number(b.status === 'playing') - Number(a.status === 'playing')) ?? [] };
 }
 
 export function requestUrl(configuredOrigin: string | undefined, actualOrigin: string) {
@@ -57,7 +59,7 @@ export function requestUrl(configuredOrigin: string | undefined, actualOrigin: s
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
     throw new Error('Request origin must be an HTTP(S) origin without credentials, path, query or fragment.');
   }
-  return new URL('/queue', url.origin).href;
+  return new URL('/', url.origin).href;
 }
 
 export function safeArtwork(url: string | null | undefined): string | undefined {

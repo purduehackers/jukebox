@@ -24,7 +24,7 @@ test('production rejects missing identity, local origins, callback mismatches, t
   assert.throws(() => validateProduction(env, { ...options, fixtures: true }));
 });
 test('deployed QR and printed link follow the public browser origin without a laptop address', () => {
-  assert.equal(requestUrl(undefined, env.JUKEBOX_ORIGIN), 'https://jukebox.purduehackers.com/queue');
+  assert.equal(requestUrl(undefined, env.JUKEBOX_ORIGIN), 'https://jukebox.purduehackers.com/');
 });
 
 test('production launcher boots real worker/service using configured persistent directories and shuts both down', { timeout: 20_000 }, async () => {

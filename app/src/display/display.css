@@ -37,7 +37,7 @@
 .display-empty, .display-more { font-size: 22px; line-height: 1.4; color: #ffffffb3; }
 .display-request { grid-column: 2; grid-row: 2; height: var(--display-strip); min-width: 0; border: 1px solid var(--jb-purple); display: grid; grid-template-columns: minmax(0, 1fr) var(--display-qr-size); gap: 24px; padding: 16px 32px; align-items: center; }
 .display-request > div { min-width: 0; }
-.display-request h2 { font: 400 30px/1.05 PixelHackers, monospace; margin: 0 0 14px; }
+.display-request h2 { font: 400 36px/1.05 PixelHackers, monospace; margin: 0 0 6px; }
 .display-request p { font-size: 19px; margin: 8px 0; }
 .display-request a { color: var(--jb-pink); display: block; font-size: 17px; overflow-wrap: anywhere; text-decoration: none; }
 .display-qr { width: var(--display-qr-size); height: var(--display-qr-size); background: #fff; }
@@ -58,7 +58,7 @@
   .display-queue li strong { font-size: 21px; }
   .display-queue li p { font-size: 17px; }
   .display-request { padding: 20px 24px; gap: 18px; }
-  .display-request h2 { font-size: 24px; }
+  .display-request h2 { font-size: 30px; }
   .display-request a { font-size: 15px; }
 }
 @media (max-width: 850px) {
@@ -85,3 +85,5 @@
 .display-sound-prompt button { cursor: pointer; width: 100%; padding: 14px 20px; border: 1px solid var(--jb-purple); background: var(--jb-purple); color: white; font: 700 20px Inconsolata, monospace; }
 .display-sound-prompt button:focus-visible { outline: 2px solid var(--jb-yellow); outline-offset: 4px; }
 .display-player-notice { position: fixed; bottom: 8px; left: 32px; margin: 0; padding: 8px 12px; background: var(--jb-canvas); color: var(--jb-yellow); font: 18px Inconsolata, monospace; }
+
+.display-queue li[data-playing="true"] { border-left: 3px solid var(--jb-yellow); padding-left: 12px; color: var(--jb-yellow); }

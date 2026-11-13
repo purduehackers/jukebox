@@ -22,7 +22,7 @@ export function RequestQr() {
   }, []);
   return <section className="display-request" aria-label="Request a song">
     <div><h2>SONG<br />REQUESTS</h2>
-      {result.error ? <p role="alert">QR unavailable: invalid request origin</p> : <a href={result.url}>{result.url.replace(/^https?:\/\//, '')}</a>}
+      {result.error ? <p role="alert">QR unavailable: invalid request origin</p> : <a href={result.url}>{result.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</a>}
     </div>
     {result.size > 0 && <svg className="display-qr" role="img" aria-label={`Scan to request a song: ${result.url}`} data-url={result.url}
       viewBox={`0 0 ${result.size} ${result.size}`} shapeRendering="crispEdges">

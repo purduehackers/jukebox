@@ -24,7 +24,7 @@ test('status, progress, public queue and stale playback remain honest across fix
   assert.equal(displayModel(snapshot, now + 16000).playing, false);
   assert.equal(displayModel(snapshot, now, true).playing, false);
   assert.equal(displayModel(displayFixture('paused', now), now + 5000).progress, 1421);
-  assert.equal(displayModel(displayFixture('request', now), now).requests.length, 2);
+  assert.equal(displayModel(displayFixture('request', now), now).requests.length, 3);
   assert.equal(displayModel(displayFixture('due_song', now), now).detail, 'After this master song finishes');
   assert.equal(displayModel(displayFixture('due_paused', now), now).detail, 'Waiting for organizer to resume');
   assert.equal(displayModel(displayFixture('closed', now), now).turn, 'Requests closed');
@@ -34,8 +34,8 @@ test('status, progress, public queue and stale playback remain honest across fix
   assert.equal(displayModel(snapshot, now).status, 'waiting_for_player');
 });
 test('QR URLs preserve configured reachable origin and reject non-origin inputs', () => {
-  assert.equal(requestUrl('https://jukebox.purduehackers.com', 'http://127.0.0.1:5173'), 'https://jukebox.purduehackers.com/queue');
-  assert.equal(requestUrl(undefined, 'http://192.168.1.20:5173'), 'http://192.168.1.20:5173/queue');
+  assert.equal(requestUrl('https://jukebox.purduehackers.com', 'http://127.0.0.1:5173'), 'https://jukebox.purduehackers.com/');
+  assert.equal(requestUrl(undefined, 'http://192.168.1.20:5173'), 'http://192.168.1.20:5173/');
   for (const bad of ['javascript:alert(1)', 'https://u:p@example.com', 'https://example.com/path', 'https://example.com?x=1']) assert.throws(() => requestUrl(bad, 'http://localhost'));
   assert.equal(safeArtwork('javascript:alert(1)'), undefined);
   assert.equal(safeArtwork('https://u:p@example.com/a.jpg'), undefined);
@@ -58,4 +58,12 @@ test('display progress follows its local audio instead of alternating remote pau
     'an old local load/intent cannot describe the next track or seek');
   assert.equal(displayModel(snapshot, snapshot.serverTime, false, { ...local, positionSec: 200 }).progress, 200,
     'native seeked position is reflected immediately');
+});
+
+test('playing request remains first in the display queue without master interval copy', () => {
+  const snapshot = displayFixture('request', 1000000);
+  const model = displayModel(snapshot, 1000000);
+  assert.equal(model.turn, 'Now Playing');
+  assert.equal(model.detail, '');
+  assert.equal(model.requests[0]?.status, 'playing');
 });
