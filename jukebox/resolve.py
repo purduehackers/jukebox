@@ -14,8 +14,15 @@ def main():
                'max_filesize': 256 * 1024 * 1024, 'concurrent_fragment_downloads': 1,
                'js_runtimes': {'bun': {}}, 'remote_components': [], 'quiet': True,
                'noprogress': True, 'cachedir': False, 'fixup': 'never', 'skip_download': True}
-    with yt_dlp.YoutubeDL(options) as ydl:
-        info = ydl.extract_info(source, download=False)
+    # The visionOS client avoids the slower JS challenge path for ordinary
+    # recordings. Keep the same recording and strict audio-only format policy;
+    # fall back to yt-dlp's default clients when this client cannot resolve it.
+    try:
+        with yt_dlp.YoutubeDL({**options, 'extractor_args': {'youtube': {'player_client': ['visionos']}}}) as ydl:
+            info = ydl.extract_info(source, download=False)
+    except yt_dlp.utils.DownloadError:
+        with yt_dlp.YoutubeDL(options) as ydl:
+            info = ydl.extract_info(source, download=False)
     validate_selection(info, kind)
     if info.get('id') != source.rsplit('=', 1)[-1]:
         raise ValueError('Resolved recording identity changed')

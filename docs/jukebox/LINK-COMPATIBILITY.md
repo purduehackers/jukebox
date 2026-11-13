@@ -259,3 +259,30 @@ stale login state, and log a bounded failure code instead of exposing raw JSON.
 The reported PH ID “Continue now” behavior may duplicate a one-use authorization
 code; that hypothesis is unverified. Jukebox contains no such button. Sentry was
 explicitly deferred by the user.
+
+## Measured live lookup latency (2026-11-13)
+
+Local live-provider tests used Spotify track `1NkIn479Q5zgQud2tWJsNH` and
+YouTube recording `e-ORhEE9VVg`, fresh adapter instances and the real Python
+worker. No production logs, venue hardware or phack.sh measurements were used.
+
+Baseline Spotify: 7.703s (catalog 0.373s, search 2.039s, source 5.276s).
+A second run: 10.854s (catalog 3.499s, search 2.025s, source 5.314s).
+Direct YouTube baseline: 5.584s and 6.218s. Cached Spotify: 0–1ms.
+
+The default yt-dlp path consults multiple clients and runs its JavaScript
+challenge solver. A visionOS-only extraction passed the same audio-only
+selection checks in 1.613–1.970s in-process, compared with 5.136s for defaults.
+Trying Node instead of Bun still took 4.983s; it was not an effective fix.
+The existing pinned extractor also warns that Bun 1.4.4 is unsupported; no
+runtime/package upgrade was made as part of this measured change.
+
+Resolve now tries visionOS first, falling back to unchanged default clients on
+extractor failure. This applies to metadata resolution; preparation keeps its
+existing client behavior. Recording ID, audio-only format, protocol, duration,
+size and live-stream checks remain unchanged. No search result count or matching
+confidence was reduced. Live end-to-end after the change: Spotify 5.157s
+(catalog 0.455s, search 2.041s, source 2.644s), direct YouTube 2.594s.
+Provider/network variability remains; these samples do not guarantee production
+latency. The remaining search cost is upstream extraction; catalog latency also
+varied substantially between runs.
