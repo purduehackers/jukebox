@@ -188,7 +188,7 @@ function RequestForm({ flow, state, remaining }: { flow: RequestFlow; state: Flo
         </Field>
         <div className="flex flex-wrap gap-2">
           <Button className="q-touch" type="submit" disabled={busy || exhausted || state.url.trim() === ''}>
-            {state.phase === 'checking' ? 'Searching…' : 'Search'}
+            {state.phase === 'checking' ? <span className="q-searching-label">Searching for YouTube download…</span> : 'Search'}
           </Button>
           {(state.url || state.error || state.preview) && (
             <Button className="q-touch" variant="outline" disabled={state.phase === 'submitting'} onClick={() => flow.reset()}>Cancel</Button>

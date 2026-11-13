@@ -45,3 +45,5 @@
 .q-page .ph-dither-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 .q-page .ph-dither-btn { min-height: 48px; }
 .q-page .q-wide { width: 100%; }
+
+.q-searching-label { font-size: 14px; white-space: nowrap; }
