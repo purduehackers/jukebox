@@ -3,7 +3,29 @@
 Updated 2026-11-09. Target: Podman on phack.sh behind its existing host Caddy.
 No server login, deployment, DNS change or operator message is part of this rewrite.
 
-## Build and run on phack.sh
+## Pull and run on phack.sh
+
+Pushes to `main` run `.github/workflows/publish-container.yml` on GitHub's
+Linux AMD64 runner and publish `ghcr.io/purduehackers/jukebox:latest` plus
+`sha-<full-commit-SHA>`. Manual runs are also available on `main`. Publishing
+uses the built-in `GITHUB_TOKEN` with package-write permission; no extra registry
+secret is needed. The workflow publishes images without deploying the server.
+
+Pull the built image instead of building on phack.sh, where the native
+Astro/Vite build dependency crashed on a CPU without AVX:
+
+```sh
+podman pull ghcr.io/purduehackers/jukebox:latest
+podman tag ghcr.io/purduehackers/jukebox:latest localhost/jukebox:local
+```
+
+For a reproducible release or rollback, pull the `sha-<full-commit-SHA>` tag
+instead. If anonymous pulls are denied, make the GHCR package public or
+authenticate with `podman login ghcr.io` using an account/token with package-read
+access. Runtime compatibility and real-source access on phack.sh still require
+verification.
+
+## Local image build and runtime setup
 
 The image packages the production Astro server, Bun 1.4.4 and the uv-locked Python
 worker with FFmpeg. One container port serves HTML, static assets, API, auth, SSE
@@ -11,6 +33,7 @@ and audio. Caddy proxies the entire domain; there are no frontend files to copy
 onto the host. The worker is private on container loopback :8971.
 
 ```sh
+# Optional: build locally on a compatible CPU instead of pulling from GHCR.
 podman build --format docker -t localhost/jukebox:local -f Containerfile .
 podman volume create jukebox-data
 mkdir -p ~/.config/jukebox
