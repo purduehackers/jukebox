@@ -1,0 +1,17 @@
+# Rootless Quadlet: ~/.config/containers/systemd/jukebox-proxy.container
+[Unit]
+Description=Jukebox socket proxy
+Requires=jukebox-proxy.socket
+After=jukebox-proxy.socket jukebox.service
+
+[Container]
+Image=docker.io/alpine/socat:latest
+AutoUpdate=registry
+RunInit=true
+ContainerName=jukebox-proxy
+Pod=jukebox.pod
+Exec=ACCEPT-FD:3,fork TCP:127.0.0.1:8080
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=120

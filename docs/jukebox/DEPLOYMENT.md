@@ -1,6 +1,6 @@
 # Operator deployment guide
 
-Updated 2026-11-09. Target: Podman on phack.sh behind its existing host Caddy.
+Updated 2026-11-13. Target: Podman on phack.sh behind its existing host Caddy.
 No server login, deployment, DNS change or operator message is part of this rewrite.
 
 ## Pull and run on phack.sh
@@ -16,7 +16,6 @@ Astro/Vite build dependency crashed on a CPU without AVX:
 
 ```sh
 podman pull ghcr.io/purduehackers/jukebox:latest
-podman tag ghcr.io/purduehackers/jukebox:latest localhost/jukebox:local
 ```
 
 For a reproducible release or rollback, pull the `sha-<full-commit-SHA>` tag
@@ -36,9 +35,8 @@ onto the host. The worker is private on container loopback :8971.
 # Optional: build locally on a compatible CPU instead of pulling from GHCR.
 podman build --format docker -t localhost/jukebox:local -f Containerfile .
 podman volume create jukebox-data
-mkdir -p ~/.config/jukebox
-cp deploy/jukebox.env.example ~/.config/jukebox/jukebox.env
-chmod 600 ~/.config/jukebox/jukebox.env
+cp deploy/jukebox.env.example ~/env
+chmod 600 ~/env
 ```
 
 Fill the private environment file with the registered PH ID client, client secret,
@@ -60,16 +58,6 @@ Secrets are runtime configuration, never build arguments or repository files.
 Production refuses fake auth/media, HTTP/local origins, callback mismatches,
 short session secrets and relative or identical service/worker directories.
 
-```sh
-podman run -d --name jukebox --restart=unless-stopped \
-  --env-file ~/.config/jukebox/jukebox.env \
-  -p 127.0.0.1:8080:8080 \
-  -v jukebox-data:/var/lib/jukebox \
-  localhost/jukebox:local
-podman logs jukebox
-curl --fail http://127.0.0.1:8080/readyz
-```
-
 The process runs as container user `bun` (UID 1000). A fresh named volume inherits
 the image directory ownership. Existing volumes/bind mounts need matching rootless
 UID mapping and, on SELinux hosts, an appropriate label such as `:Z`. Preserve the
@@ -78,49 +66,59 @@ never run replicas against the same SQLite files.
 
 `/healthz` checks the web authority; `/readyz` also checks the worker. The supervisor
 stops the stack if either owned child exits. Tini forwards signals and reaps
-processes; shutdown stops SSE, HTTP, scheduler and worker. Image health status alone
-does not restart an unhealthy manual container: use the Quadlet below for that.
+processes; shutdown stops SSE, HTTP, scheduler and worker. The Quadlet health policy kills an unhealthy app container so systemd can restart it.
 
 ## Host Caddy and reboot startup
 
-Adapt `deploy/Caddyfile` in the existing Caddy configuration: reverse proxy
-`jukebox.purduehackers.com` to `127.0.0.1:8080`, preserving Host and Origin and
-streaming SSE without buffering. Do not expose worker management endpoints.
-`deploy/Caddyfile` is a reference, not a second Caddy instance to start.
-Obtain the actual ingress target before any change in `purduehackers/dns`; follow
-that repository's procedure. TLS and DNS remain operator tasks.
+The deployment follows [Podman UNIX socket forwarding](https://kasad.com/blog/2026/11/11/podman-unix-socket-forwarding/):
+`jukebox.pod` shares a network namespace between the app and a `socat` proxy.
+The app keeps TCP :8080 inside the pod; no host TCP port is published. Systemd
+creates `~/jukebox.sock` and passes its listening descriptor (FD 3) to the proxy,
+which forwards connections to `127.0.0.1:8080` inside the pod. The worker remains
+private on :8971.
 
-For rootless systemd supervision, copy `deploy/jukebox.container` into
-`~/.config/containers/systemd/`, with the private environment file above, then:
+Install the Quadlets and socket unit as the container operator:
 
 ```sh
+mkdir -p ~/.config/containers/systemd ~/.config/systemd/user
+cp deploy/jukebox.container deploy/jukebox.pod deploy/jukebox-proxy.container ~/.config/containers/systemd/
+cp deploy/jukebox-proxy.socket ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user start jukebox.service
-systemctl --user status jukebox.service
+systemctl --user start jukebox-pod.service
+systemctl --user status jukebox-pod.service jukebox.service jukebox-proxy.service jukebox-proxy.socket
+curl --fail --unix-socket "$HOME/jukebox.sock" http://localhost/readyz
 ```
 
-Use either manual `podman run` or Quadlet for this container. The Quadlet installs
-under the user's default target, restarts on failure and kills unhealthy containers
-so systemd can restart them. Arrange user lingering with the server operator for
-reboot operation without login. Image building remains an explicit release step.
+The private environment file is `~/env`, matching `EnvironmentFile=%h/env`.
+The host needs `/usr/bin/setfacl` and the `caddy` group. The socket's
+`ExecStartPost` grants `g:caddy:rw` after every creation. Caddy also needs search
+permission on the operator's home directory and any parent directories; if
+needed, grant just traversal with `setfacl -m g:caddy:x "$HOME"`. Socket permissions
+alone cannot grant directory traversal.
 
-## Native development or service installation
+Adapt `deploy/Caddyfile` in the existing host configuration, replacing
+`/home/OPERATOR` with the operator's absolute home path. Caddy proxies to
+`unix//home/OPERATOR/jukebox.sock`, preserving Host/Origin and streaming SSE.
+`%h` is expanded by systemd, not Caddy. The Caddyfile is a reference, not a second
+Caddy instance to start. TLS and DNS remain operator tasks; DNS changes belong
+in `purduehackers/dns`.
 
-Install Bun 1.4.4+, uv, Python 3.11–3.14, FFmpeg/ffprobe and Bash. On Arch/CachyOS
-use Yay as the normal user. From the selected checkout:
+`jukebox.service` is now generated solely from `jukebox.container`; the standalone
+native service file has been removed. If the former native service was installed,
+stop/disable it and remove its installed unit before reloading systemd. Remove
+any manually installed user `jukebox.service` that would override Quadlet's
+generated service. Preserve the environment and data when migrating.
 
-```sh
-bun install --frozen-lockfile
-uv sync --locked
-bun run build
-```
+The pod starts both containers automatically at user-manager startup. Arrange
+user lingering with the server operator for reboot operation without login.
+The app retains health checks and restart-on-failure; the proxy restarts on
+failure. Stopping `jukebox-pod.service` also stops both containers and the socket.
 
-`bun start` runs the same supervisor and production Astro server, using only
-inherited runtime environment. Native operator examples are in
-`deploy/jukebox.service`; installation paths/account are choices. Set
-`HOST=127.0.0.1` for a native service behind Caddy. Default production port is 8080;
-there is no separate service port or production Vite server. Development uses
-`bun run dev` on :5173 and loads private `.env.local`.
+## Native development
+
+Install Bun 1.4.4+, uv, Python 3.11–3.14, FFmpeg/ffprobe and Bash. Run
+`bun install --frozen-lockfile`, `uv sync --locked`, then `bun run dev` on :5173
+with private `.env.local`. Production deployment uses the container units above.
 
 ## Persistence, upgrades and rollback
 

@@ -1,0 +1,8 @@
+# Rootless Quadlet: ~/.config/containers/systemd/jukebox.pod
+[Unit]
+Description=Jukebox pod
+
+[Pod]
+
+[Install]
+WantedBy=default.target

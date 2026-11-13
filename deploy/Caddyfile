@@ -1,6 +1,7 @@
 # phack.sh host ingress: Astro serves pages, assets, API, auth, SSE and audio.
 jukebox.purduehackers.com {
-    reverse_proxy 127.0.0.1:8080 {
+    # Replace /home/OPERATOR with the container operator's absolute home path.
+    reverse_proxy unix//home/OPERATOR/jukebox.sock {
         flush_interval -1
     }
 }

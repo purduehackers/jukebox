@@ -1,5 +1,15 @@
 # Decisions and question backlog
 
+## Container-only Unix socket ingress (2026-11-13)
+
+The user requested removing the native `deploy/jukebox.service` and using the
+Podman pod/socket-activation forwarding technique from their linked article.
+Deployment now uses an app container and a socat proxy in one pod, with no
+published host TCP port. Systemd listens at `%h/jukebox.sock`; its socket
+`ExecStartPost` grants `g:caddy:rw`. Caddy connects through that Unix socket.
+The generated Quadlet app service is still named `jukebox.service`. These are
+repository configuration changes; actual host installation remains unverified.
+
 ## Testing scope clarification (2026-11-09)
 
 The user clarified that the earlier request to stop testing applied only to the

@@ -1,0 +1,11 @@
+# Install in ~/.config/systemd/user/jukebox-proxy.socket
+[Unit]
+Description=Jukebox ingress socket
+BindsTo=jukebox-pod.service
+After=jukebox-pod.service
+
+[Socket]
+ListenStream=%h/jukebox.sock
+SocketMode=0600
+ExecStartPost=/usr/bin/setfacl -m g:caddy:rw %h/jukebox.sock
+RemoveOnStop=true
