@@ -87,3 +87,5 @@
 .display-player-notice { position: fixed; bottom: 8px; left: 32px; margin: 0; padding: 8px 12px; background: var(--jb-canvas); color: var(--jb-yellow); font: 18px Inconsolata, monospace; }
 
 .display-queue li[data-playing="true"] { border-left: 3px solid var(--jb-yellow); padding-left: 12px; color: var(--jb-yellow); }
+
+.display-turn > .display-requested-label { display: block; font-size: 16px; line-height: 1.2; }

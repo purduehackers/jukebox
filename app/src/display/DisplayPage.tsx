@@ -58,7 +58,7 @@ export function DisplayView({ snapshot, error, now, local }: { snapshot: Snapsho
     <aside className="display-sidebar" aria-label="Request queue">
       <div className="display-queue-panel">
       <h2 className="display-heading">QUEUE</h2>
-      <section className="display-turn" aria-label={snapshot.nowPlaying?.kind === 'request' ? 'Now playing' : 'Next request'}>{snapshot.nowPlaying?.kind !== 'request' && <span>NEXT REQUEST</span>}<strong>{requester ? `Requested by ${requester}` : model.turn}</strong>{model.detail && <p>{model.detail}</p>}</section>
+      <section className="display-turn" aria-label={snapshot.nowPlaying?.kind === 'request' ? 'Now playing' : 'Next request'}>{snapshot.nowPlaying?.kind !== 'request' && <span>NEXT REQUEST</span>}{requester && <span className="display-requested-label">Requested by</span>}<strong>{requester ?? model.turn}</strong>{model.detail && <p>{model.detail}</p>}</section>
       {error && <p className="display-warning" role="alert">Connection lost · showing last known state</p>}
       {!error && model.status === 'offline' && <p className="display-warning">Playback device offline</p>}
       <div className="display-queue">
