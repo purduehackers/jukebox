@@ -40,3 +40,18 @@ test('navigation variants share duplicate identity; time does not shorten admiss
     assert.equal(h.snap(h.bob).quota?.used, 0);
   } finally { h.svc.close(); }
 });
+
+test('mobile share links discard tracking while preserving recording identity', () => {
+  const links = [
+    ['https://open.spotify.com/track/1NkIn479Q5zgQud2tWJsNH?si=P4SaDdgZRzu90BIPZE_MQg&utm_source=copy-link&rowId=2c898f5c0ee003f8', 'https://open.spotify.com/track/1NkIn479Q5zgQud2tWJsNH'],
+    ['https://youtu.be/e-ORhEE9VVg?is=aymtwS9tvqxhsx7Z', 'https://www.youtube.com/watch?v=e-ORhEE9VVg'],
+    ['https://music.apple.com/us/album/song/123?i=456&ls=1&app=music&at=affiliate&ct=share&itsct=music_box_link&itscg=30200', 'https://music.apple.com/song/456'],
+  ];
+  for (const [url, canonical] of links) {
+    const ref = canonicalizeUrl(url);
+    assert.equal(ref.canonicalUrl, canonical);
+    assert.deepEqual(canonicalizeUrl(canonical), ref);
+  }
+  assert.throws(() => canonicalizeUrl(links[0]![0] + '&rowId=duplicate'));
+  assert.throws(() => canonicalizeUrl(links[1]![0] + '&is=duplicate'));
+});

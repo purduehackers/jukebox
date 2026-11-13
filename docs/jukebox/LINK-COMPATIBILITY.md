@@ -231,3 +231,11 @@ immediate assertion. The source branch does not edit player/controller/scheduler
 code. This is reported to the integration owner as an unresolved session-end
 ordering/test concern, not a passing full player suite. Evidence is in
 `.local/player-firefox-evidence.json`.
+
+## Mobile sharing correction (2026-11-13)
+
+Spotify mobile track shares may include `rowId`, and YouTube short shares may
+include `is`. Both are accepted as disposable context and stripped from canonical
+recording URLs. The Python worker and TypeScript validator agree on YouTube
+context. Exact reported links and Apple Music track-sharing parameters have
+regression coverage; provider playback is separate from URL validation.

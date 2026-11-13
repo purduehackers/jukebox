@@ -4,7 +4,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import type { MasterEntryView, QueueMode, RequestEntryView, Snapshot, QueueActivityEntry } from '../../../src/contract/types.ts';
-import { POLICY } from '../../../src/contract/types.ts';
 import { Badge } from '../components/ph/badge.tsx';
 import { Button } from '../components/ph/button.tsx';
 import { Card } from '../components/ph/card.tsx';
@@ -45,7 +44,6 @@ export interface Actions {
 }
 
 const time = (sec: number | null) => (sec === null ? '–:––' : formatClock(sec * 1000));
-const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 type Tone = 'ok' | 'warn' | 'bad' | 'info' | 'dim';
 type BadgeColor = 'lime' | 'yellow' | 'orange' | 'pink' | 'outline';
@@ -179,12 +177,6 @@ export function NightPanel({ snapshot, actions }: { snapshot: Snapshot; actions:
   const playing = playingRequest(snapshot);
   return (
     <div className="adm-night" id="adm-night" data-open={open}>
-      <span className="adm-night-state">
-        <span className={`adm-dot adm-${open ? 'ok' : 'dim'}`} aria-hidden="true" />
-        {open
-          ? `Night open since ${clockTime(snapshot.night!.openedAt)} · requests on (${POLICY.quotaPerNight} each)`
-          : 'Night not started'}
-      </span>
       {open ? (
         <ConfirmButton
           label="End night…"
@@ -375,6 +367,7 @@ export function NowPlayingPanel({ snapshot, serverNow, actions, pendingVolume, i
 
 export function TurnPanel({ snapshot, serverNow }: { snapshot: Snapshot; serverNow: number }) {
   const turn = describeTurn(snapshot, serverNow);
+  if (turn.kind === 'in_request') return null;
   return (
     <div className="adm-turn" id="adm-turn" data-kind={turn.kind}>
       <strong data-testid="turn-headline">{turn.headline}</strong>

@@ -173,7 +173,7 @@ test('session panel; activity list explains failures and offers retry only when 
   try {
     const admin = await organizer(app);
     const snapClosed = await admin.snapshot();
-    assert.match(text(html(createElement(views.NightPanel, { snapshot: snapClosed, actions }))), /Night not started/);
+    assert.match(text(html(createElement(views.NightPanel, { snapshot: snapClosed, actions }))), /Start night/);
     await startNight(app, admin);
     const snap = await admin.snapshot();
     const night = html(createElement(views.NightPanel, { snapshot: snap, actions }));

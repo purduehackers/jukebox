@@ -30,7 +30,7 @@ def validate_source(source):
     if re.match(r'https://([^/?#]+)', source, re.I).group(1).lower() != p.hostname:
         raise ValueError('Use a plain provider hostname')
     q = parse_qs(p.query, keep_blank_values=True)
-    context = {'si', 't', 'start', 'end', 'time_continue', 'list', 'index', 'start_radio', 'feature',
+    context = {'si', 'is', 't', 'start', 'end', 'time_continue', 'list', 'index', 'start_radio', 'feature',
                'pp', 'ab_channel', 'app', 'persist_app', 'lc'}
     allowed = context | ({'v'} if p.path == '/watch' and p.hostname != 'youtu.be' else set())
     if not set(q) <= allowed or any(len(v) != 1 for v in q.values()):
