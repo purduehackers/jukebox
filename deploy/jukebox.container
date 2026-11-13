@@ -1,15 +1,17 @@
 # Rootless Quadlet: ~/.config/containers/systemd/jukebox.container
 [Unit]
-Description=Purdue Hackers Jukebox
-Wants=network-online.target
-After=network-online.target
+Description=Jukebox
+
+StartLimitBurst=5
+StartLimitIntervalSec=1m
 
 [Container]
-Image=localhost/jukebox:local
+Image=ghcr.io/purduehackers/jukebox:latest
+AutoUpdate=registry
 ContainerName=jukebox
 PublishPort=127.0.0.1:8080:8080
 Volume=jukebox-data:/var/lib/jukebox
-EnvironmentFile=%h/.config/jukebox/jukebox.env
+EnvironmentFile=%h/env
 HealthCmd=bun --no-env-file -e "fetch('http://127.0.0.1:8080/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 HealthInterval=30s
 HealthTimeout=5s
