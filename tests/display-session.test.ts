@@ -194,3 +194,14 @@ test('public visitors and attendees cannot register an automatic player', async 
   await h.fails('FORBIDDEN', h.alice, 'display.connect', { secret: secret() });
   assert.equal((h.svc.db.prepare('select count(*) as n from devices').get() as { n: number }).n, 0);
 });
+
+test('display receives attribution only for the playing request', async (t) => {
+  const h = harness(); t.after(() => h.svc.close());
+  const player = await h.startNight([URLS.mix]);
+  const submitted = await h.ok(h.alice, 'request.submit', { url: URLS.r1 });
+  await h.svc.reconcile();
+  assert.equal(h.snap(player.actor).requests.find(r => r.id === submitted.entryId)?.requester, undefined);
+  await h.ok(h.admin, 'request.playNow', { entryId: submitted.entryId });
+  assert.equal(h.snap(player.actor).requests.find(r => r.id === submitted.entryId)?.requester, 'alice');
+  assert.equal(h.snap(publicActor).requests.find(r => r.id === submitted.entryId)?.requester, undefined);
+});

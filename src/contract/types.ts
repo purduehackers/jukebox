@@ -125,7 +125,7 @@ export interface RequestEntryView {
   artworkUrl?: string;
   durationSec: number | null;
   status: RequestStatus;
-  /** Present for admins only. */
+  /** Present for admins, and for the currently playing request on organizer displays. */
   requester?: string;
   /** Present for the signed-in attendee who owns the entry. */
   mine?: boolean;

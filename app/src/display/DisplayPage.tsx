@@ -37,6 +37,7 @@ export function DisplayView({ snapshot, error, now, local }: { snapshot: Snapsho
   </main>;
   const model = displayModel(snapshot, now, !!error, local);
   const track = snapshot?.nowPlaying;
+  const requester = track?.kind === 'request' ? snapshot.requests.find((entry) => entry.id === track.entryId)?.requester : undefined;
   const status = model.status.replaceAll('_', ' ');
   return <main className="jukebox-display" data-testid="display" data-state={model.status}>
     <div className="display-left">
@@ -57,12 +58,12 @@ export function DisplayView({ snapshot, error, now, local }: { snapshot: Snapsho
     <aside className="display-sidebar" aria-label="Request queue">
       <div className="display-queue-panel">
       <h2 className="display-heading">QUEUE</h2>
-      <section className="display-turn" aria-label={snapshot.nowPlaying?.kind === 'request' ? 'Now playing' : 'Next request'}>{snapshot.nowPlaying?.kind !== 'request' && <span>NEXT REQUEST</span>}<strong>{model.turn}</strong>{model.detail && <p>{model.detail}</p>}</section>
+      <section className="display-turn" aria-label={snapshot.nowPlaying?.kind === 'request' ? 'Now playing' : 'Next request'}>{snapshot.nowPlaying?.kind !== 'request' && <span>NEXT REQUEST</span>}<strong>{requester ? `Requested by ${requester}` : model.turn}</strong>{model.detail && <p>{model.detail}</p>}</section>
       {error && <p className="display-warning" role="alert">Connection lost · showing last known state</p>}
       {!error && model.status === 'offline' && <p className="display-warning">Playback device offline</p>}
       <div className="display-queue">
         <ol>{model.requests.slice(0, 4).map((entry, index) => <li key={entry.id} data-playing={entry.status === 'playing' ? 'true' : undefined}>
-          <span className="display-number">{index + 1}</span><div><strong title={entry.title}>{entry.title}</strong><p title={entry.artist ?? ''}>{entry.artist || 'Artist unavailable'}{entry.status === 'preparing' ? ' · preparing audio' : ''}</p>{entry.requester && <p className="display-requester">requested by {entry.requester}</p>}</div><span>{duration(entry.durationSec)}</span>
+          <span className="display-number">{index + 1}</span><div><strong title={entry.title}>{entry.title}</strong><p title={entry.artist ?? ''}>{entry.artist || 'Artist unavailable'}{entry.status === 'preparing' ? ' · preparing audio' : ''}</p></div><span>{duration(entry.durationSec)}</span>
         </li>)}</ol>
         {model.requests.length === 0 && <p className="display-empty">No requests waiting.<br />Scan below to add yours.</p>}
         {model.requests.length > 4 && <p className="display-more">+ {model.requests.length - 4} more requests</p>}
