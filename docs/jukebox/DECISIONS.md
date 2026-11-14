@@ -800,3 +800,13 @@ the approved audio response, shape and other settings remain unchanged.
 
 The now-playing box also uses this live gradient as its border image on all
 four sides, matching the dashboard clock border.
+
+## Prometheus queue metrics (2026-11-13)
+
+The user requested `/metrics`, current queue length and accepted-song counters
+labelled by submitted source. Implementation exports aggregate, unauthenticated
+Prometheus text metrics with a queue label distinguishing master and request.
+Counters derive from retained admissions and survive restarts; gauge semantics
+and scraping are documented in METRICS.md. Additional metrics remain proposals
+for user approval. The user requested keeping tests but not running further tests
+for this change.
