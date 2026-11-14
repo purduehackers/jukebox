@@ -3,7 +3,6 @@
     "target": "es2024",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "jsx": "react-jsx",
     "lib": ["es2024", "dom", "dom.iterable"],
     "strict": true,
     "noEmit": true,
@@ -13,5 +12,5 @@
     "types": ["vite/client"],
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "../src/contract/**/*.ts"]
+  "include": ["src/**/*.ts", "../src/contract/**/*.ts"]
 }

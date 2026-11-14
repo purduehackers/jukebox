@@ -8,6 +8,7 @@
 @source "../components/ph";
 @source "../admin";
 @source "../queue";
+@source "../../../src";
 
 @layer base {
   .ph-ui { box-sizing: border-box; min-height: 100dvh; color-scheme: dark; }

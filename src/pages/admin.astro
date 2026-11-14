@@ -1,5 +1,19 @@
 ---
 import Page from '../layouts/Page.astro';
-import { AdminPage } from '../../app/src/admin/AdminPage.tsx';
+import DitheredSoup from '../components/DitheredSoup.astro';
+import '../../app/src/shared/ph-ui.css';
+import '../../app/src/admin/admin.css';
 ---
-<Page><AdminPage client:only="react" /></Page>
+
+<Page title="Purdue Hackers Jukebox — Admin">
+  <div id="admin-page" class="ph-ui dark adm-root">
+    <DitheredSoup fgColor="#897309" />
+    <div id="admin-root" class="adm-shell"></div>
+  </div>
+</Page>
+
+<script>
+  import { mountAdminPage } from '../../app/src/admin/client.ts';
+  const root = document.getElementById('admin-root');
+  if (root) mountAdminPage(root);
+</script>

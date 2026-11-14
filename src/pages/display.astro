@@ -1,5 +1,16 @@
 ---
 import Page from '../layouts/Page.astro';
-import { DisplayPage } from '../../app/src/display/DisplayPage.tsx';
+import '@fontsource/inconsolata/400.css';
+import '@fontsource/inconsolata/700.css';
+import '../../app/src/display/display.css';
 ---
-<Page><DisplayPage client:only="react" /></Page>
+
+<Page title="Purdue Hackers Jukebox">
+  <div id="display-root"></div>
+</Page>
+
+<script>
+  import { mountDisplayPage } from '../../app/src/display/client.ts';
+  const root = document.getElementById('display-root');
+  if (root) mountDisplayPage(root);
+</script>

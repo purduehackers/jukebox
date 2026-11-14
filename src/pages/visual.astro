@@ -1,5 +1,15 @@
 ---
 import Page from '../layouts/Page.astro';
-import { VisualPage } from '../../app/src/visual/VisualPage.tsx';
+import '@fontsource/inconsolata/400.css';
+import '../../app/src/visual/visual.css';
 ---
-<Page><VisualPage client:only="react" /></Page>
+
+<Page title="Jukebox Visual Lab">
+  <div id="visual-root"></div>
+</Page>
+
+<script>
+  import { mountVisualPage } from '../../app/src/visual/client.ts';
+  const root = document.getElementById('visual-root');
+  if (root) mountVisualPage(root);
+</script>

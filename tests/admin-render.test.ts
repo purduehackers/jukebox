@@ -1,30 +1,17 @@
-// Component tests without a browser dependency: Vite loads the real TSX views in SSR mode and
-// react-dom/server renders them from snapshots taken from the live service. Interaction and
-// layout are covered by scripts/verify-admin.py (real Firefox) — this covers the truthful states.
+// Component tests without a browser dependency: render the real pure-TS admin view builders
+// directly from snapshots taken from the live service. Interaction and layout are covered by
+// scripts/verify-admin.py (real Firefox) — this covers the truthful states.
 import assert from 'node:assert/strict';
-import { after, before, test } from 'node:test';
-import { createServer } from 'vite';
-import type { ViteDevServer } from 'vite';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { createElement } from 'react';
-import type { ComponentType } from 'react';
+import { test } from 'node:test';
+import * as rawViews from '../app/src/admin/views.ts';
 import type { Snapshot } from '../src/contract/types.ts';
 import { URLS } from './helpers.ts';
 import { ScriptedDisplay, organizer, startApp, startNight } from './admin-helpers.ts';
 
-// Loosely typed on purpose: the root tsconfig has no JSX; the app project type-checks the real components.
-type Views = Record<'AccessGate' | 'AddBar' | 'NowPlayingPanel' | 'TurnPanel' | 'RequestQueuePanel' | 'MasterQueuePanel' | 'AlertsBand' | 'NightPanel' | 'DevicesPanel' | 'ActivityPanel', ComponentType<any>>;
-type Actions = never;
-let vite: ViteDevServer;
-let views: Views;
-
-before(async () => {
-  vite = await createServer({ root: 'app', configFile: false, logLevel: 'silent', appType: 'custom', server: { middlewareMode: true, hmr: false, ws: false }, optimizeDeps: { noDiscovery: true, include: [] } });
-  views = (await vite.ssrLoadModule('/src/admin/views.tsx')) as Views;
-});
-after(async () => {
-  await vite.close();
-});
+type Views = Record<'AccessGate' | 'AddBar' | 'NowPlayingPanel' | 'TurnPanel' | 'RequestQueuePanel' | 'MasterQueuePanel' | 'AlertsBand' | 'NightPanel' | 'ActivityPanel', (props: any) => string>;
+type Actions = rawViews.Actions;
+const views = rawViews as unknown as Views;
+const createElement = (view: (props: any) => string, props: any) => view(props);
 
 const noop = () => { throw new Error('not called during render'); };
 const actions = new Proxy({}, { get: () => noop }) as Actions;
@@ -44,7 +31,7 @@ test('pending add renders a spinner and blocks both queue buttons until failure 
     assert.doesNotMatch(failed, /adm-spinner|role="status"/);
   }
 });
-const html = (node: ReturnType<typeof createElement>) => renderToStaticMarkup(node);
+const html = (markup: string) => markup;
 const text = (markup: string) => markup.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
 
 test('access gates: signed out, expired, and forbidden are distinct and actionable', () => {

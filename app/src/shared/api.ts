@@ -1,6 +1,5 @@
 // Browser client for the v1 contract. Owned by the integration owner; UI phases use it
 // rather than hand-rolling fetches so retries and stale-state rules stay consistent.
-import { useEffect, useState } from 'react';
 import type { CommandPayloads, CommandResponse, CommandType, Snapshot } from '../../../src/contract/types.ts';
 
 export type { Snapshot };
@@ -137,11 +136,4 @@ export function subscribeSnapshots(onSnapshot: (snapshot: Snapshot) => void, onE
     }
   })();
   return () => { clearInterval(poll); controller.abort(); };
-}
-
-export function useSnapshot(bearer?: string) {
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => subscribeSnapshots(setSnapshot, setError, bearer), [bearer]);
-  return { snapshot, error };
 }

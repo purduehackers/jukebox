@@ -3,7 +3,7 @@
 // AnalyserNode → destination chain proven in phase 1 and publishes the analyser it
 // is currently playing through (null while inactive). The display never creates its
 // own audio element, microphone input, or AudioContext for playback.
-import { useEffect, useState } from 'react';
+// Shared Web Audio AnalyserNode + gain state between the HTML5 audio player and visualizers.
 
 let current: AnalyserNode | null = null;
 const listeners = new Set<(analyser: AnalyserNode | null) => void>();
@@ -21,12 +21,6 @@ export function subscribeAnalyser(listener: (analyser: AnalyserNode | null) => v
   };
 }
 
-export function useAnalyser() {
-  const [analyser, setAnalyser] = useState<AnalyserNode | null>(current);
-  useEffect(() => subscribeAnalyser(setAnalyser), []);
-  return analyser;
-}
-
 // The transition envelope is separate from FFT power, so the visual closes with
 // the audible fade even when browser analysis happens before media volume.
 let visualGain = 1;
@@ -35,12 +29,8 @@ export function publishVisualGain(gain: number) {
   visualGain = Math.max(0, Math.min(1, gain));
   for (const listener of gainListeners) listener(visualGain);
 }
-export function useVisualGain() {
-  const [gain, setGain] = useState(visualGain);
-  useEffect(() => {
-    gainListeners.add(setGain);
-    setGain(visualGain);
-    return () => { gainListeners.delete(setGain); };
-  }, []);
-  return gain;
+export function subscribeVisualGain(listener: (gain: number) => void): () => void {
+  gainListeners.add(listener);
+  listener(visualGain);
+  return () => { gainListeners.delete(listener); };
 }

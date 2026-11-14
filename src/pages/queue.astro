@@ -1,5 +1,26 @@
 ---
 import Page from '../layouts/Page.astro';
-import { QueuePage } from '../../app/src/queue/QueuePage.tsx';
+import DitheredSoup from '../components/DitheredSoup.astro';
+import '../../app/src/shared/ph-ui.css';
+import '../../app/src/queue/queue.css';
 ---
-<Page><QueuePage client:only="react" /></Page>
+
+<Page title="Purdue Hackers Jukebox">
+  <main class="ph-ui dark q-page">
+    <DitheredSoup fgColor="#7e3cff" />
+    <div class="q-shell">
+      <header>
+        <h1 class="ph-headline text-6xl text-primary">Jukebox</h1>
+      </header>
+      <div id="q-stream-error" hidden></div>
+      <div id="q-body" class="q-list">
+        <p role="status">Connecting…</p>
+      </div>
+    </div>
+  </main>
+</Page>
+
+<script>
+  import { mountQueuePage } from '../../app/src/queue/client.ts';
+  mountQueuePage();
+</script>

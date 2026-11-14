@@ -1,12 +1,11 @@
 // Live admin state: SSE snapshots + a slow poll. The poll matters: player position heartbeats do not
 // bump the revision (so SSE stays quiet), and an open SSE stream keeps its connect-time role after
 // the session cookie expires. /api/v1/snapshot re-evaluates the cookie on every request.
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Snapshot } from '../../../src/contract/types.ts';
 import { sendCommand, subscribeSnapshots } from '../shared/api.ts';
+import { queueSignature, serverNowAt } from './derive.ts';
 import { CommandRunner, VolumeController } from './intents.ts';
 import type { Intent } from './intents.ts';
-import { queueSignature, serverNowAt } from './derive.ts';
 
 export const POLL_MS = 4000;
 
@@ -33,105 +32,154 @@ export interface Live {
   markOwn(): void;
 }
 
-export function useLive(): Live {
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [receivedAt, setReceivedAt] = useState(0);
-  const [access, setAccess] = useState<Access>({ state: 'loading' });
-  const [link, setLink] = useState<Link>('connecting');
-  const [linkError, setLinkError] = useState<string | null>(null);
-  const [externalChange, setExternalChange] = useState(false);
-  const wasAdmin = useRef(false);
-  const best = useRef<{ revision: number; serverTime: number } | null>(null);
-  const signature = useRef<string | null>(null);
-  const selfChangeUntil = useRef(0);
-  /** Role from the last poll. Only a poll re-evaluates the session cookie, so it outranks SSE frames. */
-  const polledRole = useRef<Snapshot['role'] | null>(null);
+export interface LiveHandle extends Live {
+  dispose(): void;
+}
 
-  function accept(next: Snapshot, source: 'poll' | 'sse') {
-    if (source === 'poll') polledRole.current = next.role;
-    else if (polledRole.current !== null && polledRole.current !== 'admin') return; // stale-identity stream frame
-    const seen = best.current;
-    if (seen && (next.revision < seen.revision || (next.revision === seen.revision && next.serverTime < seen.serverTime))) return;
-    best.current = { revision: next.revision, serverTime: next.serverTime };
+export function getServerNow(live: Pick<Live, 'snapshot' | 'receivedAt'>, localNow: number): number {
+  return live.snapshot ? serverNowAt(live.snapshot, live.receivedAt, localNow) : localNow;
+}
+
+export function createLiveAdmin(onChange: () => void): LiveHandle {
+  let snapshot: Snapshot | null = null;
+  let receivedAt = 0;
+  let access: Access = { state: 'loading' };
+  let link: Link = 'connecting';
+  let linkError: string | null = null;
+  let externalChange = false;
+
+  let disposed = false;
+  let wasAdmin = false;
+  let best: { revision: number; serverTime: number } | null = null;
+  let signature: string | null = null;
+  let selfChangeUntil = 0;
+  /** Role from the last poll. Only a poll re-evaluates the session cookie, so it outranks SSE frames. */
+  let polledRole: Snapshot['role'] | null = null;
+
+  const notify = () => {
+    if (!disposed) onChange();
+  };
+
+  function accept(next: Snapshot, source: 'poll' | 'sse'): boolean {
+    if (source === 'poll') polledRole = next.role;
+    else if (polledRole !== null && polledRole !== 'admin') return false; // stale-identity stream frame
+    if (
+      best &&
+      (next.revision < best.revision ||
+        (next.revision === best.revision && next.serverTime < best.serverTime))
+    ) {
+      return false;
+    }
+    best = { revision: next.revision, serverTime: next.serverTime };
     // The poll decides identity; a stale-admin SSE frame after expiry must not resurrect the console.
     if (next.role !== 'admin') {
-      setAccess((current) => {
-        if (next.role === 'attendee') return { state: 'forbidden', name: current.state === 'forbidden' ? current.name : 'this account' };
-        return { state: 'signed_out', expired: wasAdmin.current };
-      });
-      setSnapshot(null);
-      return;
+      if (next.role === 'attendee') {
+        access = { state: 'forbidden', name: access.state === 'forbidden' ? access.name : 'this account' };
+      } else {
+        access = { state: 'signed_out', expired: wasAdmin };
+      }
+      snapshot = null;
+      return true;
     }
-    wasAdmin.current = true;
-    setAccess((current) => (current.state === 'admin' ? current : { state: 'admin', name: current.state === 'forbidden' ? current.name : 'organizer' }));
+    wasAdmin = true;
+    if (access.state !== 'admin') {
+      access = { state: 'admin', name: access.state === 'forbidden' ? access.name : 'organizer' };
+    }
     const sig = queueSignature(next);
-    if (signature.current !== null && sig !== signature.current && Date.now() > selfChangeUntil.current) setExternalChange(true);
-    signature.current = sig;
-    setSnapshot(next);
-    setReceivedAt(Date.now());
+    if (signature !== null && sig !== signature && Date.now() > selfChangeUntil) {
+      externalChange = true;
+    }
+    signature = sig;
+    snapshot = next;
+    receivedAt = Date.now();
+    return true;
   }
 
   async function poll() {
     try {
       const res = await fetch('/api/v1/snapshot', { credentials: 'same-origin', cache: 'no-store' });
+      if (disposed) return;
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const next = (await res.json()) as Snapshot;
-      if (next.role !== 'admin') best.current = null; // a role change is not "older" than the previous frame
+      if (disposed) return;
+      if (next.role !== 'admin') best = null; // a role change is not "older" than the previous frame
       accept(next, 'poll');
       if (next.role !== 'public') {
-        const me = (await (await fetch('/auth/me', { credentials: 'same-origin', cache: 'no-store' })).json()) as { identity: { displayName: string } | null };
+        const me = (await (
+          await fetch('/auth/me', { credentials: 'same-origin', cache: 'no-store' })
+        ).json()) as { identity: { displayName: string } | null };
+        if (disposed) return;
         const name = me.identity?.displayName ?? 'organizer';
-        setAccess((current) => (current.state === 'admin' || current.state === 'forbidden' ? { ...current, name } : current));
+        if (access.state === 'admin' || access.state === 'forbidden') {
+          access = { ...access, name };
+        }
       }
-      setLink('live');
-      setLinkError(null);
+      link = 'live';
+      linkError = null;
+      notify();
     } catch (error) {
-      setLink('reconnecting');
-      setLinkError((error as Error).message);
+      if (disposed) return;
+      link = 'reconnecting';
+      linkError = (error as Error).message;
+      notify();
     }
   }
 
-  const pollRef = useRef(poll);
-  pollRef.current = poll;
-
-  useEffect(() => {
-    void pollRef.current();
-    const stop = subscribeSnapshots((next) => accept(next, 'sse'), (message) => {
+  void poll();
+  const stopSnapshots = subscribeSnapshots(
+    (next) => {
+      if (accept(next, 'sse')) notify();
+    },
+    (message) => {
       if (message) {
-        setLink('reconnecting');
-        setLinkError(message);
+        link = 'reconnecting';
+        linkError = message;
+        notify();
       }
-    });
-    const timer = setInterval(() => void pollRef.current(), POLL_MS);
-    const visible = () => document.visibilityState === 'visible' && void pollRef.current();
-    document.addEventListener('visibilitychange', visible);
-    return () => {
-      stop();
+    },
+  );
+  const timer = setInterval(() => void poll(), POLL_MS);
+  const visible = () => {
+    if (document.visibilityState === 'visible') void poll();
+  };
+  document.addEventListener('visibilitychange', visible);
+
+  return {
+    get snapshot() {
+      return snapshot;
+    },
+    get receivedAt() {
+      return receivedAt;
+    },
+    get access() {
+      return access;
+    },
+    get link() {
+      return link;
+    },
+    get linkError() {
+      return linkError;
+    },
+    get externalChange() {
+      return externalChange;
+    },
+    ackExternal() {
+      externalChange = false;
+      notify();
+    },
+    recheck() {
+      void poll();
+    },
+    markOwn() {
+      selfChangeUntil = Date.now() + 3000;
+    },
+    dispose() {
+      disposed = true;
+      stopSnapshots();
       clearInterval(timer);
       document.removeEventListener('visibilitychange', visible);
-    };
-  }, []);
-
-  return useMemo(() => ({
-    snapshot, receivedAt, access, link, linkError, externalChange,
-    ackExternal: () => setExternalChange(false),
-    recheck: () => void pollRef.current(),
-    markOwn: () => { selfChangeUntil.current = Date.now() + 3000; },
-  }), [snapshot, receivedAt, access, link, linkError, externalChange]);
-}
-
-/** Re-render every `ms` so countdowns advance between snapshots. */
-export function useTicker(ms = 1000) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), ms);
-    return () => clearInterval(timer);
-  }, [ms]);
-  return now;
-}
-
-export function useServerNow(live: Live, localNow: number) {
-  return live.snapshot ? serverNowAt(live.snapshot, live.receivedAt, localNow) : localNow;
+    },
+  };
 }
 
 export interface Controls {
@@ -140,19 +188,36 @@ export interface Controls {
   intents: readonly Intent[];
 }
 
+export interface ControlsHandle extends Controls {
+  dispose(): void;
+}
+
 /** One runner per page; commands go through the shared client (stable ID, same-ID retries). */
-export function useControls(live: Pick<Live, 'recheck' | 'markOwn'>): Controls {
-  const liveRef = useRef(live);
-  liveRef.current = live;
-  const runner = useMemo(() => new CommandRunner(async (type, payload, options) => {
-    liveRef.current.markOwn();
+export function createAdminControls(
+  live: Pick<Live, 'recheck' | 'markOwn'>,
+  onChange: () => void,
+): ControlsHandle {
+  const runner = new CommandRunner(async (type, payload, options) => {
+    live.markOwn();
     const response = await sendCommand(type, payload, options);
-    liveRef.current.markOwn();
-    if (!response.ok && (response.error.code === 'UNAUTHENTICATED' || response.error.code === 'FORBIDDEN')) liveRef.current.recheck();
+    live.markOwn();
+    if (!response.ok && (response.error.code === 'UNAUTHENTICATED' || response.error.code === 'FORBIDDEN')) {
+      live.recheck();
+    }
     return response;
-  }), []);
-  const volume = useMemo(() => new VolumeController(runner), [runner]);
-  useEffect(() => () => volume.dispose(), [volume]);
-  const intents = useSyncExternalStore(runner.subscribe, runner.getSnapshot);
-  return { runner, volume, intents };
+  });
+  const volume = new VolumeController(runner);
+  const unsubscribe = runner.subscribe(() => onChange());
+
+  return {
+    runner,
+    volume,
+    get intents() {
+      return runner.getSnapshot();
+    },
+    dispose() {
+      unsubscribe();
+      volume.dispose();
+    },
+  };
 }
