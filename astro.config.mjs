@@ -1,6 +1,7 @@
 import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
 import react from '@astrojs/react';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   output: 'server',
@@ -18,5 +19,5 @@ export default defineConfig({
   }],
   server: { host: '127.0.0.1', port: 5173 },
   // Private .env.local is loaded explicitly by the supervisor, never by Vite.
-  vite: { envDir: './.local/astro-env', ssr: { external: ['bun:sqlite'] } },
+  vite: { plugins: [tailwindcss()], envDir: './.local/astro-env', ssr: { external: ['bun:sqlite'] } },
 });
