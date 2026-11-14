@@ -4,6 +4,8 @@
 metadata and `Cache-Control: no-store`. It is available without a PH ID session
 for scraping. It exports only aggregate counts, without identities or song URLs.
 
+- `jukebox_playing`: server playback intent, `1` for playing and `0` for paused.
+  This reflects the commanded state, not confirmation of audible browser output.
 - `jukebox_queue_length{queue="request|master"}`: waiting entries, including those
   preparing. Requests count only preparing/ready entries in the open night.
   Masters count non-removed preparing/ready entries, excluding the current track
@@ -14,7 +16,7 @@ for scraping. It exports only aggregate counts, without identities or song URLs.
   do not increment it; rejected submissions do not count. Removal, failure, refund
   and ending a night do not decrement it.
 
-Both metrics read retained authoritative SQLite entries in one query; no migration
+Queue metrics read retained authoritative SQLite entries in one query; no migration
 or process-local counter is needed. Counts survive service restarts. Restoring an
 older database can reset counters; future entry-pruning work must preserve totals.
 All supported queue/source combinations are emitted even when zero.

@@ -18,7 +18,7 @@ test('public metrics exposition has bounded labels, zero series and no private d
     assert.ok(body.endsWith('\n'));
     assert.match(body, /# TYPE jukebox_queue_length gauge/);
     assert.match(body, /# TYPE jukebox_songs_submitted_total counter/);
-    assert.equal(body.split('\n').filter(line => line.startsWith('jukebox_')).length, 10);
+    assert.equal(body.split('\n').filter(line => line.startsWith('jukebox_')).length, 11);
     assert.match(body, /source="apple_music"} 0/);
     assert.doesNotMatch(body, /username|requester|title|https:/);
   } finally { transport.close(); h.svc.close(); }
@@ -61,5 +61,24 @@ test('waiting master gauge excludes current and suspended playback; original pro
     assert.match(result, /jukebox_queue_length\{queue="master"} 1/);
     assert.match(result, /jukebox_queue_length\{queue="request"} 0/);
     assert.match(result, /jukebox_songs_submitted_total\{queue="request",source="spotify"} 1/);
+  } finally { await h.svc.reconcile(); h.svc.close(); }
+});
+
+
+test('playing gauge follows server play/pause intent and night close', async () => {
+  const h = harness();
+  const check = async (value: number) => {
+    assert.match(await metricsResponse(h.svc.db).text(), new RegExp(`^jukebox_playing ${value}$`, 'm'));
+  };
+  try {
+    await check(0);
+    await h.startNight();
+    await check(1);
+    await h.ok(h.admin, 'playback.pause', {});
+    await check(0);
+    await h.ok(h.admin, 'playback.play', {});
+    await check(1);
+    await h.ok(h.admin, 'night.close', {});
+    await check(0);
   } finally { await h.svc.reconcile(); h.svc.close(); }
 });

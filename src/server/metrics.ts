@@ -2,7 +2,7 @@ import type { Database } from 'bun:sqlite';
 
 const sources = ['youtube', 'spotify', 'apple_music', 'fixture'] as const;
 
-/** Read retained admissions and live queue state in one SQLite snapshot. No mutations. */
+/** Read retained admissions and live queue/playback state. No mutations. */
 export function metricsResponse(db: Database): Response {
   const rows = db.prepare(`
     select 'master' as queue, provider as source, count(*) as submitted,
@@ -32,6 +32,10 @@ export function metricsResponse(db: Database): Response {
       lines.push(`jukebox_songs_submitted_total{queue="${queue}",source="${source}"} ${count}`);
     }
   }
+  const playback = db.prepare("select case when intent = 'playing' then 1 else 0 end as playing from playback where id = 1").get() as { playing: number };
+  lines.push('# HELP jukebox_playing Server playback intent: 1 playing, 0 paused; does not confirm audible output.',
+    '# TYPE jukebox_playing gauge',
+    `jukebox_playing ${playback.playing}`);
   return new Response(lines.join('\n') + '\n', { headers: {
     'content-type': 'text/plain; version=0.0.4; charset=utf-8',
     'cache-control': 'no-store',
