@@ -3,7 +3,9 @@
 // scripts/verify-admin.py (real Firefox) — this covers the truthful states.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import * as rawViews from '../app/src/admin/views.ts';
+import { createElement as reactCreateElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import * as rawViews from '../app/src/admin/views.tsx';
 import type { Snapshot } from '../src/contract/types.ts';
 import { URLS } from './helpers.ts';
 import { ScriptedDisplay, organizer, startApp, startNight } from './admin-helpers.ts';
@@ -11,7 +13,7 @@ import { ScriptedDisplay, organizer, startApp, startNight } from './admin-helper
 type Views = Record<'AccessGate' | 'AddBar' | 'NowPlayingPanel' | 'TurnPanel' | 'RequestQueuePanel' | 'MasterQueuePanel' | 'AlertsBand' | 'NightPanel' | 'ActivityPanel', (props: any) => string>;
 type Actions = rawViews.Actions;
 const views = rawViews as unknown as Views;
-const createElement = (view: (props: any) => string, props: any) => view(props);
+const createElement = (view: (props: any) => unknown, props: any) => renderToStaticMarkup(reactCreateElement(view as never, props));
 
 const noop = () => { throw new Error('not called during render'); };
 const actions = new Proxy({}, { get: () => noop }) as Actions;

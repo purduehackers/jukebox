@@ -9,8 +9,9 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noUncheckedIndexedAccess": true,
+    "jsx": "react-jsx",
     "types": ["vite/client"],
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "../src/contract/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "../src/contract/**/*.ts"]
 }

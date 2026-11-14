@@ -2,14 +2,16 @@
 // plus the mode-aware view-models shared with /display and /queue. Interaction: scripts/verify-admin.py.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import * as rawViews from '../app/src/admin/views.ts';
+import { createElement as reactCreateElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import * as rawViews from '../app/src/admin/views.tsx';
 import { describeTurn, explainError } from '../app/src/admin/derive.ts';
 import { displayModel } from '../app/src/display/model.ts';
 import { describeEstimate, estimateTurn } from '../app/src/queue/model.ts';
 import { MIN, URLS, harness, submit } from './helpers.ts';
 
-const views = rawViews as unknown as Record<'QueueControls' | 'RequestQueuePanel' | 'NowPlayingPanel' | 'TurnPanel', (props: any) => string>;
-const createElement = (view: (props: any) => string, props: any) => view(props);
+const views = rawViews as unknown as Record<'QueueControls' | 'RequestQueuePanel' | 'NowPlayingPanel' | 'TurnPanel', (props: any) => unknown>;
+const createElement = (view: (props: any) => unknown, props: any) => renderToStaticMarkup(reactCreateElement(view as never, props));
 
 const noop = () => { throw new Error('not called during render'); };
 const actions = new Proxy({}, { get: () => noop });
