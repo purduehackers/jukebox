@@ -14,14 +14,6 @@ See the [operator guide](docs/jukebox/DEPLOYMENT.md),
 [migration record](docs/jukebox/ASTRO-BUN-MIGRATION.md) and
 [current handoff](docs/jukebox/NEXT-CHAT.md).
 
-Current state (2026-11-14): accepted links are YouTube (the only audio source) plus
-Spotify, Apple Music and Deezer track links (metadata-only, matched to YouTube).
-Link validation is ID-only — share/tracking parameters such as YouTube Music's
-`&drli=1` are discarded, not rejected. Admins can disable the per-person request
-quota (`quota.set`, schema migration 7), and the display's request QR is a static
-branded image (`public/qr.png`) for the live site while the printed URL still
-follows the instance origin.
-
 ## Local setup
 
 Install Bun 1.4.4+, uv, Python 3.11–3.14, FFmpeg/ffprobe and Firefox.
