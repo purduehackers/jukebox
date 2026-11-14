@@ -40,6 +40,7 @@ export function AdminPage() {
     removeMaster: (entryId, title) => runner.run(`Remove “${title}” from master`, 'master.remove', { entryId }),
     moveMaster: (entryId, afterEntryId, title) => runner.run(`Move “${title}”`, 'master.move', { entryId, afterEntryId }),
     setMode: (mode) => runner.run(`Play from: ${{ auto: 'Auto', master: 'Master only', requests: 'Requests only' }[mode]}`, 'queue.mode', { mode }),
+    setTimerPaused: (paused) => runner.run(paused ? 'Pause request timer' : 'Resume request timer', 'queue.timer', { paused }),
     setInterval: (periodMs) => runner.run(periodMs === null ? 'Use the default request interval' : `Request every ${periodMs / 60_000} min`, 'queue.interval', { periodMs }),
     playNow: (entryId, title) => runner.run(`Play “${title}” now`, 'request.playNow', { entryId }),
     removeRequest: (entryId, title) => runner.run(`Remove request “${title}”`, 'request.remove', { entryId }),

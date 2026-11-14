@@ -34,6 +34,7 @@ export interface Actions {
   removeMaster(entryId: string, title: string): Done;
   moveMaster(entryId: string, afterEntryId: string | null, title: string): Done;
   setMode(mode: QueueMode): Done;
+  setTimerPaused?(paused: boolean): Done;
   setInterval(periodMs: number | null): Done;
   playNow(entryId: string, title: string): Done;
   removeRequest(entryId: string, title: string): Done;
@@ -407,8 +408,8 @@ export function QueueControls({ snapshot, serverNow, actions, intents = [] }: { 
   useEffect(() => setDraft(String(currentMinutes)), [currentMinutes]);
   const minutes = Number(draft);
   const valid = draft.trim() !== '' && Number.isInteger(minutes) && minutes >= minMinutes && minutes <= maxMinutes;
-  const elapsedMs = mode === 'auto' && schedule.phase === 'master' && schedule.periodStartedAt !== null ? serverNow - schedule.periodStartedAt : null;
-  const alreadyElapsed = valid && elapsedMs !== null && elapsedMs >= minutes * 60_000;
+  const elapsedMs = mode === 'auto' && schedule.phase === 'master' && schedule.periodStartedAt !== null ? (schedule.periodPausedAt ?? serverNow) - schedule.periodStartedAt : null;
+  const alreadyElapsed = schedule.periodPausedAt == null && valid && elapsedMs !== null && elapsedMs >= minutes * 60_000;
 
   return (
     <div className="adm-qc" id="adm-queue-control">
@@ -428,6 +429,7 @@ export function QueueControls({ snapshot, serverNow, actions, intents = [] }: { 
             );
           })}
         </div>
+        {mode === 'auto' && schedule.phase === 'master' && schedule.periodStartedAt !== null && <Button variant="outline" onClick={() => void actions.setTimerPaused?.(schedule.periodPausedAt == null)}>{schedule.periodPausedAt == null ? 'Pause request timer' : 'Resume request timer'}</Button>}
         <form className="adm-interval" onSubmit={(e) => { e.preventDefault(); if (valid) void actions.setInterval(minutes * 60_000); }}>
           <Field label="Request every" htmlFor="adm-interval">
             <div className="adm-interval-row">

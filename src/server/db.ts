@@ -136,6 +136,7 @@ export const MIGRATIONS: string[] = [
   `alter table playback add column mode text not null default 'auto' check(mode in ('auto','master','requests'));
    alter table playback add column period_ms integer;`,
   `create table banned_usernames(username text primary key, created_at integer not null);`,
+  `alter table playback add column period_paused_at integer;`,
 ];
 
 export function openDatabase(path: string): Database {

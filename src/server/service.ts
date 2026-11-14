@@ -69,7 +69,7 @@ interface PlaybackRow {
   master_cursor: string | null; master_position: number; suspended: string | null; epoch: number; load_id: number;
   start_position: number; seek_seq: number; seek_epoch: number; volume: number; desired_at: number; generation: number;
   lease_device: string | null; lease_expires: number; observed: string | null; acked_epoch: number | null;
-  unconfirmed_noted: number; no_master: number; autostart: number; mode: QueueMode; period_ms: number | null;
+  unconfirmed_noted: number; no_master: number; autostart: number; mode: QueueMode; period_ms: number | null; period_paused_at: number | null;
 }
 interface Suspended { itemId: string; positionSec: number; loadId: number }
 interface NightRow { id: string; status: 'open' | 'closed'; opened_at: number; closed_at: number | null }
@@ -340,6 +340,7 @@ export class JukeboxService {
       case 'playback.seek': return this.seek(tx, p.entryId as string, p.positionSec as number);
       case 'playback.skip': return this.skip(tx, p.entryId as string);
       case 'queue.mode': return this.setMode(tx, p.mode as QueueMode);
+      case 'queue.timer': return this.setTimerPaused(tx, p.paused as boolean);
       case 'queue.interval': return this.setInterval(tx, p.periodMs as number | null);
       case 'request.playNow': return this.playNow(tx, p.entryId as string);
       case 'playback.volume': {
@@ -492,6 +493,7 @@ export class JukeboxService {
     if (tx.pb.mode === 'requests' && this.openNight()) {
       // Requests only: chain the next ready request, else wait silently. The suspended master stays pinned.
       tx.pb.period_started_at = null;
+      tx.pb.period_paused_at = null;
       const next = this.nextReadyRequest();
       if (next) this.startRequest(tx, next, suspended);
       else this.enterRequestsIdle(tx, suspended);
@@ -502,6 +504,7 @@ export class JukeboxService {
     tx.pb.suspended = null;
     // Only `auto` runs the request interval.
     tx.pb.period_started_at = resetPeriod && tx.pb.mode === 'auto' ? tx.now : null;
+    tx.pb.period_paused_at = null;
     const resume = this.master(suspended?.itemId ?? null);
     if (suspended && this.playableMaster(resume)) {
       tx.pb.current_id = resume.id;
@@ -521,7 +524,7 @@ export class JukeboxService {
   }
 
   private periodDue(tx: Tx) {
-    return tx.pb.mode === 'auto' && tx.pb.phase === 'master' && tx.pb.period_started_at !== null
+    return tx.pb.period_paused_at === null && tx.pb.mode === 'auto' && tx.pb.phase === 'master' && tx.pb.period_started_at !== null
       && tx.now - tx.pb.period_started_at >= this.periodOf(tx.pb);
   }
 
@@ -551,6 +554,7 @@ export class JukeboxService {
         pb.intent = 'playing';
         pb.autostart = 0;
         pb.period_started_at = tx.now;
+        pb.period_paused_at = null;
       }
       // Clear the exhausted-master alert once items become playable; stay paused until an organizer plays.
       if (pb.no_master && this.nextMaster(pb.master_cursor, true)) {
@@ -569,6 +573,7 @@ export class JukeboxService {
     if (!request) {
       // Empty turn: reset the elapsed period, even while deliberately paused; never touch audio.
       pb.period_started_at = tx.now;
+      pb.period_paused_at = null;
       this.emit(tx, 'turn.empty', {});
       return;
     }
@@ -617,6 +622,7 @@ export class JukeboxService {
     if (tx.pb.current_id === null) this.selectMaster(tx, true);
     tx.pb.autostart = tx.pb.current_id === null ? 1 : 0;
     tx.pb.period_started_at = tx.pb.current_id === null ? null : tx.now;
+    tx.pb.period_paused_at = null;
     this.bumpEpoch(tx);
     this.emit(tx, 'night.opened', { nightId: id });
     return { nightId: id };
@@ -634,6 +640,7 @@ export class JukeboxService {
       .run(tx.now, night.id);
     this.db.prepare("update nights set status = 'closed', closed_at = ? where id = ?").run(tx.now, night.id);
     tx.pb.period_started_at = null;
+    tx.pb.period_paused_at = null;
     this.emit(tx, 'night.closed', { nightId: night.id });
     return {};
   }
@@ -765,6 +772,7 @@ export class JukeboxService {
     this.emit(tx, 'queue.mode', { mode, previous });
     if (mode === 'requests') {
       pb.period_started_at = null;
+      pb.period_paused_at = null;
       if (pb.phase === 'master') {
         const suspended = this.suspendCurrent(tx);
         const next = this.nextReadyRequest();
@@ -776,6 +784,21 @@ export class JukeboxService {
     if (previous === 'requests' && pb.phase === 'request' && pb.current_id === null) this.finishTurn(tx, true); // resume the suspended master
     // Leaving `master` starts a fresh interval now (no catch-up turn); non-auto modes run no interval.
     pb.period_started_at = mode === 'auto' && pb.phase === 'master' && pb.current_id !== null ? tx.now : null;
+    pb.period_paused_at = null;
+    return {};
+  }
+
+  private setTimerPaused(tx: Tx, paused: boolean) {
+    const pb = tx.pb;
+    if (pb.mode !== 'auto' || pb.phase !== 'master' || pb.period_started_at === null) {
+      throw new CommandError('BAD_REQUEST', 'The request timer is not running');
+    }
+    if (paused && pb.period_paused_at === null) pb.period_paused_at = tx.now;
+    else if (!paused && pb.period_paused_at !== null) {
+      pb.period_started_at += tx.now - pb.period_paused_at;
+      pb.period_paused_at = null;
+    } else return {};
+    this.emit(tx, 'queue.timer', { paused });
     return {};
   }
 
@@ -1229,7 +1252,7 @@ export class JukeboxService {
       ? suspendedRow
       : this.nextMaster(pb.master_cursor, pb.phase === 'master' && pb.current_id === null);
     const ready = !!this.nextReadyRequest();
-    const due = pb.mode === 'auto' && pb.phase === 'master' && pb.period_started_at !== null && now - pb.period_started_at >= this.periodOf(pb) && ready;
+    const due = pb.period_paused_at === null && pb.mode === 'auto' && pb.phase === 'master' && pb.period_started_at !== null && now - pb.period_started_at >= this.periodOf(pb) && ready;
     const confirmation = night?.status !== 'open' || pb.current_id === null ? 'none'
       : (pb.acked_epoch ?? -1) >= pb.epoch ? 'confirmed'
       : now - pb.desired_at >= this.policy.ackTimeoutMs ? 'unconfirmed' : 'requested';
@@ -1257,6 +1280,7 @@ export class JukeboxService {
         phase: pb.phase,
         intent: pb.intent,
         periodStartedAt: pb.period_started_at,
+        periodPausedAt: pb.period_paused_at,
         periodMs: this.periodOf(pb),
         periodDefaultMs: this.policy.periodMs,
         periodMinMs: this.policy.periodMinMs,

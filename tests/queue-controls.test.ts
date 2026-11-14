@@ -656,3 +656,25 @@ test('a v3 database upgrades in place to the current schema keeping queue, quota
     svc.close();
   }
 });
+
+test('request timer pause freezes elapsed time across restart without pausing music', async () => {
+  const h = harness();
+  try {
+    const player = await h.startNight([URLS.mix]);
+    await h.ok(h.alice, 'request.submit', { url: URLS.r1 });
+    await h.svc.reconcile();
+    await h.advance(120000, player);
+    await h.fails('FORBIDDEN', h.alice, 'queue.timer', { paused: true });
+    await h.ok(h.admin, 'queue.timer', { paused: true });
+    const frozen = h.snap().schedule.periodPausedAt!;
+    const start = h.snap().schedule.periodStartedAt!;
+    assert.equal(h.snap().schedule.intent, 'playing');
+    h.restart();
+    h.clock.advance(1200000); h.svc.tick();
+    assert.equal(h.snap().schedule.phase, 'master');
+    assert.equal(h.snap().schedule.periodPausedAt, frozen);
+    await h.ok(h.admin, 'queue.timer', { paused: false });
+    assert.equal(h.clock.now() - h.snap().schedule.periodStartedAt!, frozen - start);
+    assert.equal(h.snap().schedule.periodPausedAt, null);
+  } finally { h.svc.close(); }
+});

@@ -810,3 +810,14 @@ Counters derive from retained admissions and survive restarts; gauge semantics
 and scraping are documented in METRICS.md. Additional metrics remain proposals
 for user approval. The user requested keeping tests but not running further tests
 for this change.
+
+## Explicit request-timer pause (2026-11-13)
+
+User requested an admin button to pause the request countdown independently of
+music. `queue.timer { paused }` freezes elapsed timer time and resume shifts the
+interval anchor to preserve time remaining. This explicit timer action is distinct
+from pausing audio, which still does not stop elapsed time. Timer pause is durable
+(schema migration 6), shared across clients, and available in Auto mode during a
+master interval. Changing queue modes, ending a night or completing a manually
+started request resets the timer pause along with the interval. Queued requests
+remain queued. Attendee estimates do not promise a time while the timer is paused.

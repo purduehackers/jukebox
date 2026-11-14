@@ -188,6 +188,8 @@ export interface Snapshot {
     intent: Intent;
     /** Null until master playback starts in this night. */
     periodStartedAt: number | null;
+    /** Explicit organizer timer pause, independent of audio playback. */
+    periodPausedAt?: number | null;
     /** Effective request interval (admin override, else the default). */
     periodMs: number;
     periodDefaultMs: number;
@@ -285,6 +287,7 @@ export interface CommandPayloads {
   // Admin: queue control. `queue.mode` is an absolute, idempotent set; `periodMs: null` restores the default interval.
   'queue.mode': { mode: QueueMode };
   'queue.interval': { periodMs: number | null };
+  'queue.timer': { paused: boolean };
   /** Start this ready request now, suspending the current master item at its position. */
   'request.playNow': { entryId: string };
   // Admin: devices
