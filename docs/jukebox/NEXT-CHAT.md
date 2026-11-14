@@ -1,9 +1,13 @@
 # Start the next chat here
 
-Updated 2026-11-09. The consolidated `main` baseline includes the Astro/Bun/uv
+Updated 2026-11-14. The consolidated `main` baseline includes the Astro/Bun/uv
 rewrite and all subsequent local UI, visualizer, transition, ban and action-log work.
-Read [migration record](ASTRO-BUN-MIGRATION.md) and [deployment guide](DEPLOYMENT.md)
-for the current runtime. Start new work from freshly fetched `origin/main`.
+The `astro-migration` branch currently carries the newest commits ahead of `main`
+(Tailwind v4 via the official plugin, official PH `.astro` components) plus the
+uncommitted 2026-11-14 work summarized at the bottom of this file. Read
+[migration record](ASTRO-BUN-MIGRATION.md) and [deployment guide](DEPLOYMENT.md)
+for the current runtime. Start new work from freshly fetched `origin/main` (or the
+newer `astro-migration` head when continuing that work).
 Do not restart completed phases. Read AGENTS.md, CURRENT-STATUS.md and DECISIONS.md.
 
 ## Current behavior and completed work
@@ -97,3 +101,46 @@ CPU-only comparisons at 640x400 measured 7–9x faster sampled nonzero frames;
 measurements. The visualizer and now-playing border now use the dashboard
 clock's live Lightning Time OKLCH gradient, superseding solid purple ink.
 Changes are also applied to the existing local preview checkout.
+
+## Latest work (2026-11-14, `astro-migration`)
+
+Committed on `astro-migration` ahead of `main`: Tailwind v4 loads through the
+official `@tailwindcss/vite` plugin (`f85f56c`), and pages use the official PH
+`.astro` components in `src/components/ph/` with React islands only for the
+interactive admin/queue controls, display player and visualizer (`4b5f060`).
+
+Further 2026-11-14 changes in the working tree:
+
+- The authority HTTP surface is injected in `astro.config.mjs` (the
+  `jukebox-authority` integration's `astro:config:setup`) as
+  `/auth/[...slug]`, `/api/v1/[...slug]`, `/media/[assetId]`, `/metrics`,
+  `/healthz` and `/readyz`, handled by `src/server/routes/{auth,api,media,probes,readyz}.ts`
+  delegating to `transport.handle`; the one-line `src/pages` shims are deleted.
+  Middleware hands the per-process runtime to routes via `Astro.locals.runtime`
+  (typed in `src/env.d.ts`). Dev restarts settle the previous runtime before
+  creating a new one and install a SIGTERM/SIGINT shutdown backstop; Vite
+  pre-bundles react/react-dom and dedupes React because `@purduehackers/time`
+  ships a nested React 18.
+- Link validation is ID-only in both parsers (`src/core/sources.ts`,
+  `jukebox/media.py`): only the provider host/path shape and the content ID are
+  checked; every other query parameter and the fragment are discarded because the
+  canonical URL is rebuilt from the ID alone. YouTube Music `&drli=1` share links
+  now parse. Credential/port/lookalike/control-character/invalid-ID/playlist
+  rejections are unchanged; nothing unvalidated is ever forwarded.
+- Deezer is a link-only provider like Spotify/Apple: `deezer.com` track URLs
+  canonicalize to `https://www.deezer.com/track/<id>`; metadata comes from the
+  public no-auth `api.deezer.com/track/<id>` endpoint; playback stays YouTube-only.
+- Admin request-quota toggle `quota.set {enabled}` (admin-only, idempotent)
+  persists in the `playback` singleton (`quota_enabled`, migration 7 — schema is
+  now 7) and the snapshot carries `quotaEnabled`; `/queue` hides the allowance
+  line while off, and submissions still count so re-enabling blocks immediately.
+- The display request QR is a static branded image (`public/qr.png`, served at
+  `/qr.png`) encoding `https://jukebox.purduehackers.com/queue`;
+  `qrcode-generator` is removed. The printed link beside it still follows the
+  configured/current origin, and `scripts/verify-display.py` now expects the live
+  URL inside the QR image.
+
+Verification rerun 2026-11-14: 23 Python tests, 220 Bun tests across 33 files
+(including the policy suite), both TypeScript checks plus Astro check (0 errors)
+and the production build all passed. No browser/HDMI checks were rerun; the
+earlier Firefox evidence above stands as recorded.

@@ -16,9 +16,9 @@ test('normalization removes diacritics and punctuation; title base drops feat an
   assert.deepEqual(detectMarkers('Song (8D) - Nightcore'), ['nightcore', '8d']);
 });
 
-test('clean Spotify and Apple catalog links match the same audio-only YouTube upload', async () => {
+test('clean Spotify, Apple, and Deezer catalog links match the same audio-only YouTube upload', async () => {
   const source = matching(new FakeSource().add('https://youtu.be/GFOtrack001', { title: 'A New Kind Of Love Pt 1', artist: 'Ghost Funk Orchestra', durationSec: 212, recordingKey: 'same-recording' }));
-  for (const url of [MATCHING_FIXTURE_URLS.spotify, MATCHING_FIXTURE_URLS.apple]) {
+  for (const url of [MATCHING_FIXTURE_URLS.spotify, MATCHING_FIXTURE_URLS.apple, MATCHING_FIXTURE_URLS.deezer]) {
     const result = await source.resolve(source.canonicalize(url), 'request');
     assert.equal(result.title, 'A New Kind Of Love (pt. 1)');
     assert.equal(result.ref.canonicalUrl, canonicalizeUrl(url).canonicalUrl);

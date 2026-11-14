@@ -12,13 +12,51 @@
     "https://www.youtube.com/watch?v=yL-4oSQwzJI&ab_channel=%E6%97%A5%E6%9C%AC%E8%AA%9E%E9%9F%B3%E6%A5%BD%E2%98%85",
     "https://youtu.be/yL-4oSQwzJI?is=aymtwS9tvqxhsx7Z"
   ],
+  "acceptedPairs": [
+    [
+      "https://music.youtube.com/watch?v=Ye9hGotPPVk&si=2fKUexK1GDMsymrk&drli=1",
+      "https://www.youtube.com/watch?v=Ye9hGotPPVk"
+    ],
+    [
+      "https://music.youtube.com/watch?v=yL-4oSQwzJI&drli=1",
+      "https://www.youtube.com/watch?v=yL-4oSQwzJI"
+    ],
+    [
+      "https://youtube.com/watch?v=yL-4oSQwzJI&v=aaaaaaaaaaa",
+      "https://www.youtube.com/watch?v=yL-4oSQwzJI"
+    ],
+    [
+      "https://youtube.com/watch?v=yL-4oSQwzJI&si=a&si=b",
+      "https://www.youtube.com/watch?v=yL-4oSQwzJI"
+    ],
+    [
+      "https://youtube.com/watch?v=yL-4oSQwzJI&redirect=https://127.0.0.1/",
+      "https://www.youtube.com/watch?v=yL-4oSQwzJI"
+    ],
+    [
+      "https://youtube.com/watch?v=yL-4oSQwzJI&list=x%26v%3Daaaaaaaaaaa",
+      "https://www.youtube.com/watch?v=yL-4oSQwzJI"
+    ],
+    [
+      "https://youtu.be/yL-4oSQwzJI?si=$(touch%20/tmp/no)",
+      "https://www.youtube.com/watch?v=yL-4oSQwzJI"
+    ],
+    [
+      "https://youtube.com/watch?v=yL-4oSQwzJI#redirect=https://evil.test",
+      "https://www.youtube.com/watch?v=yL-4oSQwzJI"
+    ],
+    [
+      "https://www.youtube.com/watch?v=yL-4oSQwzJI&ab_channel=%E6%97%A5%00%E6%9C%AC",
+      "https://www.youtube.com/watch?v=yL-4oSQwzJI"
+    ],
+    [
+      "https://www.youtube.com/watch?v=yL-4oSQwzJI&ab_channel=%E6%97%A5%E2%80%8B%E6%9C%AC",
+      "https://www.youtube.com/watch?v=yL-4oSQwzJI"
+    ]
+  ],
   "rejected": [
     "https://youtube.com/playlist?list=RDyL-4oSQwzJI",
     "https://youtube.com/watch?list=RDyL-4oSQwzJI",
-    "https://youtube.com/watch?v=yL-4oSQwzJI&v=aaaaaaaaaaa",
-    "https://youtube.com/watch?v=yL-4oSQwzJI&si=a&si=b",
-    "https://youtube.com/watch?v=yL-4oSQwzJI&redirect=https://127.0.0.1/",
-    "https://youtube.com/watch?v=yL-4oSQwzJI&list=x%26v%3Daaaaaaaaaaa",
     "https://youtube.com/watch?v=yL-4oSQwzJI%00",
     "https://youtube.com.evil.test/watch?v=yL-4oSQwzJI",
     "https://evil.test/?url=https://youtube.com/watch?v=yL-4oSQwzJI",
@@ -28,17 +66,13 @@
     "https://youtube.com:1234/watch?v=yL-4oSQwzJI",
     "https://youtube.com\\@evil.test/watch?v=yL-4oSQwzJI",
     "https://youtube.com/watch?v=yL-4oSQwzJI\n&list=x",
-    "https://youtube.com/watch?v=yL-4oSQwzJI#redirect=https://evil.test",
     "http://youtube.com/watch?v=yL-4oSQwzJI",
     "file:///etc/passwd",
     "https://127.0.0.1/watch?v=yL-4oSQwzJI",
     "https://169.254.169.254/latest/meta-data",
     "https://youtube.com/live/anything/../../watch?v=yL-4oSQwzJI",
     "https://youtu.be/yL-4oSQwzJI/extra",
-    "https://youtu.be/yL-4oSQwzJI?si=$(touch%20/tmp/no)",
     "https://%79outube.com/watch?v=yL-4oSQwzJI",
-    "https://youtube.com./watch?v=yL-4oSQwzJI",
-    "https://www.youtube.com/watch?v=yL-4oSQwzJI&ab_channel=%E6%97%A5%00%E6%9C%AC",
-    "https://www.youtube.com/watch?v=yL-4oSQwzJI&ab_channel=%E6%97%A5%E2%80%8B%E6%9C%AC"
+    "https://youtube.com./watch?v=yL-4oSQwzJI"
   ]
 }

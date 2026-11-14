@@ -20,7 +20,7 @@ export class PortError extends Error {
   }
 }
 
-/** Metadata/matching. Must not fetch arbitrary URLs; canonicalize is a pure allowlist. */
+/** Metadata/matching. Must not fetch arbitrary URLs; canonicalize checks only the provider host and content ID. */
 export interface SourcePort {
   canonicalize(url: string): SourceRef;
   /** Bounded metadata resolution of a playable audio-only recording. No media download. */

@@ -25,8 +25,9 @@ test('status, progress, public queue and stale playback remain honest across fix
   assert.equal(displayModel(snapshot, now, true).playing, false);
   assert.equal(displayModel(displayFixture('paused', now), now + 5000).progress, 1421);
   assert.equal(displayModel(displayFixture('request', now), now).requests.length, 3);
-  assert.equal(displayModel(displayFixture('due_song', now), now).detail, 'After this master song finishes');
+  assert.equal(displayModel(displayFixture('due_song', now), now).detail, '');
   assert.equal(displayModel(displayFixture('due_paused', now), now).detail, 'Waiting for organizer to resume');
+  assert.equal(displayModel(displayFixture('many_requests', now), now).detail, '');
   assert.equal(displayModel(displayFixture('closed', now), now).turn, 'Requests closed');
   snapshot.playback.confirmation = 'requested';
   assert.equal(displayModel(snapshot, now).playing, false);
@@ -58,6 +59,17 @@ test('display progress follows its local audio instead of alternating remote pau
     'an old local load/intent cannot describe the next track or seek');
   assert.equal(displayModel(snapshot, snapshot.serverTime, false, { ...local, positionSec: 200 }).progress, 200,
     'native seeked position is reflected immediately');
+});
+
+test('request panel renders the static branded QR image plus heading and link', async () => {
+  const { createElement } = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { RequestQr } = await import('../app/src/display/RequestQr.tsx');
+  const html = renderToStaticMarkup(createElement(RequestQr));
+  assert.match(html, /SONG<br\/>REQUESTS/);
+  assert.match(html, /<img[^>]*class="display-qr"[^>]*src="\/qr\.png"/);
+  assert.match(html, /href="http:\/\/localhost\/"/);
+  assert.doesNotMatch(html, /<svg/);
 });
 
 test('playing request remains first in the display queue without master interval copy', () => {

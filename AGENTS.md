@@ -29,7 +29,7 @@ branches must merge/rebase current main before continuing; uncommitted edits in
 another worktree are not inherited. Keep `.env.local` and `.local/` private.
 
 `/admin` and `/queue` now use the official Purdue Hackers component skill at
-`.claude/skills/purdue-hackers-ui/SKILL.md`, with dark mode and minimal copy.
+`.agents/skills/purdue-hackers-ui/SKILL.md`, with dark mode and minimal copy.
 The display retains its existing dashboard identity; do not apply global UI
 resets or restyle it during admin/queue work. Preserve the removed helper copy.
 For normal local use, keep real PH ID and the audio worker. Fixture auth/media

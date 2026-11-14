@@ -137,6 +137,8 @@ export const MIGRATIONS: string[] = [
    alter table playback add column period_ms integer;`,
   `create table banned_usernames(username text primary key, created_at integer not null);`,
   `alter table playback add column period_paused_at integer;`,
+  // Admin request-quota toggle (1 = enforced, the policy default; 0 = unlimited).
+  `alter table playback add column quota_enabled integer not null default 1;`,
 ];
 
 export function openDatabase(path: string): Database {

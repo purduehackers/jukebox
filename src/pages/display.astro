@@ -2,4 +2,7 @@
 import Page from '../layouts/Page.astro';
 import { DisplayPage } from '../../app/src/display/DisplayPage.tsx';
 ---
-<Page><DisplayPage client:only="react" /></Page>
+
+<Page title="Purdue Hackers Jukebox — Display">
+  <DisplayPage client:load />
+</Page>

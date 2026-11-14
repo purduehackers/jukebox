@@ -1,28 +1,21 @@
-// Admin queue-control UI states, rendered from real service snapshots (SSR, no browser), plus the
-// mode-aware view-models shared with /display and /queue. Interaction and layout: scripts/verify-admin.py.
+// Admin queue-control UI states, rendered from real service snapshots (pure HTML, no browser),
+// plus the mode-aware view-models shared with /display and /queue. Interaction: scripts/verify-admin.py.
 import assert from 'node:assert/strict';
-import { after, before, test } from 'node:test';
-import { createElement } from 'react';
-import type { ComponentType } from 'react';
+import { test } from 'node:test';
+import { createElement as reactCreateElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { createServer } from 'vite';
-import type { ViteDevServer } from 'vite';
+import * as rawViews from '../app/src/admin/views.tsx';
 import { describeTurn, explainError } from '../app/src/admin/derive.ts';
 import { displayModel } from '../app/src/display/model.ts';
 import { describeEstimate, estimateTurn } from '../app/src/queue/model.ts';
 import { MIN, URLS, harness, submit } from './helpers.ts';
 
-let vite: ViteDevServer;
-let views: Record<'QueueControls' | 'RequestQueuePanel' | 'NowPlayingPanel' | 'TurnPanel', ComponentType<any>>;
-before(async () => {
-  vite = await createServer({ root: 'app', configFile: false, logLevel: 'silent', appType: 'custom', server: { middlewareMode: true, hmr: false, ws: false }, optimizeDeps: { noDiscovery: true, include: [] } });
-  views = (await vite.ssrLoadModule('/src/admin/views.tsx')) as typeof views;
-});
-after(async () => { await vite.close(); });
+const views = rawViews as unknown as Record<'QueueControls' | 'RequestQueuePanel' | 'NowPlayingPanel' | 'TurnPanel', (props: any) => unknown>;
+const createElement = (view: (props: any) => unknown, props: any) => renderToStaticMarkup(reactCreateElement(view as never, props));
 
 const noop = () => { throw new Error('not called during render'); };
 const actions = new Proxy({}, { get: () => noop });
-const html = (node: ReturnType<typeof createElement>) => renderToStaticMarkup(node);
+const html = (markup: string) => markup;
 const text = (markup: string) => markup.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ');
 
 async function scene() {
@@ -58,6 +51,19 @@ test('Requests only is unavailable before the night starts', async () => {
   const out = controls(h.snap());
   assert.match(out, /data-mode="requests"[^>]*disabled=""|disabled=""[^>]*data-mode="requests"/);
   assert.match(out, /Start the night first/);
+});
+
+test('request quota toggle reflects the admin setting', async () => {
+  const h = harness();
+  await h.startNight([URLS.mix]);
+  let out = controls(h.snap());
+  assert.match(out, /data-adm-quota-toggle="true"[^>]*aria-pressed="true"|aria-pressed="true"[^>]*data-adm-quota-toggle="true"/);
+  assert.match(text(out), /Disable request quota/);
+  await h.ok(h.admin, 'quota.set', { enabled: false });
+  out = controls(h.snap());
+  assert.match(out, /aria-pressed="false"/);
+  assert.match(text(out), /Enable request quota/);
+  await h.svc.close();
 });
 
 test('Play now: row action names what it interrupts, and is disabled with a reason while a request plays', async () => {

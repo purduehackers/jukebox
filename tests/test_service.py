@@ -20,7 +20,11 @@ class SourcePolicy(unittest.TestCase):
     def test_allowed_links_and_rejections(self):
         self.assertEqual(validate_source('https://youtu.be/BaW_jenozKc'), 'https://www.youtube.com/watch?v=BaW_jenozKc')
         self.assertEqual(validate_source('https://youtu.be/TqTNaPB-4ow?si=uSH13mmOtwOR5z35'), 'https://www.youtube.com/watch?v=TqTNaPB-4ow')
-        for url in ['https://youtu.be/TqTNaPB-4ow?si=x&si=y', 'https://youtu.be/TqTNaPB-4ow?si=', 'http://youtube.com/watch?v=BaW_jenozKc', 'https://youtube.com.evil/watch?v=BaW_jenozKc',
+        # Duplicate or empty tracking params are discarded context, not errors; only the ID is checked.
+        self.assertEqual(validate_source('https://youtu.be/TqTNaPB-4ow?si=x&si=y'), 'https://www.youtube.com/watch?v=TqTNaPB-4ow')
+        self.assertEqual(validate_source('https://youtu.be/TqTNaPB-4ow?si='), 'https://www.youtube.com/watch?v=TqTNaPB-4ow')
+        self.assertEqual(validate_source('https://music.youtube.com/watch?v=TqTNaPB-4ow&si=uSH13mmOtwOR5z35&drli=1'), 'https://www.youtube.com/watch?v=TqTNaPB-4ow')
+        for url in ['http://youtube.com/watch?v=BaW_jenozKc', 'https://youtube.com.evil/watch?v=BaW_jenozKc',
                     'https://youtube.com:443/watch?v=BaW_jenozKc', 'https://user@youtube.com/watch?v=BaW_jenozKc',
                     'https://www.youtube.com/playlist?list=x', 'https://localhost/file.mp3',
                     'file:///tmp/a.mp3', 'https://open.spotify.com/track/x', '$(touch /tmp/untrusted)',

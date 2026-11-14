@@ -199,11 +199,11 @@ export function explainError(error: ApiError, type: string): { tone: ErrorTone; 
       return { tone: 'auth', message: 'Your account is not allowed to do this. Organizer access is required.' };
     case 'SOURCE_UNSUPPORTED':
       // The service uses one code for several causes; tell them apart by the message it sends.
-      if (/playlist|album/i.test(error.message)) return { tone: 'rejected', message: 'Playlists and albums cannot be imported yet. Add a YouTube, Spotify, or Apple Music track; mixes are allowed in master.' };
+      if (/playlist|album/i.test(error.message)) return { tone: 'rejected', message: 'Playlists and albums cannot be imported yet. Add a YouTube, Spotify, Apple Music, or Deezer track; mixes are allowed in master.' };
       if (/matching/i.test(error.message)) return { tone: 'rejected', message: `${error.message} Try the exact YouTube recording.` };
-      return { tone: 'rejected', message: 'That link is not a supported source. Add a YouTube, Spotify, or Apple Music track; mixes are allowed in master.' };
+      return { tone: 'rejected', message: 'That link is not a supported source. Add a YouTube, Spotify, Apple Music, or Deezer track; mixes are allowed in master.' };
     case 'INVALID_SOURCE':
-      return { tone: 'rejected', message: `${error.message} Add a YouTube, Spotify, or Apple Music track; mixes are allowed in master.` };
+      return { tone: 'rejected', message: `${error.message} Add a YouTube, Spotify, Apple Music, or Deezer track; mixes are allowed in master.` };
     case 'NOT_READY':
       return { tone: 'conflict', message: 'That request is still loading. Try again in a moment.' };
     case 'NOTHING_PLAYABLE':

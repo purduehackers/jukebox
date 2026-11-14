@@ -31,24 +31,22 @@ export function displayModel(snapshot: Snapshot | null, now: number, disconnecte
   const elapsed = playing ? Math.max(0, now - observed!.observedAt!) / 1000 : 0;
   const progress = !confirmed || position == null ? null : Math.min(snapshot?.nowPlaying?.durationSec ?? Infinity, Math.max(0, position + elapsed));
   let turn = 'Waiting for master playback';
-  let detail = 'One request per turn';
+  let detail = '';
   if (snapshot?.night?.status !== 'open') turn = snapshot ? 'Requests closed' : 'Connecting…';
   else if (snapshot.nowPlaying?.kind === 'request') {
-    turn = 'Now Playing'; detail = '';
+    turn = 'Now Playing';
   } else if (snapshot.schedule.mode === 'master') {
     turn = 'Master music'; detail = 'Request turns are off';
   } else if (snapshot.schedule.mode === 'requests') {
-    turn = snapshot.schedule.requestsIdle ? 'Waiting for requests' : 'Requests only'; detail = 'Requests play one after another';
+    turn = snapshot.schedule.requestsIdle ? 'Waiting for requests' : 'Requests only';
   } else if (snapshot.schedule.phase === 'request') {
-    turn = 'Now Playing'; detail = '';
+    turn = 'Now Playing';
   } else if (snapshot.schedule.periodStartedAt != null) {
     const remaining = Math.max(0, snapshot.schedule.periodMs - ((snapshot.schedule.periodPausedAt ?? now) - snapshot.schedule.periodStartedAt));
     turn = snapshot.schedule.periodPausedAt != null ? `Paused · ${duration(Math.ceil(remaining / 1000))}` : remaining > 0 ? `in ${duration(Math.ceil(remaining / 1000))}` : 'Turn due';
-    detail = snapshot.schedule.dueReason === 'song_end' ? 'After this master song finishes'
-      : snapshot.schedule.dueReason === 'paused' ? 'Waiting for organizer to resume'
+    detail = snapshot.schedule.dueReason === 'paused' ? 'Waiting for organizer to resume'
       : snapshot.schedule.dueReason === 'offline' ? 'Waiting for playback device'
-      : remaining === 0 ? 'Awaiting scheduler confirmation'
-      : (snapshot.nowPlaying?.durationSec ?? 0) > POLICY.mixThresholdSec ? '' : 'Master song will finish first';
+      : '';
   }
   return { status, confirmed, playing, progress, turn, detail, observed,
     requests: snapshot?.requests.filter((entry) => entry.status === 'playing' || entry.status === 'ready' || entry.status === 'preparing').sort((a, b) => Number(b.status === 'playing') - Number(a.status === 'playing')) ?? [] };

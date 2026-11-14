@@ -15,10 +15,35 @@ test('real single-video URL forms discard time/navigation and have one idempoten
   assert.throws(() => canonicalizeUrl(canonical + '&pp=' + 'a'.repeat(2048)));
   for (const url of cases.rejected) assert.throws(() => canonicalizeUrl(url), { name: "Error" }, url);
 });
+test('unknown tracking params, duplicate context keys and fragments are discarded; only the ID is checked', () => {
+  for (const [url, expected] of cases.acceptedPairs as [string, string][]) {
+    const ref = canonicalizeUrl(url);
+    assert.equal(ref.canonicalUrl, expected, url);
+    assert.equal(ref.provider, 'youtube', url);
+    assert.deepEqual(canonicalizeUrl(ref.canonicalUrl), ref);
+  }
+});
 test('Apple shared tracks retain non-US storefront and all catalog canonical URLs reparse', () => {
   for (const url of ['https://music.apple.com/gb/album/name/123?i=456&ls=1&app=music', 'https://music.apple.com/us/song/name/456?l=en-US', 'https://open.spotify.com/intl-de/track/1OAFmguvHB2OI2AMYXpmyG?utm_source=copy-link&si=abc']) {
     const ref = canonicalizeUrl(url); assert.deepEqual(canonicalizeUrl(ref.canonicalUrl), ref);
     if (url.includes('/gb/')) assert.equal(ref.canonicalUrl, 'https://music.apple.com/gb/song/456');
+  }
+});
+test('Deezer track links drop locale and tracking params and reparse idempotently', () => {
+  const links: [string, string][] = [
+    ['https://www.deezer.com/track/3135556', 'https://www.deezer.com/track/3135556'],
+    ['https://deezer.com/us/track/3135556?utm_source=deezer&utm_medium=share&drli=1', 'https://www.deezer.com/track/3135556'],
+    ['https://www.deezer.com/en-gb/track/3135556?app_id=123', 'https://www.deezer.com/track/3135556'],
+  ];
+  for (const [url, canonical] of links) {
+    const ref = canonicalizeUrl(url);
+    assert.equal(ref.provider, 'deezer', url);
+    assert.equal(ref.itemId, '3135556', url);
+    assert.equal(ref.canonicalUrl, canonical, url);
+    assert.deepEqual(canonicalizeUrl(ref.canonicalUrl), ref);
+  }
+  for (const url of ['https://www.deezer.com/track/abc', 'https://www.deezer.com/album/123', 'https://www.deezer.com/playlist/123', 'https://link.deezer.com/s/abc123', 'https://deezer.page.link/abc']) {
+    assert.throws(() => canonicalizeUrl(url), { name: 'Error' }, url);
   }
 });
 test('navigation variants share duplicate identity; time does not shorten admission duration or spend quota', async () => {
@@ -52,6 +77,6 @@ test('mobile share links discard tracking while preserving recording identity', 
     assert.equal(ref.canonicalUrl, canonical);
     assert.deepEqual(canonicalizeUrl(canonical), ref);
   }
-  assert.throws(() => canonicalizeUrl(links[0]![0] + '&rowId=duplicate'));
-  assert.throws(() => canonicalizeUrl(links[1]![0] + '&is=duplicate'));
+  assert.equal(canonicalizeUrl(links[0]![0] + '&rowId=duplicate').canonicalUrl, links[0]![1]);
+  assert.equal(canonicalizeUrl(links[1]![0] + '&is=duplicate').canonicalUrl, links[1]![1]);
 });

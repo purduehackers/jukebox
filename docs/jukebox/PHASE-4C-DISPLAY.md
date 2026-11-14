@@ -42,10 +42,11 @@ image, with an explicit missing/error placeholder. No generated substitute cover
 - Only ready/preparing requests are listed; requester identity is never rendered.
   Four visible rows plus an overflow count. The service's privacy-safe next master
   is separate from requests; suspended mixes are labelled as resuming.
-- QR is encoded locally with an intact four-module quiet zone. Configure
-  `VITE_JUKEBOX_PUBLIC_ORIGIN=https://jukebox.purduehackers.com` at build time;
-  otherwise it uses the current page origin, always `/queue`. Invalid origins
-  produce a visible error. Loopback preview shows a phone-reachability reminder.
+- QR is a static branded image (`public/qr.png`, served at `/qr.png`) encoding
+  the live `https://jukebox.purduehackers.com/queue`; no QR is generated in code.
+  The printed link next to it still follows `VITE_JUKEBOX_PUBLIC_ORIGIN` or the
+  current page origin, always `/queue`, so local previews remain phone-reachable
+  by typing. Invalid origins produce a visible error.
 - Self-hosted Inconsolata body font; supplied PixelHackers headings and PolySans
   metadata. Exact dashboard surface/token and one-pixel purple border treatment.
   No changes to the dashboard or Lunar repos.

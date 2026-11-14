@@ -1,24 +1,63 @@
 import { useEffect, useRef, useState } from 'react';
-import { PlayerController } from './controller.ts';
-import type { PlayerState } from './controller.ts';
-import type { Snapshot } from '../shared/api.ts';
+import { PlayerController, type PlayerState } from './controller.ts';
+import type { Snapshot } from '../../../src/contract/types.ts';
+
+export interface PlayerProps {
+  onSnapshot?: (snapshot: Snapshot) => void;
+  onState?: (state: PlayerState) => void;
+  onError?: (error: string | null) => void;
+}
 
 /** One connection drives both the native player and display presentation. */
-export function Player({ onSnapshot, onError, onState }: { onState?: (state: PlayerState) => void; onSnapshot: (snapshot: Snapshot) => void; onError: (error: string | null) => void }) {
+export function Player({ onSnapshot, onState, onError }: PlayerProps) {
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [state, setState] = useState<PlayerState | null>(null);
-  const audio = useRef<HTMLAudioElement>(null);
+  const callbacks = useRef({ onSnapshot, onState, onError });
+  callbacks.current = { onSnapshot, onState, onError };
+
   useEffect(() => {
-    const restore = (event: PageTransitionEvent) => { if (event.persisted) window.location.reload(); };
+    const audio = audioRef.current;
+    if (!audio) return;
+    const controller = new PlayerController(
+      audio,
+      (next) => {
+        setState(next);
+        callbacks.current.onState?.(next);
+      },
+      (snapshot) => callbacks.current.onSnapshot?.(snapshot),
+      (error) => callbacks.current.onError?.(error),
+    );
+    const restore = (event: PageTransitionEvent) => {
+      if (event.persisted) window.location.reload();
+    };
     window.addEventListener('pageshow', restore);
-    const player = new PlayerController(audio.current!, (next) => { setState(next); onState?.(next); }, onSnapshot, onError);
-    return () => { window.removeEventListener('pageshow', restore); player.dispose(); };
-  }, [onSnapshot, onError, onState]);
-  return <section className="display-player" aria-label="Display sound" data-testid="player" data-status={state?.status ?? 'paused'}
-    data-generation={state?.generation ?? ''} data-load-id={state?.loadId ?? ''} data-epoch={state?.epoch ?? 0}>
-    <audio id="jukebox-audio" ref={audio} preload="auto" />
-    {state?.status === 'needs_activation' && <p className="display-player-notice" role="status">
-      Firefox blocked autoplay. Set this site’s Autoplay permission to “Allow Audio and Video”.
-    </p>}
-    {state?.connection === 'error' && <p className="display-player-notice" role="status">{state.message}</p>}
-  </section>;
+    return () => {
+      window.removeEventListener('pageshow', restore);
+      controller.dispose();
+    };
+  }, []);
+
+  const status = state?.status ?? 'paused';
+  const showActivation = status === 'needs_activation';
+  const showError = state?.connection === 'error' && !!state.message;
+
+  return (
+    <section
+      className="display-player"
+      aria-label="Display sound"
+      data-testid="player"
+      data-status={status}
+      data-generation={state?.generation !== null && state?.generation !== undefined ? String(state.generation) : ''}
+      data-load-id={state?.loadId !== null && state?.loadId !== undefined ? String(state.loadId) : ''}
+      data-epoch={String(state?.epoch ?? 0)}
+    >
+      <audio ref={audioRef} id="jukebox-audio" preload="auto" />
+      <p className="display-player-notice" role="status" hidden={!showActivation}>
+        Firefox blocked autoplay. Set this site’s Autoplay permission to “Allow Audio and Video”.
+      </p>
+      <p className="display-player-notice" role="status" hidden={!showError}>
+        {showError ? state?.message : ''}
+      </p>
+    </section>
+  );
 }

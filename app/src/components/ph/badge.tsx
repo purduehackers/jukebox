@@ -11,11 +11,13 @@ const colors = {
   teal: "bg-ph-teal text-ph-black",
   orange: "bg-ph-orange text-ph-black",
   outline: "border border-foreground text-foreground",
-};
+} as const;
+
+export type BadgeColor = keyof typeof colors;
 
 type BadgeProps = {
   children: ReactNode;
-  color?: keyof typeof colors;
+  color?: BadgeColor;
   className?: string;
 };
 

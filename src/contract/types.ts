@@ -49,7 +49,7 @@ export interface Identity {
 }
 
 // ---- Sources and media ----
-export type Provider = 'youtube' | 'spotify' | 'apple_music' | 'fixture';
+export type Provider = 'youtube' | 'spotify' | 'apple_music' | 'deezer' | 'fixture';
 
 export interface SourceRef {
   provider: Provider;
@@ -234,6 +234,8 @@ export interface Snapshot {
   queueActivity?: QueueActivityEntry[];
   /** Signed-in attendee only. */
   quota?: { used: number; limit: number; remaining: number };
+  /** Whether the per-person request quota is enforced; admins can disable it (`quota.set`). */
+  quotaEnabled: boolean;
   /** Player only: automatic displays during an open night; legacy players also require a lease. */
   desired?: DesiredPlayback | null;
   lease?: { deviceId: string; generation: number; expiresAt: number } | null;
@@ -288,6 +290,8 @@ export interface CommandPayloads {
   'queue.mode': { mode: QueueMode };
   'queue.interval': { periodMs: number | null };
   'queue.timer': { paused: boolean };
+  /** Absolute, idempotent toggle: when off, the per-person request quota is not enforced. */
+  'quota.set': { enabled: boolean };
   /** Start this ready request now, suspending the current master item at its position. */
   'request.playNow': { entryId: string };
   // Admin: devices

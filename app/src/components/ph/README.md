@@ -1,17 +1,17 @@
-# Official Purdue Hackers components
+Official Purdue Hackers UI components, copied verbatim from
+`https://components.purduehackers.com` (see `.agents/skills/purdue-hackers-ui/SKILL.md`).
+Never hand-write tokens or components.
 
-Copied from the React registry at https://components.purduehackers.com/r/react/
-on 2026-11-05, following `.claude/skills/purdue-hackers-ui/SKILL.md`.
-The registry files include their required dependencies (`icon`, `icons`, `cn`,
-and `dither`). Icons are from HackerNoon Pixel Icons (CC BY 4.0).
+Two flavors, each used where it belongs:
 
-`../../shared/ph.css` is the official `/r/ph.css`, with font families renamed
-to `PH UI …` so they cannot override the display's existing fonts.
-`dither-button.css` is imported through `../../shared/ph-ui.css` instead of
-the component so all PH CSS passes through the same selector scoping.
-The shuffle's indexed reads have non-null assertions for this project's strict
-TypeScript configuration; its algorithm is unchanged.
+- **Astro flavor** (default exports): `src/components/ph/*.astro`, used by `.astro`
+  pages and components — e.g. `src/components/SignInGate.astro` renders the
+  server-side sign-in gates on `/admin` and `/queue` with no client JavaScript.
+- **React flavor** (named exports): the `*.tsx` files and pure helpers (`cn.ts`,
+  `dither.ts`, `icons.ts`, `dither-button.css`) in this directory, used only inside
+  the React islands (`client:load`) in `app/src`.
 
-Tailwind v4 uses its theme and utilities without global Preflight. The PostCSS
-configuration prefixes the resulting PH entry's selectors with `.ph-ui`.
-Keep `dark` on each UI route wrapper, never on `html` or `body`.
+Styles: `app/src/shared/ph-ui.css` is the Tailwind v4 entry (official
+`@tailwindcss/vite` plugin) for the PH-styled pages; it imports `ph.css` and the
+dither-button styles. It is imported by `src/pages/admin.astro` and
+`src/pages/queue.astro` only, so `/display` and `/visual` stay uncontaminated.

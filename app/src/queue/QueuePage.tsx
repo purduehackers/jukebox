@@ -9,9 +9,9 @@ import { Card } from '../components/ph/card.tsx';
 import { DitherButton } from '../components/ph/dither-button.tsx';
 import { Field } from '../components/ph/field.tsx';
 import { Input } from '../components/ph/input.tsx';
-import { fetchMe, sendCommand, useSnapshot } from '../shared/api.ts';
+import { fetchMe, sendCommand } from '../shared/api.ts';
+import { useSnapshot } from '../shared/hooks.ts';
 import { DitheredSoup } from '../shared/DitheredSoup.tsx';
-import '../shared/ph-ui.css';
 import { RequestFlow, sessionIntentStore } from './controller.ts';
 import type { FlowState } from './controller.ts';
 import { STATUS_COPY, WAITING, describeError, formatDuration, readDisambiguation } from './model.ts';
@@ -20,7 +20,7 @@ import './queue.css';
 
 function useFlow() {
   const flow = useMemo(() => new RequestFlow(sendCommand, sessionIntentStore()), []);
-  const state = useSyncExternalStore(flow.subscribe, () => flow.snapshot);
+  const state = useSyncExternalStore(flow.subscribe, () => flow.snapshot, () => flow.snapshot);
   return { flow, state };
 }
 
@@ -81,8 +81,8 @@ export function QueuePage() {
             <Account name={name} />
             {!open ? <Closed night={snapshot.night} /> : (
               <>
-                <Allowance quota={snapshot.quota} />
-                <RequestForm flow={flow} state={state} remaining={snapshot.quota?.remaining ?? 0} />
+                <Allowance quota={snapshot.quota} enabled={snapshot.quotaEnabled} />
+                <RequestForm flow={flow} state={state} remaining={snapshot.quotaEnabled ? snapshot.quota?.remaining ?? 0 : Number.POSITIVE_INFINITY} />
               </>
             )}
             <MyRequests entries={mine} />
@@ -129,8 +129,8 @@ function Closed({ night }: { night: Snapshot['night'] }) {
   );
 }
 
-function Allowance({ quota }: { quota: Snapshot['quota'] }) {
-  if (!quota) return null;
+function Allowance({ quota, enabled }: { quota: Snapshot['quota']; enabled: boolean }) {
+  if (!quota || !enabled) return null;
   return (
     <section className="flex items-center gap-3 border border-border bg-card px-4 py-3" aria-label="Your allowance tonight">
       <div className="flex gap-1.5" aria-hidden="true">
@@ -172,7 +172,7 @@ function RequestForm({ flow, state, remaining }: { flow: RequestFlow; state: Flo
           void flow.check();
         }}
       >
-        <Field label="Paste a YouTube, Spotify, or Apple Music track link" htmlFor="q-link">
+        <Field label="Paste a YouTube, Spotify, Apple Music, or Deezer track link" htmlFor="q-link">
           <Input
             id="q-link"
             type="url"

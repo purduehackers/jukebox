@@ -7,9 +7,17 @@ This is a source rewrite and deployment package; phack.sh is not deployed.
 
 ## Resulting architecture
 
-- Astro server routes own `/`, `/admin`, `/queue`, `/display`, `/visual`, `/auth/*`,
-  `/api/v1/*`, `/media/*`, `/healthz` and `/readyz`. React islands retain the approved
-  controls, player and soundbar. Organizer middleware gates display/lab HTML.
+- Astro serves `/`, `/admin`, `/queue`, `/display`, `/visual`; the `jukebox-authority`
+  integration injects `/auth/*`, `/api/v1/*`, `/media/*`, `/healthz` and `/readyz`
+  from `astro.config.mjs` to `src/server/routes/*.ts`, which delegate to the transport
+  (2026-11-14; previously one-line shims under `src/pages`). Pages use the official PH
+  `.astro` components (`src/components/ph/`); React islands ship only for the approved
+  controls, player and soundbar. Organizer middleware gates display/lab HTML and shares
+  the runtime with routes via `Astro.locals.runtime`.
+- Styling is Tailwind v4 through the official `@tailwindcss/vite` plugin (2026-11-14).
+  Vite pre-bundles react/react-dom and dedupes React because `@purduehackers/time`
+  ships a nested React 18. Dev restarts settle the previous runtime before creating a
+  new one, with a SIGTERM/SIGINT shutdown backstop (2026-11-14).
 - Bun 1.4.4 runs the production Astro standalone adapter and the SQLite authority.
   The official adapter package is named `@astrojs/node`; no Node executable is
   needed at runtime. Standard Node compatibility imports run under Bun.
@@ -19,8 +27,9 @@ This is a source rewrite and deployment package; phack.sh is not deployed.
 - `src/server/transport.ts` uses standard Request/Response, cancellable SSE and
   streamed audio proxy responses with HEAD/Range support. Existing command IDs,
   local session checks and automatic-player organizer requirements are retained.
-- `bun:sqlite` opens existing databases with the same four migrations at migration time (username bans subsequently
-  append migration 5). An exclusive
+- `bun:sqlite` opens existing databases with the same four migrations at migration time; later
+  features append migrations 5 (username bans), 6 (request-timer pause timestamp) and 7
+  (request-quota toggle `quota_enabled`) — current schema is 7 (2026-11-14). An exclusive
   transaction on a separate lock database prevents concurrent new authorities;
   the OS releases it after SIGKILL, including across container PID reuse.
 - Python dependencies are in `pyproject.toml` and `uv.lock`. Worker execution uses
@@ -43,6 +52,10 @@ uses Vite internally for its build/dev pipeline; production serves the built app
 
 - `scripts/check`: 21 Python tests, 192 Bun tests (including five policy tests),
   server/client typechecks, Astro check and production build passed.
+- 2026-11-14 rerun on `astro-migration` with the official-component/Tailwind/provider/quota/QR
+  changes: 23 Python tests, 220 Bun tests across 33 files (including the policy suite),
+  both TypeScript checks, Astro check (0 errors) and the production build passed.
+  Browser/HDMI evidence below was not rerun.
 - Production Astro + real worker in Firefox 159: all 18 playback/recovery checks
   passed with owned fixture audio, isolated sign-in/state/profiles and a dedicated
   null sink. Includes organizer HTML gate, native autoplay/site permission,
