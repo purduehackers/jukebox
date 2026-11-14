@@ -1,6 +1,7 @@
 // HTTP transport for the v1 contract. Role comes only from server-verified credentials:
 // a PH ID session cookie (attendee/admin) or a paired-device bearer token (player).
 import { createHash, randomBytes } from 'node:crypto';
+import { metricsResponse } from './metrics.ts';
 import type { Identity } from '../contract/types.ts';
 import type { IdentityPort } from '../core/ports.ts';
 import type { Actor, JukeboxService } from './service.ts';
@@ -127,6 +128,7 @@ export function createTransport(options: TransportOptions) {
   async function route(req: Request): Promise<Response> {
     const url = new URL(req.url ?? '/', origin);
     const method = req.method ?? 'GET';
+    if (method === 'GET' && url.pathname === '/metrics') return metricsResponse(service.db);
     const actor = actorFor(req);
     if (actor === 'invalid-device') return json(401, { error: { code: 'DEVICE_REVOKED', message: 'Unknown or revoked device token', retryable: false } });
 

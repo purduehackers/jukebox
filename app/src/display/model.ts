@@ -42,8 +42,8 @@ export function displayModel(snapshot: Snapshot | null, now: number, disconnecte
   } else if (snapshot.schedule.phase === 'request') {
     turn = 'Now Playing'; detail = '';
   } else if (snapshot.schedule.periodStartedAt != null) {
-    const remaining = Math.max(0, snapshot.schedule.periodMs - (now - snapshot.schedule.periodStartedAt));
-    turn = remaining > 0 ? `in ${duration(Math.ceil(remaining / 1000))}` : 'Turn due';
+    const remaining = Math.max(0, snapshot.schedule.periodMs - ((snapshot.schedule.periodPausedAt ?? now) - snapshot.schedule.periodStartedAt));
+    turn = snapshot.schedule.periodPausedAt != null ? `Paused · ${duration(Math.ceil(remaining / 1000))}` : remaining > 0 ? `in ${duration(Math.ceil(remaining / 1000))}` : 'Turn due';
     detail = snapshot.schedule.dueReason === 'song_end' ? 'After this master song finishes'
       : snapshot.schedule.dueReason === 'paused' ? 'Waiting for organizer to resume'
       : snapshot.schedule.dueReason === 'offline' ? 'Waiting for playback device'

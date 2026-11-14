@@ -273,8 +273,11 @@ def main():
     parser.add_argument('--port', type=int, default=8971)
     parser.add_argument('--data', default='.local/jukebox')
     parser.add_argument('--job-seconds', type=float, default=240)
+    parser.add_argument('--cache-bytes', type=int, default=os.environ.get('JUKEBOX_CACHE_BYTES', str(50 * 1024**3)))
     args = parser.parse_args()
-    store = Store(args.data, job_seconds=args.job_seconds)
+    if args.cache_bytes < 256 * 1024**2 or args.cache_bytes > 1024**4:
+        parser.error('cache bytes must be between 256 MiB and 1 TiB')
+    store = Store(args.data, job_seconds=args.job_seconds, max_bytes=args.cache_bytes)
     try:
         server = make_server(store, args.port)
     except BaseException:

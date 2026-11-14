@@ -274,3 +274,12 @@ local SQLite reads, not identity-provider network requests. Admin/attendee/publi
 snapshot roles used by other pages remain unchanged. Legacy admin-issued pairing
 APIs remain compatible for fixtures; the app uses organizer-authenticated automatic
 registration without pairing, exclusive leases or ownership waits.
+
+### Explicit timer pause addition (2026-11-13)
+
+Organizer command `queue.timer: { paused: boolean }` sets the running Auto/master
+request timer's pause state independently of audio intent. Snapshot
+`schedule.periodPausedAt` is a nullable server timestamp; while set, elapsed timer
+time is `periodPausedAt - periodStartedAt`, and automatic turns cannot become due.
+Resume shifts `periodStartedAt` by the paused duration. Migration 6 adds nullable
+`playback.period_paused_at`; no queue rows or playback checkpoints are replaced.

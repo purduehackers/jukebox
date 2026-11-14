@@ -106,6 +106,8 @@ export function AdminPage() {
           'queue.mode',
           { mode },
         ),
+      setTimerPaused: (paused) =>
+        runner.run(paused ? 'Pause request timer' : 'Resume request timer', 'queue.timer', { paused }),
       setInterval: (periodMs) =>
         runner.run(
           periodMs === null ? 'Use the default request interval' : `Request every ${periodMs / 60_000} min`,
@@ -318,6 +320,10 @@ export function AdminPage() {
     }
     if (target.closest('[data-adm-cancel-requests-only]')) {
       setQcConfirming(false);
+      return;
+    }
+    if (target.closest('[data-adm-timer-pause]')) {
+      void actions.setTimerPaused?.(snapshot.schedule.periodPausedAt == null);
       return;
     }
 

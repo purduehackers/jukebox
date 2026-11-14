@@ -49,6 +49,7 @@ export interface Actions {
   removeMaster(entryId: string, title: string): Done;
   moveMaster(entryId: string, afterEntryId: string | null, title: string): Done;
   setMode(mode: QueueMode): Done;
+  setTimerPaused?(paused: boolean): Done;
   setInterval(periodMs: number | null): Done;
   playNow(entryId: string, title: string): Done;
   removeRequest(entryId: string, title: string): Done;
@@ -688,9 +689,10 @@ export function QueueControls({
     draft.trim() !== '' && Number.isInteger(minutes) && minutes >= minMinutes && minutes <= maxMinutes;
   const elapsedMs =
     mode === 'auto' && schedule.phase === 'master' && schedule.periodStartedAt !== null
-      ? serverNow - schedule.periodStartedAt
+      ? (schedule.periodPausedAt ?? serverNow) - schedule.periodStartedAt
       : null;
-  const alreadyElapsed = valid && elapsedMs !== null && elapsedMs >= minutes * 60_000;
+  const alreadyElapsed =
+    schedule.periodPausedAt == null && valid && elapsedMs !== null && elapsedMs >= minutes * 60_000;
 
   return (
     <div className="adm-qc" id="adm-queue-control">
@@ -714,6 +716,11 @@ export function QueueControls({
             );
           })}
         </div>
+        {mode === 'auto' && schedule.phase === 'master' && schedule.periodStartedAt !== null && (
+          <Button variant="outline" data-adm-timer-pause="true">
+            {schedule.periodPausedAt == null ? 'Pause request timer' : 'Resume request timer'}
+          </Button>
+        )}
         <form className="adm-interval" data-adm-interval-form>
           <Field label="Request every" htmlFor="adm-interval">
             <div className="adm-interval-row">

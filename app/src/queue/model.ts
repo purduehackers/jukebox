@@ -155,6 +155,7 @@ export const WAITING: ReadonlySet<RequestStatus> = new Set<RequestStatus>(['prep
 
 export type TurnEstimate =
   | { kind: 'closed' }
+  | { kind: 'timer-paused' }
   | { kind: 'playing' }
   | { kind: 'not-waiting' }
   /** Organizers switched off request turns; no estimate is honest. */
@@ -194,6 +195,7 @@ export function estimateTurn(snapshot: Pick<Snapshot, 'night' | 'schedule' | 're
     return { kind: 'waiting', ahead, approxMinutes: roundUpToFive(approx) };
   }
   if (schedule.turnDue) return { kind: 'turn-due', ahead, reason: schedule.dueReason };
+  if (schedule.periodPausedAt != null) return { kind: 'timer-paused' };
   if (schedule.periodStartedAt === null) return { kind: 'clock-not-started', ahead };
   const untilTurn = Math.max(0, schedule.periodStartedAt + schedule.periodMs - nowServer);
   return { kind: 'waiting', ahead, approxMinutes: roundUpToFive((untilTurn + durationAhead(waiting, ahead, schedule.periodMs)) / MIN) };
@@ -217,6 +219,7 @@ export function describeEstimate(estimate: TurnEstimate): string {
     case 'not-waiting': return '';
     case 'master-only': return 'The organizers have paused request turns for now. Your request is safe in the queue.';
     case 'requests-only': return estimate.ahead === 0 ? 'Only requests are playing right now, and you’re next.' : `Only requests are playing right now, and ${plural(estimate.ahead, 'request')} ${estimate.ahead === 1 ? 'is' : 'are'} ahead of you.`;
+    case 'timer-paused': return 'The organizers have paused the request timer.';
     case 'clock-not-started': return 'The request countdown begins when the organizers start the music.';
     case 'turn-due': {
       const why = estimate.reason === 'paused'

@@ -75,7 +75,7 @@ export function estimatePosition(snapshot: Snapshot, serverNow: number): Positio
 
 // ------------------------------------------------------------ request turn
 
-export type TurnKind = 'night_closed' | 'in_request' | 'not_started' | 'counting' | 'due' | 'elapsed_empty' | 'master_only' | 'requests_only' | 'requests_idle';
+export type TurnKind = 'paused_timer' | 'night_closed' | 'in_request' | 'not_started' | 'counting' | 'due' | 'elapsed_empty' | 'master_only' | 'requests_only' | 'requests_idle';
 
 export interface TurnView {
   kind: TurnKind;
@@ -127,11 +127,12 @@ export function describeTurn(snapshot: Snapshot, serverNow: number): TurnView {
   if (schedule.periodStartedAt === null) {
     return { ...base, kind: 'not_started', headline: 'Request timer not started', detail: 'It starts once music is playing.' };
   }
-  const remaining = schedule.periodStartedAt + schedule.periodMs - serverNow;
+  const remaining = schedule.periodStartedAt + schedule.periodMs - (schedule.periodPausedAt ?? serverNow);
   const where = [
     schedule.intent === 'paused' ? 'Paused — the timer keeps running.' : null,
     snapshot.playback.observed?.status === 'offline' ? 'Display offline — the server keeps time and catches up when it reconnects.' : null,
   ].filter(Boolean).join(' ');
+  if (schedule.periodPausedAt != null) return { ...base, kind: 'paused_timer', headline: `Request timer paused · ${formatClock(Math.max(0, remaining))}`, detail: '' };
   if (schedule.turnDue) {
     const reason = {
       song_end: 'Plays when this song ends.',
