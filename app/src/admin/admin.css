@@ -1,5 +1,5 @@
 /* Admin (/admin) layout on the official Purdue Hackers components, dark theme.
-   Every selector is scoped to .adm-root; the shared theme (../shared/ph-ui.css) is scoped to .ph-ui.
+   Every selector is scoped to .adm-root; the shared theme lives in ../shared/ph-ui.css (loaded by src/pages/admin.astro).
    Only layout and state colors live here. Buttons, inputs, fields, badges and cards bring their own look.
    Layout reads like a music app: player on top, link box and queue controls, then master queue (left)
    and requests (right). */

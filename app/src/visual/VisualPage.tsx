@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { OrganizerGate } from '../shared/OrganizerGate.tsx';
-import { mountPlayer } from '../player/player-mount.ts';
+import { Player } from '../player/Player.tsx';
 import type { PlayerState } from '../player/controller.ts';
 import type { Snapshot } from '../shared/api.ts';
 import { blendTechniques, controls, defaults } from './soundbar.ts';
@@ -51,7 +51,6 @@ function VisualLab({ silent }: { silent: boolean }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [local, setLocal] = useState<PlayerState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const playerHost = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     try {
@@ -60,15 +59,6 @@ function VisualLab({ silent }: { silent: boolean }) {
       // Sliders still work without storage.
     }
   }, [settings]);
-
-  useEffect(() => {
-    if (silent || !playerHost.current) return;
-    return mountPlayer(playerHost.current, {
-      onSnapshot: setSnapshot,
-      onError: setError,
-      onState: setLocal,
-    });
-  }, [silent]);
 
   const playing = local?.status === 'playing';
   const statusText = silent
@@ -191,7 +181,7 @@ function VisualLab({ silent }: { silent: boolean }) {
           <p>Left → right: bass → treble. Settings save in this browser. Use this page instead of the display tab while tuning audio.</p>
         </aside>
       </div>
-      <div ref={playerHost} />
+      {!silent && <Player onSnapshot={setSnapshot} onError={setError} onState={setLocal} />}
     </main>
   );
 }

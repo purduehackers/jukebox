@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { OrganizerGate } from '../shared/OrganizerGate.tsx';
-import { mountPlayer } from '../player/player-mount.ts';
+import { Player } from '../player/Player.tsx';
 import type { Snapshot } from '../shared/api.ts';
 import { useLightningColors } from '../shared/hooks.ts';
 import type { LocalPlayback } from './model.ts';
@@ -183,22 +183,6 @@ function LiveDisplay() {
   const [local, setLocal] = useState<LocalPlayback | null>(null);
   const [clock, setClock] = useState({ server: Date.now(), receipt: performance.now() });
   const [now, setNow] = useState(Date.now());
-  const playerHost = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!playerHost.current) return;
-    return mountPlayer(playerHost.current, {
-      onSnapshot: setSnapshot,
-      onError: setError,
-      onState: (state) =>
-        setLocal({
-          status: state.status,
-          positionSec: state.positionSec,
-          loadId: state.loadId,
-          epoch: state.epoch,
-        }),
-    });
-  }, []);
 
   useEffect(() => {
     if (snapshot) {
@@ -215,7 +199,18 @@ function LiveDisplay() {
   return (
     <>
       <DisplayView snapshot={snapshot} error={error} now={now} local={local} />
-      <div ref={playerHost} />
+      <Player
+        onSnapshot={setSnapshot}
+        onError={setError}
+        onState={(state) =>
+          setLocal({
+            status: state.status,
+            positionSec: state.positionSec,
+            loadId: state.loadId,
+            epoch: state.epoch,
+          })
+        }
+      />
     </>
   );
 }

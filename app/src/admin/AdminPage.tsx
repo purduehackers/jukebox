@@ -29,7 +29,6 @@ import {
   TurnPanel,
 } from './views.tsx';
 import type { Actions } from './views.tsx';
-import '../shared/ph-ui.css';
 import './admin.css';
 
 export function AdminPage() {

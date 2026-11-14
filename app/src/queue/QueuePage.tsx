@@ -12,7 +12,6 @@ import { Input } from '../components/ph/input.tsx';
 import { fetchMe, sendCommand } from '../shared/api.ts';
 import { useSnapshot } from '../shared/hooks.ts';
 import { DitheredSoup } from '../shared/DitheredSoup.tsx';
-import '../shared/ph-ui.css';
 import { RequestFlow, sessionIntentStore } from './controller.ts';
 import type { FlowState } from './controller.ts';
 import { STATUS_COPY, WAITING, describeError, formatDuration, readDisambiguation } from './model.ts';

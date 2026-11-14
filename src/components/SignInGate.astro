@@ -1,0 +1,50 @@
+---
+import Badge from './ph/Badge.astro';
+import Card from './ph/Card.astro';
+import DitherButton from './ph/DitherButton.astro';
+import Glider from './ph/Glider.astro';
+
+interface Props {
+  returnTo: string;
+  heading: string;
+  message: string;
+  name?: string;
+}
+
+const { returnTo, heading, message, name } = Astro.props;
+const loginHref = `/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+---
+
+<main class="ph-ui dark gate-root" data-testid="organizer-gate">
+  <div class="gate-shell">
+    <Card class="gate-card">
+      <div class="gate-brand">
+        <Glider class="size-8" label="Purdue Hackers glider" />
+        <Badge color="purple">Jukebox</Badge>
+      </div>
+      <h1 class="ph-headline text-4xl">{heading}</h1>
+      <p>{message}</p>
+      {name && <p>Signed in as <strong>{name}</strong>.</p>}
+      <DitherButton href={loginHref}>Sign in with Purdue Hackers ID</DitherButton>
+    </Card>
+  </div>
+</main>
+
+<style>
+  .gate-root {
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--ph-font-sans);
+  }
+  .gate-shell {
+    width: min(28rem, calc(100vw - 2rem));
+  }
+  .gate-brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+</style>

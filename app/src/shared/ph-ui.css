@@ -1,5 +1,7 @@
-/* Official PH foundations without Tailwind Preflight. The build prefixes every
-   selector in this entry with .ph-ui, including imported theme and utilities. */
+/* Official PH foundations without Tailwind Preflight. Tailwind v4 runs through the
+   official @tailwindcss/vite plugin (see astro.config.mjs). This entry is imported
+   only by the PH-styled pages (src/pages/admin.astro, src/pages/queue.astro), so its
+   rules never reach /display or /visual. */
 @layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
