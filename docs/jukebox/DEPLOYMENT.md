@@ -165,3 +165,15 @@ The build-context allowlist excludes local secrets and saved state.
 Local fixture tests and container smoke results are recorded in
 [the migration record](ASTRO-BUN-MIGRATION.md). They do not establish production
 PH ID, server-source egress, DNS, actual Caddy operation or HDMI behavior.
+
+
+### Audio cache capacity
+
+The worker defaults to a bounded 50 GiB cache. Set `JUKEBOX_CACHE_BYTES` in the
+private environment to change it (256 MiB to 1 TiB), or pass `--cache-bytes`
+directly to the worker. Confirm enough free space on the persistent volume.
+The worker reserves up to 256 MiB for each preparation and protects queued,
+playing and suspended audio from eviction. A cache full of protected tracks
+rejects new jobs rather than deleting those tracks. Remove unused master entries
+or increase the budget when this happens. Unpinned assets are cleaned normally.
+The previous 512 MiB default could block new jobs with only about 256 MiB pinned.
