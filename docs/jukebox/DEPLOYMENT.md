@@ -1,6 +1,6 @@
 # Operator deployment guide
 
-Updated 2026-11-13. Target: Podman on phack.sh behind its existing host Caddy.
+Updated 2026-11-14. Target: Podman on phack.sh behind its existing host Caddy.
 No server login, deployment, DNS change or operator message is part of this rewrite.
 
 ## Pull and run on phack.sh
@@ -137,9 +137,11 @@ Stop/remove the old container, build/select the new image, and start its replace
 with the same named volume and environment. Record source commit and image digest
 for each release. Restore both data directories and matching code/image if rolling
 back across an incompatible migration; code rollback alone is insufficient.
-The runtime rewrite itself adds no schema migration; the later username-ban
-feature appends migration 5. Back up before upgrading, and restore compatible
-data when rolling back to code that only understands schema 4. The new authority lock is a separate
+The runtime rewrite itself adds no schema migration; later features append
+migrations 5 (username bans), 6 (request-timer pause timestamp) and 7
+(request-quota toggle `quota_enabled`) — current schema is 7. Back up before
+upgrading, and restore compatible data when rolling back to code that only
+understands an older schema. The new authority lock is a separate
 `state.sqlite3.authority-lock` SQLite file; the OS releases it after a crash.
 Do not delete it while a process is running. Do not run old and new writers together.
 
@@ -154,8 +156,10 @@ The build-context allowlist excludes local secrets and saved state.
 - Prepare real audio from the phack.sh network. In Firefox verify playback,
   HEAD/Range seeking through `/media/*`, SSE updates and reconnects. Catalog
   metadata is never audio; provider restrictions fail clearly without video.
-- Scan the QR on a phone. The default destination follows the browser origin,
-  so production displays print `https://jukebox.purduehackers.com/queue`.
+- Scan the QR on a phone. The display's QR is a static branded image
+  (`public/qr.png`) that always encodes `https://jukebox.purduehackers.com/queue`;
+  the printed link beside it still follows the instance origin, so a local preview
+  stays reachable by typing that URL.
 - Set Firefox's persistent Autoplay permission on the venue laptop; verify HDMI,
   sleep/wake, repeated nights and emergency stop. Buffered audio can continue
   during a control outage, so keep a physical/local stop method.

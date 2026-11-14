@@ -14,6 +14,7 @@ export function DitheredSoup({ fgColor }: { fgColor: string }) {
   return (
     <div className="ph-dither-soup" aria-hidden="true" data-fg-color={fgColor}>
       <div ref={mountRef} data-dither-soup-mount style={{ width: '100%', height: '100%' }} />
+      <div className="ph-dither-soup__fade" />
     </div>
   );
 }

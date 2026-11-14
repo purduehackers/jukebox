@@ -2,14 +2,25 @@
 
 Audio-only music queue and Firefox venue player for Hack Night. Astro owns the
 pages, middleware and API routes; Bun runs the web application and durable SQLite
-queue authority. React provides interactive controls and the audio visualizer.
-The private Python worker uses uv, yt-dlp and FFmpeg to prepare seekable audio.
+queue authority. Pages and chrome use the official Purdue Hackers `.astro`
+components (`src/components/ph/`) styled with Tailwind v4 through the official
+`@tailwindcss/vite` plugin; React islands ship only where interactivity is needed
+(admin/queue controls, display player, visualizer). The private Python worker
+uses uv, yt-dlp and FFmpeg to prepare seekable audio.
 
 Production target: `https://jukebox.purduehackers.com`, in one Podman container
 behind phack.sh's existing Caddy. Deployment and venue/HDMI checks remain pending.
 See the [operator guide](docs/jukebox/DEPLOYMENT.md),
 [migration record](docs/jukebox/ASTRO-BUN-MIGRATION.md) and
 [current handoff](docs/jukebox/NEXT-CHAT.md).
+
+Current state (2026-11-14): accepted links are YouTube (the only audio source) plus
+Spotify, Apple Music and Deezer track links (metadata-only, matched to YouTube).
+Link validation is ID-only — share/tracking parameters such as YouTube Music's
+`&drli=1` are discarded, not rejected. Admins can disable the per-person request
+quota (`quota.set`, schema migration 7), and the display's request QR is a static
+branded image (`public/qr.png`) for the live site while the printed URL still
+follows the instance origin.
 
 ## Local setup
 

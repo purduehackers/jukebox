@@ -2,12 +2,11 @@
 import Page from '../layouts/Page.astro';
 import SignInGate from '../components/SignInGate.astro';
 import { AdminPage } from '../../app/src/admin/AdminPage.tsx';
-import { getRuntime } from '../server/runtime.ts';
 import '../../app/src/shared/ph-ui.css';
 
 // Server-side gate: the React island (and its script) is only rendered for an
 // organizer session; everyone else gets the static Astro sign-in page.
-const runtime = getRuntime();
+const runtime = Astro.locals.runtime;
 const identity = runtime.transport.sessionIdentity(Astro.request);
 const allowed = !!identity && runtime.service.isAdmin(identity);
 ---

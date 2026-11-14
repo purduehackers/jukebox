@@ -33,6 +33,7 @@ const SHAPES: { [T in CommandType]: Shape } = {
   'queue.mode': { mode: (v) => MODES.includes(v as string) },
   // Wide sanity range here; the service enforces the configured policy bounds.
   'queue.timer': { paused: (v) => typeof v === 'boolean' },
+  'quota.set': { enabled: (v) => typeof v === 'boolean' },
   'queue.interval': { periodMs: (v) => v === null || (Number.isSafeInteger(v) && (v as number) >= 1000 && (v as number) <= 24 * 3600_000) },
   'request.playNow': { entryId: id },
   'device.pairing.create': { name: str(60) },
@@ -77,6 +78,7 @@ export const COMMAND_ROLES: { [T in CommandType]: Role } = {
   'queue.mode': 'admin',
   'queue.interval': 'admin',
   'queue.timer': 'admin',
+  'quota.set': 'admin',
   'request.playNow': 'admin',
   'device.pairing.create': 'admin',
   'device.revoke': 'admin',

@@ -70,6 +70,7 @@ interface PlaybackRow {
   start_position: number; seek_seq: number; seek_epoch: number; volume: number; desired_at: number; generation: number;
   lease_device: string | null; lease_expires: number; observed: string | null; acked_epoch: number | null;
   unconfirmed_noted: number; no_master: number; autostart: number; mode: QueueMode; period_ms: number | null; period_paused_at: number | null;
+  quota_enabled: number;
 }
 interface Suspended { itemId: string; positionSec: number; loadId: number }
 interface NightRow { id: string; status: 'open' | 'closed'; opened_at: number; closed_at: number | null }
@@ -254,7 +255,7 @@ export class JukeboxService {
       if (!night) throw new CommandError('NIGHT_CLOSED', 'Requests are closed until an organizer opens tonight’s session');
       const identity = (actor as { identity: Identity }).identity;
       this.assertUsernameCanRequest(identity);
-      if (this.quotaUsed(night.id, identity.key) >= this.policy.quotaPerNight) {
+      if (this.quotaEnabledNow() && this.quotaUsed(night.id, identity.key) >= this.policy.quotaPerNight) {
         throw new CommandError('QUOTA_EXCEEDED', `You have used all ${this.policy.quotaPerNight} requests for tonight`);
       }
     }
@@ -298,7 +299,7 @@ export class JukeboxService {
       if (!night) throw new CommandError('NIGHT_CLOSED', 'Requests are closed until an organizer opens tonight’s session');
       const used = this.quotaUsed(night.id, identity.key);
       const limit = this.policy.quotaPerNight;
-      if (used >= limit) throw new CommandError('QUOTA_EXCEEDED', `You have used all ${limit} requests for tonight`);
+      if (this.quotaEnabledNow() && used >= limit) throw new CommandError('QUOTA_EXCEEDED', `You have used all ${limit} requests for tonight`);
       const resolved = await this.source.resolve(ref, 'request');
       this.assertUsernameCanRequest(identity);
       if (!(resolved.durationSec > 0)) throw new PortError('SOURCE_UNAVAILABLE', 'Recording has no known duration');
@@ -342,6 +343,7 @@ export class JukeboxService {
       case 'queue.mode': return this.setMode(tx, p.mode as QueueMode);
       case 'queue.timer': return this.setTimerPaused(tx, p.paused as boolean);
       case 'queue.interval': return this.setInterval(tx, p.periodMs as number | null);
+      case 'quota.set': return this.setQuota(tx, p.enabled as boolean);
       case 'request.playNow': return this.playNow(tx, p.entryId as string);
       case 'playback.volume': {
         tx.pb.volume = p.volume as number;
@@ -814,6 +816,21 @@ export class JukeboxService {
     return {};
   }
 
+  /** Absolute, idempotent quota toggle; persists in the playback singleton across restarts and nights. */
+  private setQuota(tx: Tx, enabled: boolean) {
+    const previous = !!tx.pb.quota_enabled;
+    if (previous === enabled) return {};
+    tx.pb.quota_enabled = enabled ? 1 : 0;
+    this.emit(tx, 'quota.set', { enabled, previous });
+    return {};
+  }
+
+  /** Outside a transaction (async precheck/preview), read the durable flag straight from the singleton. */
+  private quotaEnabledNow(): boolean {
+    const row = this.db.prepare('select quota_enabled from playback where id = 1').get() as { quota_enabled: number };
+    return !!row.quota_enabled;
+  }
+
   private playNow(tx: Tx, entryId: string) {
     if (!this.openNight()) throw new CommandError('NIGHT_CLOSED', 'No night session is open');
     const row = this.request(entryId);
@@ -1016,7 +1033,7 @@ export class JukeboxService {
     const night = this.openNight();
     if (!night) throw new CommandError('NIGHT_CLOSED', 'Requests are closed until an organizer opens tonight’s session');
     const used = this.quotaUsed(night.id, identity.key);
-    if (used >= this.policy.quotaPerNight) throw new CommandError('QUOTA_EXCEEDED', `You have used all ${this.policy.quotaPerNight} requests for tonight`);
+    if (!!tx.pb.quota_enabled && used >= this.policy.quotaPerNight) throw new CommandError('QUOTA_EXCEEDED', `You have used all ${this.policy.quotaPerNight} requests for tonight`);
     const duplicate = this.db.prepare("select id from requests where night_id = ? and recording_key = ? and status in ('preparing','ready')")
       .get(night.id, resolved.recordingKey);
     if (duplicate) throw new CommandError('DUPLICATE_REQUEST', 'That recording is already waiting in the queue');
@@ -1276,6 +1293,7 @@ export class JukeboxService {
       serverTime: now,
       role,
       night,
+      quotaEnabled: !!pb.quota_enabled,
       schedule: {
         phase: pb.phase,
         intent: pb.intent,

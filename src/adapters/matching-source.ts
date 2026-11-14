@@ -27,7 +27,7 @@ export class MatchingSource implements SourcePort {
   }
 
   async resolve(ref: SourceRef, purpose: MediaPurpose): Promise<ResolvedSource> {
-    if (ref.provider !== 'spotify' && ref.provider !== 'apple_music') return this.inner.resolve(ref, purpose);
+    if (ref.provider !== 'spotify' && ref.provider !== 'apple_music' && ref.provider !== 'deezer') return this.inner.resolve(ref, purpose);
     return this.cache.get(`${purpose}:${ref.canonicalUrl}`, () => this.resolveCatalog(ref, purpose));
   }
 

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { test } from 'node:test';
 import type { CommandPayloads, CommandResponse } from '../src/contract/types.ts';
+import { canonicalizeUrl } from '../src/core/sources.ts';
 import type { Actor } from '../src/server/service.ts';
 import { RequestFlow } from '../app/src/queue/controller.ts';
 import type { IntentStore, PendingIntent } from '../app/src/queue/controller.ts';
@@ -146,6 +147,41 @@ test('returning user: allowance carries over, runs out at three, and a new night
   assert.equal((await checked(fresh, URLS.r4)).phase, 'previewed');
 });
 
+test('admin can disable the request quota: unlimited submits, flag in snapshot, persists across restart, re-enables', async () => {
+  const h = harness();
+  try {
+    await h.startNight();
+    assert.equal(h.snap(h.alice).quotaEnabled, true);
+    for (const url of [URLS.r1, URLS.r2, URLS.r3]) {
+      const flow = new RequestFlow(sender(h, h.alice));
+      await checked(flow, url);
+      await flow.submit();
+      assert.equal(flow.snapshot.phase, 'submitted');
+    }
+    assert.equal((await checked(new RequestFlow(sender(h, h.alice)), URLS.r4)).error?.code, 'QUOTA_EXCEEDED');
+
+    await h.ok(h.admin, 'quota.set', { enabled: false });
+    assert.equal(h.snap(h.alice).quotaEnabled, false);
+    const fourth = new RequestFlow(sender(h, h.alice));
+    assert.equal((await checked(fourth, URLS.r4)).phase, 'previewed', 'preview no longer rejects on quota');
+    await fourth.submit();
+    assert.equal(fourth.snapshot.phase, 'submitted');
+    assert.equal(h.snap(h.alice).quota?.used, 4, 'counting continues while unlimited, so re-enabling blocks immediately');
+
+    await h.svc.reconcile();
+    h.restart();
+    assert.equal(h.snap(h.alice).quotaEnabled, false, 'the setting is durable across restarts');
+    const bobFlow = new RequestFlow(sender(h, h.bob));
+    await checked(bobFlow, URLS.almost);
+    await bobFlow.submit();
+    assert.equal(bobFlow.snapshot.phase, 'submitted');
+
+    await h.ok(h.admin, 'quota.set', { enabled: true });
+    assert.equal(h.snap(h.alice).quotaEnabled, true);
+    assert.equal((await checked(new RequestFlow(sender(h, h.alice)), URLS.song)).error?.code, 'QUOTA_EXCEEDED');
+  } finally { h.svc.close(); }
+});
+
 test('a night spanning local midnight keeps one allowance; only the admin session resets it', async () => {
   const h = harness();
   await h.startNight();
@@ -181,7 +217,6 @@ test('unsupported and malicious links are rejected before any resolver work and 
     ['http://youtu.be/REQreqreq01', 'INVALID_SOURCE'],
     ['https://user:pw@youtu.be/REQreqreq01', 'INVALID_SOURCE'],
     ['https://youtu.be:8443/REQreqreq01', 'INVALID_SOURCE'],
-    ['https://youtu.be/REQreqreq01#evil', 'INVALID_SOURCE'],
     ['https://youtu.be/REQreqreq01; rm -rf /', 'INVALID_SOURCE'],
     ['https://youtu.be/short', 'INVALID_SOURCE'],
     ['https://www.youtube.com/playlist?list=PL123', 'SOURCE_UNSUPPORTED'],
@@ -209,6 +244,10 @@ test('unsupported and malicious links are rejected before any resolver work and 
   }
   assert.equal(h.source.resolveCalls, resolvedBefore, 'nothing was resolved or fetched for any of them');
   assert.equal(h.snap(h.alice).quota?.used, 0);
+  // Fragments and unknown tracking params are discarded context: the ID alone decides.
+  for (const url of ['https://youtu.be/REQreqreq01#evil', 'https://music.youtube.com/watch?v=REQreqreq01&si=x&drli=1']) {
+    assert.equal(canonicalizeUrl(url).canonicalUrl, 'https://www.youtube.com/watch?v=REQreqreq01', url);
+  }
 });
 
 test('overlong item: the preview shows it but offers no submit; a forced submit is refused', async () => {

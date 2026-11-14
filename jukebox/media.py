@@ -3,7 +3,6 @@ import json
 import math
 import re
 import subprocess
-import unicodedata
 from urllib.parse import parse_qs, urlsplit
 
 MAX_DURATION = 4 * 3600
@@ -25,23 +24,15 @@ def validate_source(source):
     hosts = ('youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be')
     if p.scheme != 'https' or p.username or p.password or p.port or p.hostname not in hosts:
         raise ValueError('Only HTTPS YouTube recording links are supported')
-    if p.fragment and not re.fullmatch(r't=[0-9hms.]+', p.fragment):
-        raise ValueError('Unsupported link fragment')
     if re.match(r'https://([^/?#]+)', source, re.I).group(1).lower() != p.hostname:
         raise ValueError('Use a plain provider hostname')
+    # Only the recording ID matters. Every query parameter and the fragment are
+    # navigation/tracking context (si, drli, utm_*, redirects, #t=...): they are
+    # discarded, never validated or forwarded, because the canonical URL is rebuilt
+    # from the ID alone.
     q = parse_qs(p.query, keep_blank_values=True)
-    context = {'si', 'is', 't', 'start', 'end', 'time_continue', 'list', 'index', 'start_radio', 'feature',
-               'pp', 'ab_channel', 'app', 'persist_app', 'lc'}
-    allowed = context | ({'v'} if p.path == '/watch' and p.hostname != 'youtu.be' else set())
-    if not set(q) <= allowed or any(len(v) != 1 for v in q.values()):
-        raise ValueError('Unsupported or duplicate YouTube parameters')
-    for key, values in q.items():
-        if key != 'v' and (len(values[0]) > 512 or not all(unicodedata.category(c)[0] in ('L', 'N', 'M', 'S') or c in '_ .%+,:=()@-' for c in values[0])):
-            raise ValueError('Invalid YouTube context parameter')
-    if 'si' in q and not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', q['si'][0]):
-        raise ValueError('Invalid sharing parameter')
     if p.hostname != 'youtu.be' and p.path == '/watch':
-        item = q.get('v', [''])[0]
+        item = q.get('v', [''])[0]  # first v wins when duplicated
     elif p.hostname == 'youtu.be':
         item = p.path[1:]
     elif re.fullmatch(r'/(?:shorts|live)/[^/]+', p.path):

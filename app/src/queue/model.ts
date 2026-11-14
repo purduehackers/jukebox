@@ -47,10 +47,10 @@ const ERROR_COPY: Record<ErrorCode, Omit<ErrorCopy, 'retry' | 'body'> & { body: 
   USERNAME_BANNED: { title: 'Requests are unavailable', body: 'This PH ID username cannot submit requests. Ask an organizer if you think this is a mistake.', tone: 'error', blocksLink: true },
   USERNAME_REQUIRED: { title: 'Sign in again', body: 'An organizer updated request access. Sign in again so your PH ID username can be checked.', tone: 'warn', blocksLink: true },
   DUPLICATE_REQUEST: { title: 'Already in the queue', body: 'That recording is already in the queue. Pick another song, or look for it in the list below.', tone: 'info', blocksLink: false },
-  INVALID_SOURCE: { title: 'That link doesn’t work', body: 'Paste a full https link to one YouTube, Spotify, or Apple Music track.', tone: 'error', blocksLink: false },
+  INVALID_SOURCE: { title: 'That link doesn’t work', body: 'Paste a full https link to one YouTube, Spotify, Apple Music, or Deezer track.', tone: 'error', blocksLink: false },
   SOURCE_UNSUPPORTED: {
     title: 'Link type not supported',
-    body: 'Playlists, albums, and other sites can’t be requested. Paste a single YouTube, Spotify, or Apple Music track.',
+    body: 'Playlists, albums, and other sites can’t be requested. Paste a single YouTube, Spotify, Apple Music, or Deezer track.',
     tone: 'error',
     blocksLink: false,
   },

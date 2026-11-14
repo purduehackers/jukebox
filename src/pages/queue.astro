@@ -2,12 +2,11 @@
 import Page from '../layouts/Page.astro';
 import SignInGate from '../components/SignInGate.astro';
 import { QueuePage } from '../../app/src/queue/QueuePage.tsx';
-import { getRuntime } from '../server/runtime.ts';
 import '../../app/src/shared/ph-ui.css';
 
 // Server-side gate: attendees must have a PH ID session; without one the page is
 // the static Astro sign-in page and no island script is shipped.
-const identity = getRuntime().transport.sessionIdentity(Astro.request);
+const identity = Astro.locals.runtime.transport.sessionIdentity(Astro.request);
 ---
 
 <Page title="Purdue Hackers Jukebox">

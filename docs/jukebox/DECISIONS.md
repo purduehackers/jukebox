@@ -644,6 +644,39 @@ limitations are in [LINK-COMPATIBILITY.md](LINK-COMPATIBILITY.md). The reported
 `yL-4oSQwzJI` recording is a 3,443-second mix: appropriate for master music and
 ineligible for attendee requests. This is a duration policy result, not a playlist.
 
+**Link validation simplified to ID-only (2026-11-14, user-reported):** a YouTube
+Music share link with `&drli=1` was wrongly "not supported" because validators
+allowlisted every query parameter. Both URL validators now check only the
+provider host/path shape and the content ID; all other parameters and fragments
+are discarded (the canonical URL is rebuilt from the ID alone, so nothing
+unvalidated is ever forwarded). Security rejections (credentials, ports,
+lookalike hosts, control characters, invalid IDs, playlists/albums) are
+unchanged. Details in [LINK-COMPATIBILITY.md](LINK-COMPATIBILITY.md#id-only-link-validation-2026-11-14).
+
+**Admin request-quota toggle (2026-11-14, user request):** organizers can disable the
+per-person "requests left tonight" quota from the admin queue controls
+(`quota.set {enabled}`, admin-only, idempotent). When off, `QUOTA_EXCEEDED` is never
+raised (submissions are still counted, so re-enabling blocks immediately at the limit),
+the snapshot carries `quotaEnabled: false`, and the /queue allowance line is hidden.
+The flag lives in the `playback` singleton (`quota_enabled`, migration 7), so it is
+durable across restarts and persists across night open/close.
+
+**Display QR is a static image (2026-11-14, user decision):** the wall display
+shows `public/qr.png` (branded QR for the live `https://jukebox.purduehackers.com/queue`)
+instead of generating a QR in code; `qrcode-generator` is removed. The "SONG
+REQUESTS" heading and printed URL remain, and the URL text still follows the
+configured/current origin so local instances stay reachable. Note:
+qr.purduehackers.com is now a client-side-only generator with no image endpoint
+(`/api/qr` 404s), so it cannot be hotlinked.
+
+**Deezer added as a link provider (2026-11-14, user request):** Deezer joins
+YouTube/Spotify/Apple Music as an accepted submission source. It is link-only
+like the other catalog services: `deezer.com` track URLs canonicalize to
+`https://www.deezer.com/track/<id>`, metadata comes from the public no-auth
+`api.deezer.com/track/<id>` endpoint (exact ID, full duration), and the matched
+YouTube recording is what gets prepared. Redirect shorteners are not fetched.
+Details in [LINK-COMPATIBILITY.md](LINK-COMPATIBILITY.md).
+
 ## Queue playback controls (2026-11-02)
 
 The user asked for a simple way to play only the user queue, to play one request on demand, to pick

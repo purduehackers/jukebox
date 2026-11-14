@@ -1,5 +1,5 @@
 Official Purdue Hackers UI components, copied verbatim from
-`https://components.purduehackers.com` (see `.claude/skills/purdue-hackers-ui/SKILL.md`).
+`https://components.purduehackers.com` (see `.agents/skills/purdue-hackers-ui/SKILL.md`).
 Never hand-write tokens or components.
 
 Two flavors, each used where it belongs:

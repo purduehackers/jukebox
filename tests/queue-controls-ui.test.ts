@@ -53,6 +53,19 @@ test('Requests only is unavailable before the night starts', async () => {
   assert.match(out, /Start the night first/);
 });
 
+test('request quota toggle reflects the admin setting', async () => {
+  const h = harness();
+  await h.startNight([URLS.mix]);
+  let out = controls(h.snap());
+  assert.match(out, /data-adm-quota-toggle="true"[^>]*aria-pressed="true"|aria-pressed="true"[^>]*data-adm-quota-toggle="true"/);
+  assert.match(text(out), /Disable request quota/);
+  await h.ok(h.admin, 'quota.set', { enabled: false });
+  out = controls(h.snap());
+  assert.match(out, /aria-pressed="false"/);
+  assert.match(text(out), /Enable request quota/);
+  await h.svc.close();
+});
+
 test('Play now: row action names what it interrupts, and is disabled with a reason while a request plays', async () => {
   const { h } = await scene();
   const panel = (snapshot = h.snap()) => html(createElement(views.RequestQueuePanel, { snapshot, actions }));

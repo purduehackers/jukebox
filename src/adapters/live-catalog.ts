@@ -48,7 +48,7 @@ export class LiveCatalog implements CatalogPort {
 
   async lookup(ref: SourceRef): Promise<CatalogTrack | null> {
     const checked = canonicalizeUrl(ref.canonicalUrl);
-    if (checked.provider !== ref.provider || checked.itemId !== ref.itemId || !['spotify', 'apple_music'].includes(ref.provider)) {
+    if (checked.provider !== ref.provider || checked.itemId !== ref.itemId || !['spotify', 'apple_music', 'deezer'].includes(ref.provider)) {
       throw new PortError('INVALID_SOURCE', 'Invalid catalog recording');
     }
     const key = checked.canonicalUrl;
@@ -57,7 +57,7 @@ export class LiveCatalog implements CatalogPort {
     if (this.active >= 2) throw new PortError('SOURCE_UNAVAILABLE', 'Music catalog is busy; try again shortly.', true);
     this.active++;
     try {
-      const track = ref.provider === 'spotify' ? await this.spotify(checked) : await this.apple(checked);
+      const track = ref.provider === 'spotify' ? await this.spotify(checked) : ref.provider === 'deezer' ? await this.deezer(checked) : await this.apple(checked);
       if (track) {
         if (this.cache.size >= 128) this.cache.delete(this.cache.keys().next().value!);
         this.cache.set(key, { until: Date.now() + 300000, track });
@@ -115,6 +115,22 @@ export class LiveCatalog implements CatalogPort {
       throw new PortError('SOURCE_UNSUPPORTED', 'Spotify public track metadata is unavailable or has changed. An organizer can configure JUKEBOX_SPOTIFY_CLIENT_ID and JUKEBOX_SPOTIFY_CLIENT_SECRET for the documented API; otherwise paste a YouTube link.', false, { kind: 'catalog_configuration' });
     }
     return track(ref, entity.name, artistNames(entity.artists), entity.duration, 'spotify_public_embed');
+  }
+
+  private async deezer(ref: SourceRef): Promise<CatalogTrack | null> {
+    // Public, unauthenticated track endpoint; no API key needed.
+    const result = await this.request(`https://api.deezer.com/track/${ref.itemId}`);
+    if (result.status === 404) return null;
+    this.status(result.status, 'Deezer');
+    const body = parseJson(result.text);
+    // Deezer reports unknown tracks as HTTP 200 with an error object.
+    if (body.error) {
+      if (body.error.code === 800) return null;
+      throw new PortError('SOURCE_UNAVAILABLE', 'Deezer catalog is temporarily unavailable. Try again later.', true, { kind: 'catalog_unavailable' });
+    }
+    // Reject relinking to another recording; never quietly change the requested version.
+    if (String(body.id) !== ref.itemId) throw malformed('Deezer');
+    return track(ref, body.title, [body.artist?.name], typeof body.duration === 'number' ? body.duration * 1000 : NaN, 'deezer_public_api', body.album?.title, body.isrc);
   }
 
   private async apple(ref: SourceRef): Promise<CatalogTrack | null> {

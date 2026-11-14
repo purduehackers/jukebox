@@ -2,8 +2,12 @@
 
 Status: `main` includes the Astro/Bun/uv application and 2026-11-09 UI,
 visualizer, volume transitions, username bans and attributed queue action log.
+The `astro-migration` branch adds the 2026-11-14 work: Tailwind v4 through the
+official `@tailwindcss/vite` plugin, official PH `.astro` components with React
+islands only where needed, ID-only link validation, Deezer as a link-only provider,
+an admin request-quota toggle (schema migration 7) and a static branded display QR.
 Podman deployment packaging is included; production and venue gates remain open.
-Updated 2026-11-09.
+Updated 2026-11-14.
 
 Read [Current implementation and deployment readiness](CURRENT-STATUS.md) first
 for actual behavior, startup, baseline and release blockers. The original plan
@@ -45,7 +49,7 @@ superseded by the intended jukebox hostname.
 
 ## Documents
 
-- [Link compatibility](LINK-COMPATIBILITY.md): current YouTube URL normalization, real-worker startup, live Spotify/Apple metadata matching, research and measured limitations.
+- [Link compatibility](LINK-COMPATIBILITY.md): current ID-only URL validation (2026-11-14), real-worker startup, live Spotify/Apple Music/Deezer metadata matching, research and measured limitations.
 
 - [Phase-3 Firefox player](PHASE-3-FINDINGS.md): pairing, activation, lease fencing,
   recovery evidence, measured acknowledgement/resume results, and venue gates.
@@ -53,7 +57,8 @@ superseded by the intended jukebox hostname.
 - [Phase-2 contract and service](PHASE-2-CONTRACT.md): behavior table, typed
   commands/snapshots, authority/lease semantics, PH ID status, evidence, limitations.
 - [Phase-4B attendee queue](PHASE-4B-QUEUE.md): `/queue` page, preview-before-submit,
-  Spotify/Apple matcher design, QR origin rule, evidence, limitations; contract
+  Spotify/Apple/Deezer matcher design, QR origin rule (the display QR is now a
+  static image, 2026-11-14), evidence, limitations; contract
   [proposals](proposals/phase-4b.md) for the integration owner.
 - [Phase-1 measured findings](PHASE-1-FINDINGS.md): implemented local runtime,
   Firefox/source evidence, boundaries, interface proposals, and pending gates.

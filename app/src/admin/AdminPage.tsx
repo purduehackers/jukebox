@@ -113,6 +113,8 @@ export function AdminPage() {
           'queue.interval',
           { periodMs },
         ),
+      setQuota: (enabled) =>
+        runner.run(enabled ? 'Enable request quota' : 'Disable request quota', 'quota.set', { enabled }),
       playNow: (entryId, title) => runner.run(`Play “${title}” now`, 'request.playNow', { entryId }),
       removeRequest: (entryId, title) => runner.run(`Remove request “${title}”`, 'request.remove', { entryId }),
       moveRequest: (entryId, afterEntryId, title) => runner.run(`Move request “${title}”`, 'request.move', { entryId, afterEntryId }),
@@ -323,6 +325,10 @@ export function AdminPage() {
     }
     if (target.closest('[data-adm-timer-pause]')) {
       void actions.setTimerPaused?.(snapshot.schedule.periodPausedAt == null);
+      return;
+    }
+    if (target.closest('[data-adm-quota-toggle]')) {
+      void actions.setQuota(!snapshot.quotaEnabled);
       return;
     }
 

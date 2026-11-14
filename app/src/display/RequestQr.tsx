@@ -1,33 +1,16 @@
 import { useEffect, useState } from 'react';
-import qrcode from 'qrcode-generator';
 import { requestUrl } from './model.ts';
-
-export function qrPath(value: string) {
-  const qr = qrcode(0, 'M');
-  qr.addData(value, 'Byte');
-  qr.make();
-  const count = qr.getModuleCount();
-  let path = '';
-  for (let y = 0; y < count; y++)
-    for (let x = 0; x < count; x++) {
-      if (qr.isDark(y, x)) path += `M${x + 4},${y + 4}h1v1h-1z`;
-    }
-  return { path, size: count + 8 };
-}
 
 interface QrResult {
   url: string;
-  path: string;
-  size: number;
   error: string | null;
 }
 
 function computeQr(actualOrigin: string): QrResult {
   try {
-    const url = requestUrl(import.meta.env.VITE_JUKEBOX_PUBLIC_ORIGIN, actualOrigin);
-    return { url, ...qrPath(url), error: null };
+    return { url: requestUrl(import.meta.env.VITE_JUKEBOX_PUBLIC_ORIGIN, actualOrigin), error: null };
   } catch (error) {
-    return { url: '', path: '', size: 0, error: String(error) };
+    return { url: '', error: String(error) };
   }
 }
 
@@ -51,18 +34,16 @@ export function RequestQr() {
           <a href={result.url}>{result.url.replace(/^https?:\/\//, '').replace(/\/$/, '')}</a>
         )}
       </div>
-      {result.size > 0 && (
-        <svg
+      {/* Static branded QR for the live https://jukebox.purduehackers.com/queue, served from /qr.png. */}
+      {!result.error && (
+        <img
           className="display-qr"
-          role="img"
-          aria-label={`Scan to request a song: ${result.url}`}
-          data-url={result.url}
-          viewBox={`0 0 ${result.size} ${result.size}`}
-          shapeRendering="crispEdges"
-        >
-          <rect width={result.size} height={result.size} fill="#fff" />
-          <path d={result.path} fill="#000" />
-        </svg>
+          src="/qr.png"
+          alt={`Scan to request a song: ${result.url}`}
+          width={962}
+          height={962}
+          decoding="async"
+        />
       )}
     </section>
   );

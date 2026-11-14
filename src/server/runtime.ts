@@ -49,7 +49,25 @@ export function createRuntime(env = process.env) {
   return { service, transport, origin, stopScheduling() { clearInterval(timer); }, async close() { if (closed) return; closed = true; clearInterval(timer); transport.close(); await service.settle(); service.close(); } };
 }
 
+export type Runtime = ReturnType<typeof createRuntime>;
+
 const key = Symbol.for('purduehackers.jukebox.runtime');
-const registry = globalThis as typeof globalThis & { [key]?: ReturnType<typeof createRuntime> };
+const registry = globalThis as typeof globalThis & { [key]?: Runtime };
 export function getRuntime() { return registry[key] ??= createRuntime(); }
 export async function closeRuntime() { await registry[key]?.close(); delete registry[key]; }
+
+const signalsKey = Symbol.for('purduehackers.jukebox.runtime.signals');
+/**
+ * Backstop so the runtime settles even when the dev server's `httpServer` close
+ * event never fires. Installed at most once per process. Dev exit is owned by
+ * the Astro CLI's own signal handlers; production lifecycle (including signals)
+ * lives in scripts/start-web.ts, where this hook never runs.
+ */
+export function installShutdownBackstop() {
+  const signals = globalThis as typeof globalThis & { [signalsKey]?: boolean };
+  if (signals[signalsKey]) return;
+  signals[signalsKey] = true;
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    process.once(signal, () => { void closeRuntime(); });
+  }
+}

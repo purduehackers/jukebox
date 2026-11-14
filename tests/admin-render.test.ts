@@ -133,7 +133,7 @@ test('alerts band, request turn, queues, and unsupported-source guidance', async
     assert.match(addBar, /Queue/);
     assert.match(addBar, /Add to master/);
     assert.match(addBar, /Add to requests/);
-    assert.match(addBar, /YouTube, Spotify, or Apple Music track link/);
+    assert.match(addBar, /YouTube, Spotify, Apple Music, or Deezer track link/);
     assert.doesNotMatch(addBar, /Master mixes welcome/);
     assert.match(text(master), /· mix/);
     assert.match(master, /Move up/);

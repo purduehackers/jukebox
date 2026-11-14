@@ -51,6 +51,7 @@ export interface Actions {
   setMode(mode: QueueMode): Done;
   setTimerPaused?(paused: boolean): Done;
   setInterval(periodMs: number | null): Done;
+  setQuota(enabled: boolean): Done;
   playNow(entryId: string, title: string): Done;
   removeRequest(entryId: string, title: string): Done;
   moveRequest(entryId: string, afterEntryId: string | null, title: string): Done;
@@ -721,6 +722,11 @@ export function QueueControls({
             {schedule.periodPausedAt == null ? 'Pause request timer' : 'Resume request timer'}
           </Button>
         )}
+        <Tip title={snapshot.quotaEnabled ? 'Each person gets 3 requests per night. Turn off for unlimited requests.' : 'Request quota is off: everyone can request without a limit.'}>
+          <Button variant="outline" data-adm-quota-toggle="true" aria-pressed={snapshot.quotaEnabled}>
+            {snapshot.quotaEnabled ? 'Disable request quota' : 'Enable request quota'}
+          </Button>
+        </Tip>
         <form className="adm-interval" data-adm-interval-form>
           <Field label="Request every" htmlFor="adm-interval">
             <div className="adm-interval-row">
@@ -1056,7 +1062,7 @@ export function AddBar({
             onSubmitMaster?.();
           }}
         >
-          <Field label="YouTube, Spotify, or Apple Music track link" htmlFor="adm-add-url">
+          <Field label="YouTube, Spotify, Apple Music, or Deezer track link" htmlFor="adm-add-url">
             <div className="adm-add-row">
               <Input
                 id="adm-add-url"
