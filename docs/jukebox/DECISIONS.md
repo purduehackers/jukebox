@@ -1,5 +1,19 @@
 # Decisions and question backlog
 
+## Production container update through SSH (2026-11-16)
+
+The user requested updating phack.sh after the GitHub Actions image publish.
+The deployment job uses the GitHub `Production` environment and its `SSH_KEY`
+secret, connecting as `p-jukebox@phack.sh` on port `10022` without a remote
+command. The user configured the key's `authorized_keys` entry to force
+`podman auto-update`. This records the workflow configuration; a live production
+update has not been verified by this edit.
+
+The user subsequently supplied the server's host keys and requested pinning one
+instead of accepting new keys, then chose a GitHub environment variable over
+embedding the key in the workflow. The workflow reads the complete known-hosts
+entry from `Production.vars.SSH_HOST_KEY` and uses `StrictHostKeyChecking=yes`.
+
 ## Container-only Unix socket ingress (2026-11-13)
 
 The user requested removing the native `deploy/jukebox.service` and using the

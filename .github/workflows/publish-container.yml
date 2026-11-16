@@ -55,3 +55,36 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: Production
+    permissions: {}
+    steps:
+      - name: Update production container
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_HOST_KEY: ${{ vars.SSH_HOST_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${SSH_HOST_KEY:?Set SSH_HOST_KEY in the Production environment}"
+          ssh_dir=$(mktemp -d)
+          trap 'rm -rf "$ssh_dir"' EXIT
+          chmod 700 "$ssh_dir"
+          printf '%s\n' "$SSH_KEY" > "$ssh_dir/key"
+          chmod 600 "$ssh_dir/key"
+          printf '%s\n' "$SSH_HOST_KEY" > "$ssh_dir/known_hosts"
+
+          # authorized_keys forces podman auto-update; send no remote command.
+          ssh -T -p 10022 -i "$ssh_dir/key" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o ConnectTimeout=30 \
+            -o ServerAliveInterval=15 \
+            -o ServerAliveCountMax=3 \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+            p-jukebox@phack.sh

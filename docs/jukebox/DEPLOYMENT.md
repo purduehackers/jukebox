@@ -9,7 +9,20 @@ Pushes to `main` run `.github/workflows/publish-container.yml` on GitHub's
 Linux AMD64 runner and publish `ghcr.io/purduehackers/jukebox:latest` plus
 `sha-<full-commit-SHA>`. Manual runs are also available on `main`. Publishing
 uses the built-in `GITHUB_TOKEN` with package-write permission; no extra registry
-secret is needed. The workflow publishes images without deploying the server.
+secret is needed. After publishing succeeds, a separate job uses the GitHub
+`Production` environment's `SSH_KEY` secret to connect to `p-jukebox@phack.sh`
+on port `10022`. It sends no remote command: the key's `authorized_keys` entry
+forces `podman auto-update` on the server. A failed SSH/update command fails the
+deployment job. Set the `Production` environment variable `SSH_HOST_KEY` to the
+complete known-hosts entry (including `[phack.sh]:10022`, key type and key):
+
+```text
+[phack.sh]:10022 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINtORTZzH/Xcj9+fbEN3zzu2fueGkYn9FSwDk0KPHjii
+```
+
+The workflow requires this variable and strict host-key verification. Both the
+known-hosts file and private key are temporary and removed on exit. Update the
+variable when the server's host key is intentionally rotated.
 
 Pull the built image instead of building on phack.sh, where the native
 Astro/Vite build dependency crashed on a CPU without AVX:
