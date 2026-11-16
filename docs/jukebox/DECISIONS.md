@@ -868,3 +868,21 @@ from pausing audio, which still does not stop elapsed time. Timer pause is durab
 master interval. Changing queue modes, ending a night or completing a manually
 started request resets the timer pause along with the interval. Queued requests
 remain queued. Attendee estimates do not promise a time while the timer is paused.
+
+## Sentry monitoring (2026-11-16)
+
+The user asked for Sentry monitoring. Implemented as opt-in, single-DSN error
+reporting across the Bun authority and supervisor, the browser pages and the
+Python audio worker, keyed off `JUKEBOX_SENTRY_DSN`; a blank DSN disables
+everything, so tests and fixture runs never send events. Environment, release
+and traces rate come from `JUKEBOX_SENTRY_ENVIRONMENT`, `JUKEBOX_SENTRY_RELEASE`
+and `JUKEBOX_SENTRY_TRACES_SAMPLE_RATE` (default 0 = errors only). The browser
+DSN is injected per request as `data-sentry-*` attributes, not a build argument.
+The `purduehackers/jukebox` project was created manually on 2026-11-16 (project
+creation via the API is disabled for members); its DSN is configured only in the
+private env files (`.env.local`, deploy env), never committed, and a smoke event
+(JUKEBOX-1, since ignored) verified delivery end-to-end. Tests strip Sentry env
+via `--preload tests/preload.ts` because Bun auto-loads `.env.local`. CI: the
+publish workflow uploads source maps/releases when the `SENTRY_AUTH_TOKEN` repo
+secret (org `org:ci` scope) is set, and images bake `JUKEBOX_SENTRY_RELEASE`
+from the git SHA. See MONITORING.md.

@@ -1,3 +1,5 @@
+# Public per-image release (git SHA), reported to Sentry at runtime. Not a secret.
+ARG SENTRY_RELEASE=
 FROM docker.io/oven/bun:1.4.4 AS build
 WORKDIR /opt/jukebox
 COPY package.json bun.lock ./
@@ -8,6 +10,7 @@ COPY src ./src
 RUN bun run build
 
 FROM docker.io/oven/bun:1.4.4 AS runtime
+ARG SENTRY_RELEASE
 COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /usr/local/bin/uv
 RUN apt-get update \
     && apt-get install -y --no-install-recommends bash ca-certificates ffmpeg python3 tini \
@@ -28,7 +31,8 @@ RUN chmod +x scripts/run-production \
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=8080 \
     JUKEBOX_SERVICE_DATA=/var/lib/jukebox/service \
     JUKEBOX_WORKER_DATA=/var/lib/jukebox/worker \
-    JUKEBOX_WORKER_PORT=8971
+    JUKEBOX_WORKER_PORT=8971 \
+    JUKEBOX_SENTRY_RELEASE=${SENTRY_RELEASE}
 USER bun
 EXPOSE 8080
 VOLUME /var/lib/jukebox

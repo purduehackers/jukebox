@@ -144,3 +144,21 @@ Verification rerun 2026-11-14: 23 Python tests, 220 Bun tests across 33 files
 (including the policy suite), both TypeScript checks plus Astro check (0 errors)
 and the production build all passed. No browser/HDMI checks were rerun; the
 earlier Firefox evidence above stands as recorded.
+
+## Latest work (2026-11-16)
+
+Optional Sentry monitoring is wired across the stack (details in MONITORING.md):
+one `JUKEBOX_SENTRY_DSN` env var drives `@sentry/bun` in the authority and
+supervisor, `@sentry/react` in the browser pages (DSN injected per request as
+`data-sentry-*` attributes on `<html>`) and `sentry-sdk` in the Python worker.
+A blank DSN disables everything; tests and fixture runs never send events.
+Verification: 26 Python and 223 Bun tests, both typechecks, production build,
+plus a booted production entry with a dead-project DSN (SDK enabled, `/queue`
+carries the attributes, unhandled rejections captured). The `purduehackers/jukebox`
+project now exists (created manually 2026-11-16; API creation is disabled for
+members) and its DSN is set in the private `.env.local`; a smoke event (JUKEBOX-1,
+ignored) confirmed delivery. `bun run test` preloads `tests/preload.ts`, which
+strips Sentry env vars so tests never send events. CI: `publish-container` uploads
+source maps/releases to Sentry when the `SENTRY_AUTH_TOKEN` secret (org:ci) is
+set, and the Containerfile bakes `JUKEBOX_SENTRY_RELEASE=sha-<git sha>` into
+images; builds emit source maps for that.

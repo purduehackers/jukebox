@@ -12,6 +12,7 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
+from .monitoring import capture_exception, init_monitoring
 from .store import Store, Conflict
 
 WEB = Path(__file__).resolve().parent.parent / 'web'
@@ -263,12 +264,20 @@ def make_server(store, port=8971):
             except (BrokenPipeError, ConnectionResetError):
                 pass
 
-    server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
+    class Server(ThreadingHTTPServer):
+        def handle_error(self, request, client_address):
+            # Report handler-thread crashes to Sentry when monitoring is on,
+            # then keep the default socketserver logging behavior.
+            capture_exception(sys.exc_info()[1])
+            super().handle_error(request, client_address)
+
+    server = Server(('127.0.0.1', port), Handler)
     server.daemon_threads = True
     return server
 
 
 def main():
+    init_monitoring()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=8971)
     parser.add_argument('--data', default='.local/jukebox')

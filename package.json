@@ -6,8 +6,8 @@
     "dev": "scripts/run-dev",
     "build": "bun --bun astro build",
     "start": "scripts/run-production",
-    "test": "bun test tests/*.test.ts tests/turn.test.mjs",
-    "test:policy": "bun test tests/turn.test.mjs",
+    "test": "bun test --preload ./tests/preload.ts tests/*.test.ts tests/turn.test.mjs",
+    "test:policy": "bun test --preload ./tests/preload.ts tests/turn.test.mjs",
     "typecheck": "bun --bun astro check && bun --bun tsc -p .",
     "check": "scripts/check",
     "worker": "uv run --locked python -m jukebox.server"
@@ -31,6 +31,8 @@
     "@fontsource/inconsolata": "^5.3.0",
     "@paper-design/shaders": "0.0.82",
     "@purduehackers/time": "^0.7.0",
+    "@sentry/bun": "^11.13.0",
+    "@sentry/react": "^11.13.0",
     "astro": "7.4.8",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

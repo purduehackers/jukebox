@@ -11,8 +11,10 @@ import type { SourcePort, MediaPort, IdentityPort } from '../core/ports.ts';
 import { validateProduction } from './production.ts';
 import { createTransport, type TransportOptions } from './transport.ts';
 import { JukeboxService } from './service.ts';
+import { captureError, initMonitoring } from './monitoring.ts';
 
 export function createRuntime(env = process.env) {
+  initMonitoring(env);
   const data = resolve(env.JUKEBOX_SERVICE_DATA ?? '.local/service');
   const devAuth = env.JUKEBOX_DEV_AUTH === '1';
   const fixtureMedia = env.JUKEBOX_FIXTURE_MEDIA === '1';
@@ -42,7 +44,7 @@ export function createRuntime(env = process.env) {
   mkdirSync(data, { recursive: true });
   const service = new JukeboxService({ dbPath: join(data, 'state.sqlite3'), clock: systemClock, source, media, adminKeys: env.JUKEBOX_ADMIN_KEYS?.split(',').filter(Boolean) });
   const transport = createTransport({ service, identity, origin, mediaProxy });
-  const timer = setInterval(() => void service.reconcile().catch(error => console.error('[jukebox] reconcile', error)), 1000);
+  const timer = setInterval(() => void service.reconcile().catch(error => { captureError(error, { source: 'reconcile' }); console.error('[jukebox] reconcile', error); }), 1000);
   timer.unref();
   let closed = false;
   console.log(`Jukebox authority: ${identity.kind === 'fake' ? 'FAKE local sign-in' : 'PH ID'}; ${fixtureMedia || fixtureMatching ? 'EXPLICIT FIXTURE MEDIA' : `audio worker ${workerUrl}; live catalog matching`}`);

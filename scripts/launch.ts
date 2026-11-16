@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { parseArgs, parseEnv } from 'node:util';
 import net from 'node:net';
 import { validateProduction } from '../src/server/production.ts';
+import { initMonitoring } from '../src/server/monitoring.ts';
 
 const production = process.argv[2] === 'production';
 const explicitTestAuth = process.env.JUKEBOX_DEV_AUTH === '1' || process.argv.includes('--dev-auth');
@@ -13,6 +14,9 @@ if (!production && !explicitTestAuth && existsSync('.env.local')) {
     if (key.startsWith('JUKEBOX_') && process.env[key] === undefined) process.env[key] = value;
   }
 }
+// Supervisor-level monitoring; the web and worker processes init from the same
+// JUKEBOX_SENTRY_DSN in their own entry points. No-op when the DSN is unset.
+initMonitoring();
 const { values } = parseArgs({ args: process.argv.slice(3), options: {
   data: { type: 'string' }, worker: { type: 'string' }, port: { type: 'string' },
   'dev-auth': { type: 'boolean' }, 'fixture-media': { type: 'boolean' }, 'fixture-matching': { type: 'boolean' },

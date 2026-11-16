@@ -62,6 +62,8 @@ superseded by the intended jukebox hostname.
   [proposals](proposals/phase-4b.md) for the integration owner.
 - [Phase-1 measured findings](PHASE-1-FINDINGS.md): implemented local runtime,
   Firefox/source evidence, boundaries, interface proposals, and pending gates.
+- [Sentry monitoring](MONITORING.md): optional single-DSN error reporting for the
+  authority, browser pages and audio worker (2026-11-16).
 
 - [Discovery and deployment findings](DISCOVERY.md): evidence from this repo,
   related org repositories, public DNS, and provider documentation.

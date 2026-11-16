@@ -38,6 +38,9 @@ export default defineConfig({
   // Private .env.local is loaded explicitly by the supervisor, never by Vite.
   vite: {
     plugins: [tailwindcss()],
+    // Source maps ship with the (public) image so CI can upload them to Sentry
+    // for readable stack traces; the repo is public, so nothing is exposed.
+    build: { sourcemap: true },
     envDir: './.local/astro-env',
     // Astro 7 only pre-bundles the renderer's client entrypoint; the renderer's
     // own optimizeDeps.include (react-dom/client) is not applied, so the island's

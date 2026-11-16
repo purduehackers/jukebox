@@ -65,6 +65,15 @@ PORT=8080
 JUKEBOX_WORKER_PORT=8971
 ```
 
+Optional Sentry error monitoring: add `JUKEBOX_SENTRY_DSN` (plus optional
+`JUKEBOX_SENTRY_ENVIRONMENT`, `JUKEBOX_SENTRY_RELEASE`,
+`JUKEBOX_SENTRY_TRACES_SAMPLE_RATE`) to the same private env file. One DSN covers
+the web authority, the browser pages and the audio worker; leave it unset to
+disable monitoring entirely. Images bake `JUKEBOX_SENTRY_RELEASE` from the build's
+git SHA (matching the `sha-<sha>` image tag); override it here if needed. CI also
+uploads Sentry source maps/releases when the `SENTRY_AUTH_TOKEN` repo secret is
+set. See [Sentry monitoring](MONITORING.md).
+
 Have the PH ID app owner register that exact callback and grant organizers
 `organizer` or `admin` roles. Sessions last 12 hours; sign in before the night.
 Secrets are runtime configuration, never build arguments or repository files.

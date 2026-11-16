@@ -2,6 +2,7 @@
 // a PH ID session cookie (attendee/admin) or a paired-device bearer token (player).
 import { createHash, randomBytes } from 'node:crypto';
 import { metricsResponse } from './metrics.ts';
+import { captureError } from './monitoring.ts';
 import type { Identity } from '../contract/types.ts';
 import type { IdentityPort } from '../core/ports.ts';
 import type { Actor, JukeboxService } from './service.ts';
@@ -230,6 +231,7 @@ export function createTransport(options: TransportOptions) {
     async handle(request: Request): Promise<Response> {
       try { return await route(request); }
       catch (error) {
+        captureError(error, { source: 'authority' });
         console.error('[jukebox] request error', error);
         return json(500, { error: { code: 'INTERNAL', message: 'Internal error', retryable: true } });
       }

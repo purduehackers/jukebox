@@ -2,7 +2,10 @@
 name = "purdue-hackers-jukebox-worker"
 version = "0.1.0"
 requires-python = ">=3.11,<3.15"
-dependencies = ["yt-dlp[default]==2026.10.26"]
+dependencies = [
+    "sentry-sdk>=2",
+    "yt-dlp[default]==2026.10.26",
+]
 
 [dependency-groups]
 dev = ["selenium==4.52.0"]

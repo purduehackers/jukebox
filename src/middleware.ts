@@ -1,6 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { getRuntime } from './server/runtime.ts';
 import { localOriginRedirect } from './server/local-origin.ts';
+import { captureError } from './server/monitoring.ts';
 
 export const onRequest = defineMiddleware(async (context, next) => {
   // Hand the per-process authority runtime to every route/page via locals.
@@ -17,7 +18,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
       return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Jukebox</title><body style="background:#000;color:#fff;font-family:monospace"><main data-testid="organizer-gate"><h1>JUKEBOX</h1><p>Organizer sign-in required</p><a style="color:inherit" href="${login}">Sign in with Purdue Hackers ID</a></main></body></html>`, { status: user ? 403 : 401, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', vary: 'Cookie' } });
     }
   }
-  const response = await next();
+  const response = await next().catch(error => {
+    captureError(error, { source: 'page', route: path, method: context.request.method });
+    throw error;
+  });
   if (!path.startsWith('/_astro/')) response.headers.set('cache-control', 'no-store');
   return response;
 });

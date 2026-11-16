@@ -30,6 +30,34 @@ jobs:
         # Docker does not read Podman's .containerignore.
         run: cp .containerignore .dockerignore
 
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Upload release and source maps to Sentry
+        # Optional: needs the org:ci auth token in the SENTRY_AUTH_TOKEN secret.
+        # The release matches the sha-<git sha> image tag; the same build also
+        # bakes JUKEBOX_SENTRY_RELEASE into the image via the SENTRY_RELEASE
+        # build arg below.
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: purduehackers
+          SENTRY_PROJECT: jukebox
+          SENTRY_RELEASE: sha-${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
+            echo "SENTRY_AUTH_TOKEN secret not set; skipping Sentry release/source-map upload"
+            exit 0
+          fi
+          bun install --frozen-lockfile
+          bun run build
+          bunx --bun @sentry/cli@3 releases new "$SENTRY_RELEASE"
+          bunx --bun @sentry/cli@3 sourcemaps inject ./dist
+          bunx --bun @sentry/cli@3 sourcemaps upload --release "$SENTRY_RELEASE" ./dist
+          bunx --bun @sentry/cli@3 releases finalize "$SENTRY_RELEASE"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -47,6 +75,8 @@ jobs:
           file: ./Containerfile
           platforms: linux/amd64
           push: true
+          build-args: |
+            SENTRY_RELEASE=sha-${{ github.sha }}
           tags: |
             ghcr.io/purduehackers/jukebox:latest
             ghcr.io/purduehackers/jukebox:sha-${{ github.sha }}

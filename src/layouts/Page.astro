@@ -6,15 +6,33 @@ interface Props {
 }
 
 const { title } = Astro.props;
+
+// Optional Sentry monitoring: the browser DSN is injected at request time from
+// server env (the same JUKEBOX_SENTRY_DSN as the authority and audio worker).
+// A build-time VITE_SENTRY_DSN overrides it. Empty means monitoring is off.
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN ?? process.env.JUKEBOX_SENTRY_DSN ?? '';
+const sentryEnvironment = process.env.JUKEBOX_SENTRY_ENVIRONMENT ?? (import.meta.env.PROD ? 'production' : 'development');
+const sentryRelease = import.meta.env.VITE_SENTRY_RELEASE ?? process.env.JUKEBOX_SENTRY_RELEASE;
+const sentryTraces = import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE ?? process.env.JUKEBOX_SENTRY_TRACES_SAMPLE_RATE ?? '0';
 ---
 
 <!doctype html>
-<html lang="en">
+<html
+  lang="en"
+  data-sentry-dsn={sentryDsn || undefined}
+  data-sentry-environment={sentryEnvironment}
+  data-sentry-release={sentryRelease || undefined}
+  data-sentry-traces={sentryTraces}
+>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="data:," />
     <title>{title}</title>
+    <script>
+      import { initClientMonitoring } from '../shared/monitoring-client.ts';
+      initClientMonitoring();
+    </script>
   </head>
   <body>
     <slot />
