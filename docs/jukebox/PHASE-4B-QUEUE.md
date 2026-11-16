@@ -5,6 +5,11 @@ Scope authority: [APPROVAL-PLAN.md](APPROVAL-PLAN.md); contract: [PHASE-2-CONTRA
 Labels: **Confirmed** = user decision/approved default; **Implementation choice** = filled a gap;
 **Limitation** = known gap. Contract changes are *proposals* in [proposals/phase-4b.md](proposals/phase-4b.md).
 
+Updated 2026-11-14: Deezer track links are also accepted as link-only metadata (like
+Spotify/Apple — see [LINK-COMPATIBILITY.md](LINK-COMPATIBILITY.md)), links are validated
+ID-only, admins can disable the quota with `quota.set`, and the display QR is a static
+image (see [PHASE-4C-DISPLAY.md](PHASE-4C-DISPLAY.md)).
+
 ## What exists
 
 | Piece | Path |
@@ -13,7 +18,7 @@ Labels: **Confirmed** = user decision/approved default; **Implementation choice*
 | Request flow state machine (framework-free) | `app/src/queue/controller.ts` |
 | Wording, request states, timing estimates | `app/src/queue/model.ts` |
 | QR origin rule | `app/src/queue/origin.ts`, `scripts/queue-qr.ts` |
-| Spotify/Apple matcher behind `SourcePort` | `src/adapters/matching-core.ts`, `matching-source.ts`, `matching-fixtures.ts` |
+| Spotify/Apple/Deezer matcher behind `SourcePort` | `src/adapters/matching-core.ts`, `matching-source.ts`, `matching-fixtures.ts`, `live-catalog.ts` |
 | Contract proposals (P1–P3) | commits prefixed `contract-proposal:` |
 
 ## Attendee flow

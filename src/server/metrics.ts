@@ -1,6 +1,6 @@
 import type { Database } from 'bun:sqlite';
 
-const sources = ['youtube', 'spotify', 'apple_music', 'fixture'] as const;
+const sources = ['youtube', 'spotify', 'apple_music', 'deezer', 'fixture'] as const;
 
 /** Read retained admissions and live queue/playback state. No mutations. */
 export function metricsResponse(db: Database): Response {

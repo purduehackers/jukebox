@@ -21,6 +21,11 @@ class SourceURLParity(unittest.TestCase):
         for url in fixtures['rejected']:
             with self.subTest(url=url), self.assertRaises(ValueError):
                 validate_source(url)
+        for url, expected in fixtures['acceptedPairs']:
+            with self.subTest(url=url):
+                canonical = validate_source(url)
+                self.assertEqual(canonical, expected)
+                self.assertEqual(validate_source(canonical), canonical)
         with self.assertRaises(ValueError): duration_ok(3443, 'request')
 
     def test_flat_search_filters_and_bounds_untrusted_metadata(self):

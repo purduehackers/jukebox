@@ -593,9 +593,9 @@ test('a v3 database upgrades in place to the current schema keeping queue, quota
   const clock = new FakeClock();
   const now = clock.now();
   const raw = new DatabaseSync(dbPath);
-  raw.exec('pragma journal_mode = wal');
-  for (const migration of MIGRATIONS.slice(0, 3)) raw.exec(migration);
-  raw.exec('pragma user_version = 3');
+  raw.run('pragma journal_mode = wal');
+  for (const migration of MIGRATIONS.slice(0, 3)) raw.run(migration);
+  raw.run('pragma user_version = 3');
   const asset = (id: string, durationSec: number) => JSON.stringify({ assetId: id, url: `/media/${id}`, mime: 'audio/webm', codec: 'opus', durationSec, byteLength: 1 });
   const mixId = randomUUID(), reqPlaying = randomUUID(), reqWaiting = randomUUID(), reqRefunded = randomUUID();
   raw.prepare("insert into nights values('night-1', 'open', ?, null)").run(now - 20 * MIN);

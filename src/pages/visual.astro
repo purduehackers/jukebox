@@ -1,5 +1,8 @@
 ---
 import Page from '../layouts/Page.astro';
-import { VisualPage } from '../../app/src/visual/VisualPage.tsx';
+import { VisualPage } from '../visual/VisualPage.tsx';
 ---
-<Page><VisualPage client:only="react" /></Page>
+
+<Page title="Jukebox Visual Lab">
+  <VisualPage client:load />
+</Page>

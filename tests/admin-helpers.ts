@@ -10,7 +10,7 @@ import type { CommandPayloads, CommandResponse, CommandType, ObservedStatus, Pol
 import { FakeClock, FakeIdentity, FakeMedia, FakeSource } from '../src/adapters/fakes.ts';
 import { createHttpServer } from './http-server.ts';
 import { JukeboxService } from '../src/server/service.ts';
-import type { Send } from '../app/src/admin/intents.ts';
+import type { Send } from '../src/admin/intents.ts';
 import { URLS } from './helpers.ts';
 
 export const ORIGIN = 'http://127.0.0.1';

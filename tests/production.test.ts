@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { validateProduction } from '../src/server/production.ts';
-import { requestUrl } from '../app/src/display/model.ts';
+import { requestUrl } from '../src/display/model.ts';
 
 const env = {
   NODE_ENV: 'production', JUKEBOX_ORIGIN: 'https://jukebox.purduehackers.com',

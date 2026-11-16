@@ -137,23 +137,25 @@ export const MIGRATIONS: string[] = [
    alter table playback add column period_ms integer;`,
   `create table banned_usernames(username text primary key, created_at integer not null);`,
   `alter table playback add column period_paused_at integer;`,
+  // Admin request-quota toggle (1 = enforced, the policy default; 0 = unlimited).
+  `alter table playback add column quota_enabled integer not null default 1;`,
 ];
 
 export function openDatabase(path: string): Database {
   const db = new Database(path);
-  db.exec('pragma journal_mode = wal; pragma synchronous = full; pragma foreign_keys = on; pragma busy_timeout = 5000;');
+  db.run('pragma journal_mode = wal; pragma synchronous = full; pragma foreign_keys = on; pragma busy_timeout = 5000;');
   const version = (db.prepare('pragma user_version').get() as { user_version: number }).user_version;
   if (version > MIGRATIONS.length) {
     throw new Error(`Database schema ${version} is newer than this service (${MIGRATIONS.length})`);
   }
   for (let v = version; v < MIGRATIONS.length; v++) {
-    db.exec('begin immediate');
+    db.run('begin immediate');
     try {
-      db.exec(MIGRATIONS[v]!);
-      db.exec(`pragma user_version = ${v + 1}`);
-      db.exec('commit');
+      db.run(MIGRATIONS[v]!);
+      db.run(`pragma user_version = ${v + 1}`);
+      db.run('commit');
     } catch (error) {
-      db.exec('rollback');
+      db.run('rollback');
       throw error;
     }
   }

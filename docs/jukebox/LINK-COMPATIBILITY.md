@@ -1,4 +1,4 @@
-# Local link compatibility (2026-11-02)
+# Local link compatibility (2026-11-02; updated 2026-11-14: ID-only validation, Deezer provider)
 
 This work starts at consolidated `f9de59b`. It changes source adapters and local
 startup, not scheduling, PH ID, player authority, admin playback controls, or
@@ -110,14 +110,23 @@ Unicode letters/numbers survive normalization. Matching remains heuristic;
 unknown versions, regional metadata differences or close edits may require a
 user-selected direct YouTube link. No claim of semantic audio fingerprinting.
 
+Deezer (added 2026-11-14) is a link-only provider like Spotify/Apple: `deezer.com` /
+`www.deezer.com` `/track/<id>` (optional locale prefix, all other parameters discarded),
+canonicalized to `https://www.deezer.com/track/<id>`. Metadata comes from the public,
+unauthenticated `https://api.deezer.com/track/<id>` endpoint with exact-ID matching,
+seconds-to-ms duration conversion, and no preview/audio use; unknown tracks (HTTP 200
+error code 800 or 404) report not-found. Redirect shorteners (`link.deezer.com`,
+`deezer.page.link`) are never fetched and stay unsupported. Playback remains YouTube-only.
+
 Both URL validators reject credentials, explicit ports (including `:443`),
-lookalike/encoded hosts, backslashes/control characters, unsupported paths,
-duplicate query keys and non-time fragments. Only known context keys are accepted. Discarded context values allow bounded
-Unicode letters, numbers, marks and symbols (including non-Latin channel names);
-control/format characters remain rejected. Recording IDs and `si` tokens keep
-their exact ASCII validation.
-A shared JSON fixture covers both reported URLs, navigation, time, host/path
-tricks, real playlist-only rejection and a >300-character navigation URL. Canonical
+lookalike/encoded hosts, backslashes/control characters, unsupported paths and
+invalid recording IDs. Query parameters other than the content ID itself and
+the fragment are discarded navigation/tracking context: they are never
+validated, stored or forwarded, because the canonical URL is rebuilt from the
+ID alone. Recording IDs keep their exact ASCII validation. A shared JSON
+fixture covers both reported URLs, navigation, time, host/path
+tricks, real playlist-only rejection, a >300-character navigation URL and
+unknown-parameter share links (e.g. YouTube Music `drli`). Canonical
 YouTube URLs reparse in both languages; all catalog canonical URLs reparse in TS.
 
 Quota still counts accepted submissions. Parse/catalog/search/resolve failures
@@ -286,3 +295,20 @@ confidence was reduced. Live end-to-end after the change: Spotify 5.157s
 Provider/network variability remains; these samples do not guarantee production
 latency. The remaining search cost is upstream extraction; catalog latency also
 varied substantially between runs.
+
+## ID-only link validation (2026-11-14)
+
+The user reported that a YouTube Music share link
+(`https://music.youtube.com/watch?v=Ye9hGotPPVk&si=...&drli=1`) was rejected as
+unsupported unless `&drli=1` was removed: both validators allowlisted every query
+parameter instead of reading the content ID. Both validators (TS
+`src/core/sources.ts`, Python `jukebox/media.py`) now extract and check only the
+recording/track ID from the known provider host and path shape; all other query
+parameters and the fragment are discarded without validation because the
+canonical URL is rebuilt from the regex-validated ID alone. Host allowlist,
+credentials/port/lookalike/control-character rejections, invalid-ID rejection and
+playlist/album rejection are unchanged, so no submitted string ever reaches a
+shell or provider call except the canonical URL. Duplicate `v` keys use the first
+value, matching URL semantics. The shared fixture gained `acceptedPairs`
+coverage for the reported link and other unknown-parameter forms; previously
+rejected context-only variants moved from `rejected` to accepted.

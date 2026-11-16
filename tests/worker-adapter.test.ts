@@ -30,6 +30,7 @@ test('resolve mapping, duration errors, provider bypass, timeout',async()=>{
     for(let attempt=0;attempt<2;attempt++) await assert.rejects(()=>a.resolve(a.canonicalize('fixture:master'),'master'),(e:any)=>e.technical && e.details?.kind==='audio_format_unavailable' && e.details?.stage==='candidate_resolution');
     assert.equal(requests,beforeFormats+2,'format failures must not be cached');
     const before=requests;await assert.rejects(()=>a.resolve(a.canonicalize('https://open.spotify.com/track/1234567890123456789012'),'request'),(e:any)=>e.code==='SOURCE_UNSUPPORTED');assert.equal(requests,before);
+    await assert.rejects(()=>a.resolve(a.canonicalize('https://www.deezer.com/track/3135556'),'request'),(e:any)=>e.code==='SOURCE_UNSUPPORTED');assert.equal(requests,before);
     await assert.rejects(()=>new WorkerAdapter({baseUrl:w.base,resolveTimeoutMs:20}).resolve(a.canonicalize('https://youtu.be/BaW_jenozKc'),'master'),(e:any)=>e.technical===true);
   } finally {w.server.close();}
 });

@@ -5,6 +5,7 @@ import { canonicalizeUrl } from '../src/core/sources.ts';
 import { PortError } from '../src/core/ports.ts';
 const spotify = canonicalizeUrl('https://open.spotify.com/track/1OAFmguvHB2OI2AMYXpmyG');
 const apple = canonicalizeUrl('https://music.apple.com/gb/song/title/123');
+const deezer = canonicalizeUrl('https://www.deezer.com/us/track/3135556?utm_source=share');
 const entity = { type: 'track', id: spotify.itemId, uri: `spotify:track:${spotify.itemId}`, name: 'Song (Live)', artists: [{ name: 'Artist' }], duration: 180001, audioPreview: { url: 'https://must-not-fetch.invalid/audio' } };
 function embed(e: any = entity) { return `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { state: { data: { entity: e }, settings: { session: { accessToken: 'must-not-retain' } } } } } })}</script>`; }
 const fake = (fn: (url: string, init?: RequestInit) => Response | Promise<Response>) => ((url: any, init?: RequestInit) => Promise.resolve(fn(String(url), init))) as typeof fetch;
@@ -54,6 +55,28 @@ test('Apple lookup uses requested storefront and exact song ID, never selects al
   assert.equal((await catalog.lookup(apple))?.title, 'Title');
   assert.equal((await catalog.lookup(apple))?.provenance, 'apple_itunes_lookup');
   await assert.rejects(new LiveCatalog({ fetch: fake(() => Response.json({ results: [{ kind: 'album', collectionId: 123 }] })) }).lookup(apple), (e: any) => e.details.kind === 'catalog_metadata');
+});
+test('public Deezer API needs no credentials, uses exact ID, converts seconds to ms, and never follows previews', async () => {
+  let calls = 0;
+  const catalog = new LiveCatalog({ fetch: fake(url => {
+    calls++;
+    assert.equal(url, 'https://api.deezer.com/track/3135556');
+    return Response.json({ id: 3135556, title: 'Song', duration: 180, isrc: 'TESTISRC', artist: { name: 'Artist' }, album: { title: 'Album' }, preview: 'https://must-not-fetch.invalid/30s.mp3' });
+  }) });
+  const first = await catalog.lookup(deezer);
+  assert.equal(first?.durationMs, 180000);
+  assert.equal(first?.provenance, 'deezer_public_api');
+  assert.equal(first?.isrc, 'TESTISRC');
+  assert.equal(JSON.stringify(first).includes('must-not'), false);
+  assert.deepEqual((await catalog.lookup(deezer))?.artists, ['Artist']);
+  assert.equal(calls, 1, 'cached within the five-minute window');
+  // Unknown track: Deezer answers HTTP 200 with an error object (code 800).
+  assert.equal(await new LiveCatalog({ fetch: fake(() => Response.json({ error: { code: 800, message: 'no data' } })) }).lookup(deezer), null);
+  assert.equal(await new LiveCatalog({ fetch: fake(() => new Response('', { status: 404 })) }).lookup(deezer), null);
+  // Relinked or incomplete metadata fails closed.
+  for (const body of [Response.json({ id: 999, title: 'Other', duration: 180, artist: { name: 'A' } }), Response.json({ id: 3135556, title: 'Song', duration: 0, artist: { name: 'A' } }), Response.json({ error: { code: 4, message: 'quota' } })]) {
+    await assert.rejects(new LiveCatalog({ fetch: fake(() => body) }).lookup(deezer), PortError);
+  }
 });
 test('provider errors and body bounds are safe, retryable when operational, redirect disabled', async () => {
   for (const status of [429, 500, 302]) await assert.rejects(new LiveCatalog({ fetch: fake(() => new Response('secret', { status })) }).lookup(apple), (e: any) => !e.message.includes('secret') && e.technical);

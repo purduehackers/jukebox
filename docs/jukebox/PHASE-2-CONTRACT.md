@@ -17,19 +17,21 @@ known gap, not hidden.
 | Shared contract (types, policy constants, errors) | `src/contract/types.ts` | Contract version 1. Commands, results, snapshots, desired/observed playback, events. |
 | Runtime validation + role table | `src/contract/validate.ts` | Rejects unknown fields; per-command role enforced server-side. |
 | Ports (replaceable boundaries) | `src/core/ports.ts` | `SourcePort` (metadata/matching), `MediaPort` (preparation/cache), `IdentityPort` (PH ID), `Clock`. |
-| URL allowlist | `src/core/sources.ts` | Pure; never fetches. YouTube/youtu.be/music.youtube items, Spotify/Apple **track** links recognised; playlists/albums rejected. |
-| Durable service | `src/server/service.ts`, `src/server/db.ts` | SQLite (`node:sqlite`, WAL, `synchronous=full`), versioned migrations, single-writer lock file. |
-| HTTP transport | `src/server/http.ts` | Commands, role-scoped snapshots, SSE snapshot stream, auth routes, same-origin media proxy. |
-| Entry point | `src/server/main.ts`, `scripts/run-service` | Loopback only; 1 s server-side reconcile timer. |
+| URL parsing/allowlist | `src/core/sources.ts` | Pure; never fetches. YouTube/youtu.be/music.youtube items, Spotify/Apple Music/Deezer **track** links recognised; playlists/albums rejected. ID-only since 2026-11-14: other query parameters/fragments are discarded; the canonical URL is rebuilt from the validated ID. |
+| Durable service | `src/server/service.ts`, `src/server/db.ts` | SQLite (`bun:sqlite`, WAL, `synchronous=full`), versioned migrations (schema 7), single-writer lock file. |
+| HTTP transport | `src/server/transport.ts` | Commands, role-scoped snapshots, SSE snapshot stream, auth routes, same-origin media proxy. |
+| HTTP routes | `astro.config.mjs` → `src/server/routes/*.ts` | 2026-11-14: the `jukebox-authority` integration injects `/auth/*`, `/api/v1/*`, `/media/*`, `/healthz`, `/readyz`; entrypoints delegate to `transport.handle`. |
+| Entry point | `scripts/start-web.ts` (production), `scripts/run-dev` (dev) | Process singleton `src/server/runtime.ts` shared with Astro via `Astro.locals.runtime`; 1 s server-side reconcile timer. |
 | Fakes | `src/adapters/fakes.ts` | Fake clock, source catalog, media jobs, identity. No network or credentials. |
-| PH ID adapter | `src/adapters/phid.ts` | OIDC code + PKCE against the current `purduehackers/id` provider. **Not live-tested** (no registered client). |
-| Worker adapter | `src/adapters/worker.ts` + `jukebox/` | Talks to the phase-1 Python worker: new `/api/resolve`, `/api/jobs/<id>`, `/api/retention`. |
+| PH ID adapter | `src/adapters/phid.ts` | OIDC code + PKCE against the current `purduehackers/id` provider. Live local sign-in verified 2026-11-02. |
+| Worker adapter | `src/adapters/worker.ts` + `jukebox/` | Talks to the private Python worker: `/api/resolve`, `/api/jobs/<id>`, `/api/retention`. |
 
-Runtime (**implementation choice**): TypeScript run directly by Node ≥ 22.18 (tested on
-26.11.1) using type stripping, `node:sqlite`, `node:http`, `node:test`; zero runtime npm
-dependencies, TypeScript 7 only for `tsc --noEmit`. This keeps the contract importable by
-the approved React/TypeScript UIs without a build step now. The Python worker remains the
-media boundary; it is not the queue authority.
+Runtime (**implementation choice**, updated 2026-11-09): TypeScript run by Bun 1.4.4
+(`bun:sqlite`, `node:test` under Bun) inside the Astro standalone server (`@astrojs/node`
+adapter); the authority HTTP surface is exposed as injected Astro routes handled by
+`src/server/transport.ts` using standard Request/Response. Astro 7 + Vite with Tailwind v4
+via `@tailwindcss/vite`; React 19 islands for the interactive UIs. Typechecks: `tsc` plus
+`astro check`. The Python worker remains the media boundary; it is not the queue authority.
 
 ## Behavior table
 
@@ -203,11 +205,16 @@ Additive; contract version stays 1. Full rationale: [proposal](proposals/queue-p
 
 - **Commands (admin only):** `queue.mode {mode: 'auto'|'master'|'requests'}` (absolute, idempotent),
   `queue.interval {periodMs: number | null}` (`null` = default; service bounds 1–120 min),
+  `quota.set {enabled: boolean}` (2026-11-14: absolute, idempotent request-quota toggle; when off the
+  per-person limit is not enforced but submissions are still counted),
   `request.playNow {entryId}`. New error code `NOT_READY` (request still preparing).
 - **Snapshot (`schedule`):** `mode`, `requestsIdle`, effective `periodMs`, `periodDefaultMs`, `periodMinMs`, `periodMaxMs`.
   `turnDue`/`dueReason` are false/null outside `auto`.
 - **Migration 4:** `playback.mode` (default `auto`, checked) and `playback.period_ms` (null = default). In-place; a v3
   database keeps queue, quota, lease, suspended mix and period anchor (tested).
+- **Migrations 5–7 (2026-11-09/14):** 5 `banned_usernames`, 6 `playback.period_paused_at`,
+  7 `playback.quota_enabled` (default 1 = enforced; durable across restarts and nights;
+  the snapshot carries top-level `quotaEnabled`).
 - **Scheduler:** `requests` mode keeps the master suspended and pinned, chains ready requests, and is silent
   (`phase = request`, no current entry, new load so the player stops) when none is ready; `finishTurn` is the single
   place that chains, idles, resumes, or starts a fresh period (only in `auto`). Closing a night resets the mode before

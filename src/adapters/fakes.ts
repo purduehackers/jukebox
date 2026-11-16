@@ -48,8 +48,8 @@ export class FakeSource implements SourcePort {
       this.failNext = null;
       throw failure;
     }
-    if (ref.provider === 'spotify' || ref.provider === 'apple_music') {
-      throw new PortError('SOURCE_UNSUPPORTED', 'Spotify/Apple Music matching is not implemented yet');
+    if (ref.provider === 'spotify' || ref.provider === 'apple_music' || ref.provider === 'deezer') {
+      throw new PortError('SOURCE_UNSUPPORTED', 'Catalog-service matching is not implemented yet');
     }
     const track = this.catalog.get(ref.canonicalUrl);
     if (!track) throw new PortError('SOURCE_UNAVAILABLE', 'That recording is unavailable');

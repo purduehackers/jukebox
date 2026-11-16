@@ -2,8 +2,11 @@
 
 Audio-only music queue and Firefox venue player for Hack Night. Astro owns the
 pages, middleware and API routes; Bun runs the web application and durable SQLite
-queue authority. React provides interactive controls and the audio visualizer.
-The private Python worker uses uv, yt-dlp and FFmpeg to prepare seekable audio.
+queue authority. Pages and chrome use the official Purdue Hackers `.astro`
+components (`src/components/ph/`) styled with Tailwind v4 through the official
+`@tailwindcss/vite` plugin; React islands ship only where interactivity is needed
+(admin/queue controls, display player, visualizer). The private Python worker
+uses uv, yt-dlp and FFmpeg to prepare seekable audio.
 
 Production target: `https://jukebox.purduehackers.com`, in one Podman container
 behind phack.sh's existing Caddy. Deployment and venue/HDMI checks remain pending.

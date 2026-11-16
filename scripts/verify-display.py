@@ -193,16 +193,18 @@ def main():
         panel = display.find_element(By.CSS_SELECTOR, '.display-request')
         assert panel.find_element(By.TAG_NAME, 'h2').text.replace('\n', ' ') == 'SONG REQUESTS'
         assert panel.find_element(By.TAG_NAME, 'a').get_attribute('href') == app + '/queue'
-        assert panel.find_elements(By.CSS_SELECTOR, 'svg.display-qr')
+        assert panel.find_elements(By.CSS_SELECTOR, 'img.display-qr')
         assert not panel.find_elements(By.TAG_NAME, 'p')
         report['checks']['requestPanelKeepsQRWithoutAllowanceCopy'] = True
+        # The QR image is a static asset (public/qr.png) targeting the live site;
+        # the printed link next to it still points at this instance's /queue.
         qr = panel.find_element(By.CSS_SELECTOR, '.display-qr')
         qr.screenshot(str(output / 'qr.png'))
         import zxingcpp
         from PIL import Image
         decoded = zxingcpp.read_barcode(Image.open(output / 'qr.png'))
-        assert decoded and decoded.text == app + '/queue', decoded
-        report['checks']['qrDecodesToReachableTestQueue'] = True
+        assert decoded and decoded.text == 'https://jukebox.purduehackers.com/queue', decoded
+        report['checks']['qrDecodesToLiveQueueUrl'] = True
         report['measurements']['qrTarget'] = decoded.text
         command(admin, 'night.close')
         until(lambda: display.execute_script("return document.querySelector('main')?.dataset.state==='idle'"), 35)

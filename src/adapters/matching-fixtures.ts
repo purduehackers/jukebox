@@ -9,6 +9,7 @@ import type { Candidate, CandidateSearchPort, CatalogPort, CatalogTrack } from '
 export const MATCHING_FIXTURE_URLS = {
   spotify: 'https://open.spotify.com/track/1OAFmguvHB2OI2AMYXpmyG',
   apple: 'https://music.apple.com/us/song/a-new-kind-of-love/1000000000001',
+  deezer: 'https://www.deezer.com/track/3135556',
   live: 'https://open.spotify.com/track/AAAAAAAAAAAAAAAAAAAAAA',
   studio: 'https://open.spotify.com/track/BBBBBBBBBBBBBBBBBBBBBB',
   ambiguous: 'https://open.spotify.com/track/CCCCCCCCCCCCCCCCCCCCCC',
@@ -24,6 +25,7 @@ const youtube = (id: string) => `https://www.youtube.com/watch?v=${id}`;
 export const FIXTURE_TRACKS: CatalogTrack[] = [
   { provider: 'spotify', itemId: '1OAFmguvHB2OI2AMYXpmyG', title: 'A New Kind Of Love (pt. 1)', artists: ['Ghost Funk Orchestra'], album: 'A New Kind Of Love', durationMs: 212_000 },
   { provider: 'apple_music', itemId: '1000000000001', title: 'A New Kind Of Love (pt. 1)', artists: ['Ghost Funk Orchestra'], durationMs: 212_000 },
+  { provider: 'deezer', itemId: '3135556', title: 'A New Kind Of Love (pt. 1)', artists: ['Ghost Funk Orchestra'], album: 'A New Kind Of Love', durationMs: 212_000 },
   { provider: 'spotify', itemId: 'AAAAAAAAAAAAAAAAAAAAAA', title: 'Fictional Song (Live)', artists: ['Example Artist'], durationMs: 180_000 },
   { provider: 'spotify', itemId: 'BBBBBBBBBBBBBBBBBBBBBB', title: 'Fictional Song', artists: ['Example Artist'], durationMs: 180_000 },
   { provider: 'spotify', itemId: 'CCCCCCCCCCCCCCCCCCCCCC', title: 'Different Edit Song', artists: ['Edit Artist'], durationMs: 200_000 },
@@ -36,6 +38,9 @@ export const FIXTURE_CANDIDATES: Record<string, Candidate[]> = {
     { url: youtube('GFOtrack001'), title: 'A New Kind Of Love Pt 1 (Official Audio)', channel: 'Ghost Funk Orchestra - Topic', durationSec: 212 },
   ],
   'apple_music:1000000000001': [
+    { url: youtube('GFOtrack001'), title: 'A New Kind Of Love Pt 1 (Audio)', channel: 'Ghost Funk Orchestra - Topic', durationSec: 212 },
+  ],
+  'deezer:3135556': [
     { url: youtube('GFOtrack001'), title: 'A New Kind Of Love Pt 1 (Audio)', channel: 'Ghost Funk Orchestra - Topic', durationSec: 212 },
   ],
   'spotify:AAAAAAAAAAAAAAAAAAAAAA': [
@@ -80,12 +85,13 @@ export class FixtureCandidateSearch implements CandidateSearchPort {
 
 export class UnconfiguredCatalog implements CatalogPort {
   async lookup(_ref: SourceRef): Promise<never> {
-    throw new PortError('SOURCE_UNSUPPORTED', 'Spotify/Apple Music matching is not configured on this server (it needs catalog credentials)');
+    throw new PortError('SOURCE_UNSUPPORTED', 'Catalog-service matching is not configured on this server (it needs catalog credentials)');
   }
 }
 
 function canonicalUrlForTrack(track: CatalogTrack): string {
   if (track.provider === 'spotify') return canonicalizeUrl(`https://open.spotify.com/track/${track.itemId}`).canonicalUrl;
+  if (track.provider === 'deezer') return canonicalizeUrl(`https://www.deezer.com/track/${track.itemId}`).canonicalUrl;
   return `https://music.apple.com/song/${track.itemId}`;
 }
 
@@ -97,9 +103,9 @@ export const DEMO_YOUTUBE_LINKS = {
 } as const;
 
 /**
- * Offline source for local development: fixture YouTube items, plus Spotify/Apple fixture links
- * matched through MatchingSource. Not a live matcher; every title, duration, and candidate is made up
- * except the one Spotify track named in the comments above.
+ * Offline source for local development: fixture YouTube items, plus Spotify/Apple/Deezer fixture
+ * links matched through MatchingSource. Not a live matcher; every title, duration, and candidate is
+ * made up except the one Spotify track named in the comments above.
  */
 export function fixtureMatchingSource(): SourcePort {
   const inner = new FakeSource()

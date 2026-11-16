@@ -2,8 +2,8 @@ FROM docker.io/oven/bun:1.4.4 AS build
 WORKDIR /opt/jukebox
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
-COPY astro.config.mjs postcss.config.js tsconfig.json ./
-COPY app ./app
+COPY astro.config.mjs tsconfig.json ./
+COPY public ./public
 COPY src ./src
 RUN bun run build
 

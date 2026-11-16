@@ -36,7 +36,7 @@ export class WorkerAdapter implements SourcePort, MediaPort, CandidateSearchPort
     return new PortError('SOURCE_UNAVAILABLE', message, true);
   }
   async resolve(ref: SourceRef, purpose: MediaPurpose): Promise<ResolvedSource> {
-    if (ref.provider === 'spotify' || ref.provider === 'apple_music') {
+    if (ref.provider === 'spotify' || ref.provider === 'apple_music' || ref.provider === 'deezer') {
       throw new PortError('SOURCE_UNSUPPORTED', 'Catalog links must use the configured matching source');
     }
     const cacheKey = `${purpose}:${ref.canonicalUrl}`;

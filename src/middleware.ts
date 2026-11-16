@@ -3,7 +3,9 @@ import { getRuntime } from './server/runtime.ts';
 import { localOriginRedirect } from './server/local-origin.ts';
 
 export const onRequest = defineMiddleware(async (context, next) => {
-  const runtime = getRuntime();
+  // Hand the per-process authority runtime to every route/page via locals.
+  context.locals.runtime = getRuntime();
+  const runtime = context.locals.runtime;
   const canonical = localOriginRedirect(context.request.headers.get('host') ?? undefined, context.url.pathname + context.url.search, runtime.origin);
   if (canonical && ['GET', 'HEAD'].includes(context.request.method)) return context.redirect(canonical, 302);
   const path = context.url.pathname.replace(/\/+$/, '');

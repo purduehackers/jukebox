@@ -1,6 +1,6 @@
 # Current implementation and deployment readiness
 
-Updated 2026-11-09 (America/Indiana/Indianapolis). This is the current-state
+Updated 2026-11-14 (America/Indiana/Indianapolis). This is the current-state
 companion to the original approved plan, not a new product approval request.
 Later user decisions in DECISIONS.md supersede the original plan where they differ.
 
@@ -18,10 +18,11 @@ Private configuration/state are not copied into fresh worktrees automatically.
 Production uses `bun run build` and `bun start`, with inherited runtime environment
 and absolute persistent paths; it never reads `.env.local`.
 
-Latest migration checks passed: 21 Python and 192 Bun tests, typechecks/build,
+Migration checks passed: 21 Python and 192 Bun tests, typechecks/build,
 18 production-player Firefox checks, 61 admin checks, six queue-controls checks,
-dev smoke and actual local Podman health/persistence checks. See the migration
-record for scope and remaining operator gates.
+dev smoke and actual local Podman health/persistence checks; the 2026-11-14 rerun
+(23 Python, 220 Bun across 33 files, typechecks, build) is at the bottom. See the
+migration record for scope and remaining operator gates.
 
 Latest local changes (2026-11-09): display uses the user's exact selected preset
 in `references/soundbar-display-settings-2026-11-09.json`; both lower boxes match
@@ -30,13 +31,29 @@ changes have 7-second master-only volume ramps and 3-second silent gaps. The
 request never fades out. See [volume transitions](VOLUME-TRANSITIONS.md).
 Admin/queue have the Checkpoints reference's animated dither backdrops in yellow
 and purple. The top `Ban…` menu manages persistent, server-enforced PH ID username
-bans; legacy sessions need re-login to request while any bans exist. Schema is 5.
+bans; legacy sessions need re-login to request while any bans exist. Schema is 7
+(migrations 5–7: username bans, request-timer pause timestamp, request-quota toggle).
 The visualizer follows actual outgoing playback and the volume envelope during
 fades. Accepted queue additions persist actor usernames and song titles in the
 admin action log, shared across organizers and reloads. The user's testing pause
 was specific to repeated audio-visualizer verification while testing manually.
 Normal unit/Bun tests, typechecks, builds and relevant checks for other work
 remain expected. No new venue validation is claimed.
+
+Latest changes (2026-11-14, `astro-migration`): pages and chrome use the official
+PH `.astro` components (`src/components/ph/`) with Tailwind v4 through the official
+`@tailwindcss/vite` plugin; React islands ship only for the interactive controls,
+display player and visualizer. Authority routes are injected from `astro.config.mjs`
+into `src/server/routes/*` (the one-line `src/pages` shims are gone) and share the
+Bun runtime via `Astro.locals.runtime`. Link validation is ID-only in both parsers,
+so share/tracking parameters (e.g. YouTube Music `&drli=1`) are discarded instead of
+rejected; Deezer joins Spotify/Apple Music as a link-only metadata provider
+(public `api.deezer.com`; playback stays YouTube-only). Admins can disable the
+per-person request quota with `quota.set` (durable `quota_enabled`, migration 7;
+snapshot `quotaEnabled`; submissions still count while off). The display request QR
+is a static branded image (`public/qr.png`) encoding the live
+`https://jukebox.purduehackers.com/queue`; the printed link still follows the
+instance origin, and `qrcode-generator` is removed.
 
 ## How the app works now
 
@@ -53,7 +70,9 @@ remain expected. No new venue validation is claimed.
   and can also play; `/visual?silent=1` is a silent layout view. Avoid opening an
   extra live preview while listening in Firefox.
 - The display uses the approved stationary mirrored soundbar, real FFT analysis,
-  purple/black Bayer dithering, now-playing strip, queue and request QR. The exact
+  purple/black Bayer dithering, now-playing strip, queue and request QR. The QR is a
+  static branded image (`public/qr.png`) encoding the live queue URL; the printed
+  link still follows the instance origin. The exact
   preset is `references/soundbar-display-settings-2026-11-09.json`; lab storage does not
   override it. Experimental wisp/warp renderers were removed.
 - Auto mode defaults to one request after 15 elapsed master minutes. Pause,
@@ -69,14 +88,24 @@ remain expected. No new venue validation is claimed.
   consume none. Technical preparation/playback failures refund allowance.
   Deliberate admin removal/skip does not automatically refund. Night changes, not
   midnight, reset allowance. Request duration remains strictly under six minutes.
+  Organizers can disable quota enforcement with `quota.set` (admin-only, durable via
+  migration 7, snapshot `quotaEnabled`); submissions still count while it is off.
 - Bun owns durable SQLite queues, commands, scheduling, sessions and checkpoints.
   Browsers receive snapshots over SSE with polling recovery and acknowledge
   actual playback. SQLite supports one service writer, not a replicated fleet.
 - Python resolves/prepares bounded, completed, seekable audio-only assets. Active
   and suspended master assets stay pinned; unused cache has bounded cleanup.
-  YouTube is the audio source. Spotify/Apple links supply metadata for bounded
-  YouTube matching, not direct playback. Missing/ambiguous/restricted audio fails
-  clearly. Playlist-only imports are not implemented despite the original plan.
+  YouTube is the audio source. Spotify/Apple Music/Deezer links supply metadata
+  for bounded YouTube matching, not direct playback. Links are validated ID-only:
+  only the provider host/path shape and content ID are checked, and all other
+  query parameters/fragments are discarded (canonical URL rebuilt from the ID),
+  so share links with tracking parameters parse. Missing/ambiguous/restricted
+  audio fails clearly. Playlist-only imports are not implemented despite the
+  original plan.
+- Frontend: official PH `.astro` components (`src/components/ph/`) plus Tailwind v4
+  via `@tailwindcss/vite`; React islands only for interactive controls, the display
+  player and the visualizer. Authority routes are injected in `astro.config.mjs`
+  to `src/server/routes/*` and share the Bun runtime through `Astro.locals.runtime`.
 
 ## Deployment verdict: prepared for operator setup; host verification pending
 
@@ -163,3 +192,12 @@ old schema count, and the ban test closed SQLite before background work settled.
 Fixtures now recreate the old schema correctly, verify the migrated bans table,
 and settle work before restart/close. All 31 tests in the three affected files
 passed on rerun. No application behavior changed. No browser/HDMI tests were rerun.
+
+## Verification rerun (2026-11-14)
+
+On `astro-migration` with the 2026-11-14 changes: 23 Python tests and 220 Bun
+tests across 33 files (including the policy suite) passed, both TypeScript checks
+plus Astro check reported 0 errors, and the production build completed. New
+coverage includes the ID-only validators, the Deezer catalog path, the `quota.set`
+toggle (durable across restart, re-enable behavior) and the static-QR display
+check. No browser/HDMI tests were rerun; the Firefox evidence above is unchanged.

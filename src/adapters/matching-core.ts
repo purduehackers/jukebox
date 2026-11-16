@@ -1,7 +1,7 @@
 import type { SourceRef } from '../contract/types.ts';
 
 export interface CatalogTrack {
-  provider: 'spotify' | 'apple_music';
+  provider: 'spotify' | 'apple_music' | 'deezer';
   itemId: string;
   title: string;
   artists: string[];
