@@ -365,7 +365,7 @@ export class JukeboxService {
   // ---------------------------------------------------------- transactions
 
   private transaction<T, R>(fn: (tx: Tx) => T, finish: (result: T, revision: number) => R): R {
-    this.db.exec('begin immediate');
+    this.db.run('begin immediate');
     let revision = this.revision();
     let result: R;
     let changed = false;
@@ -382,9 +382,9 @@ export class JukeboxService {
         for (const event of tx.events) insert.run(revision, tx.now, event.type, JSON.stringify(event.data));
       }
       result = finish(value, revision);
-      this.db.exec('commit');
+      this.db.run('commit');
     } catch (error) {
-      this.db.exec('rollback');
+      this.db.run('rollback');
       throw error;
     }
     if (changed) for (const listener of this.listeners) listener(revision);
@@ -1393,7 +1393,7 @@ function acquireLock(path: string): Database {
   // The kernel releases it even after SIGKILL; never delete this lock database.
   const lock = new Database(path);
   try {
-    lock.exec('pragma busy_timeout = 0; begin exclusive; create table if not exists authority (id integer);');
+    lock.run('pragma busy_timeout = 0; begin exclusive; create table if not exists authority (id integer);');
     return lock;
   } catch {
     lock.close();

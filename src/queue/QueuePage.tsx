@@ -2,7 +2,7 @@
 // comes from the server snapshot; the browser only holds the link being typed and a retry aid.
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
-import type { RequestEntryView, Snapshot } from '../../../src/contract/types.ts';
+import type { RequestEntryView, Snapshot } from '../contract/types.ts';
 import { Badge } from '../components/ph/badge.tsx';
 import { Button } from '../components/ph/button.tsx';
 import { Card } from '../components/ph/card.tsx';

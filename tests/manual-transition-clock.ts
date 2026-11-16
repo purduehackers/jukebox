@@ -1,4 +1,4 @@
-import type { TransitionClock } from '../app/src/player/volume-transition.ts';
+import type { TransitionClock } from '../src/player/volume-transition.ts';
 
 export class ManualTransitionClock implements TransitionClock {
   time = 0;

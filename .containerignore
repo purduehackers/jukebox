@@ -7,10 +7,9 @@
 !pyproject.toml
 !uv.lock
 !astro.config.mjs
-!postcss.config.js
 !tsconfig.json
-!app/
-!app/**
+!public/
+!public/**
 !src/
 !src/**
 !jukebox/

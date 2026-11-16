@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createElement as reactCreateElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import * as rawViews from '../app/src/admin/views.tsx';
+import * as rawViews from '../src/admin/views.tsx';
 import type { Snapshot } from '../src/contract/types.ts';
 import { URLS } from './helpers.ts';
 import { ScriptedDisplay, organizer, startApp, startNight } from './admin-helpers.ts';

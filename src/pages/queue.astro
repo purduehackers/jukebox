@@ -1,8 +1,8 @@
 ---
 import Page from '../layouts/Page.astro';
 import SignInGate from '../components/SignInGate.astro';
-import { QueuePage } from '../../app/src/queue/QueuePage.tsx';
-import '../../app/src/shared/ph-ui.css';
+import { QueuePage } from '../queue/QueuePage.tsx';
+import '../shared/ph-ui.css';
 
 // Server-side gate: attendees must have a PH ID session; without one the page is
 // the static Astro sign-in page and no island script is shipped.

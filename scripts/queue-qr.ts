@@ -4,7 +4,7 @@
 //   bun scripts/queue-qr.ts --origin http://192.168.1.20:5173 --png .local/queue-qr.png
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
-import { OriginError, queueEntryUrl } from '../app/src/queue/origin.ts';
+import { OriginError, queueEntryUrl } from '../src/queue/origin.ts';
 
 export async function checkReachable(origin: string, timeoutMs = 5000): Promise<void> {
   const health = await fetch(new URL('/healthz', origin), { signal: AbortSignal.timeout(timeoutMs) });

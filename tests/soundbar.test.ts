@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { blendTechniques, BAYER4, dither, soundbarField, drawSoundbar, defaults, spectrum, envelope } from '../app/src/visual/soundbar.ts';
+import { blendTechniques, BAYER4, dither, soundbarField, drawSoundbar, defaults, spectrum, envelope } from '../src/visual/soundbar.ts';
 
 test('stationary spectrum keeps a tone at its frequency and silence is zero', () => {
   const fft = new Float32Array(1024).fill(-Infinity);

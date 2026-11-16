@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { displayFixture, fixtureStates } from '../app/src/display/fixtures.ts';
-import { displayModel, duration, requestUrl, safeArtwork } from '../app/src/display/model.ts';
+import { displayFixture, fixtureStates } from '../src/display/fixtures.ts';
+import { displayModel, duration, requestUrl, safeArtwork } from '../src/display/model.ts';
 
 test('elapsed countdown counts pause and buffering, ignores seeks, and resets only with authority', () => {
   const now = 1_000_000;
@@ -64,7 +64,7 @@ test('display progress follows its local audio instead of alternating remote pau
 test('request panel renders the static branded QR image plus heading and link', async () => {
   const { createElement } = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { RequestQr } = await import('../app/src/display/RequestQr.tsx');
+  const { RequestQr } = await import('../src/display/RequestQr.tsx');
   const html = renderToStaticMarkup(createElement(RequestQr));
   assert.match(html, /SONG<br\/>REQUESTS/);
   assert.match(html, /<img[^>]*class="display-qr"[^>]*src="\/qr\.png"/);

@@ -7,7 +7,7 @@ import type {
   QueueMode,
   RequestEntryView,
   Snapshot,
-} from '../../../src/contract/types.ts';
+} from '../contract/types.ts';
 import { Badge } from '../components/ph/badge.tsx';
 import { Button } from '../components/ph/button.tsx';
 import { Card } from '../components/ph/card.tsx';

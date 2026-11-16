@@ -2,7 +2,7 @@
 // command identity in intents.ts, markup in views.tsx. Rendered as an Astro React island
 // (client:load): the gate/loading states are server-rendered, the console hydrates in place.
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import type { QueueMode, Snapshot } from '../../../src/contract/types.ts';
+import type { QueueMode, Snapshot } from '../contract/types.ts';
 import { Button } from '../components/ph/button.tsx';
 import { Card } from '../components/ph/card.tsx';
 import { DitheredSoup } from '../shared/DitheredSoup.tsx';

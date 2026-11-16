@@ -1,6 +1,6 @@
 // User intents -> commands. One intent = one commandId, reused for every retry of that intent,
 // so a flaky network can never apply an action twice. No React; the sender is injected.
-import type { ApiError, CommandPayloads, CommandResponse, CommandType } from '../../../src/contract/types.ts';
+import type { ApiError, CommandPayloads, CommandResponse, CommandType } from '../contract/types.ts';
 
 export type Send = <T extends CommandType>(
   type: T,

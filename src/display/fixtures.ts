@@ -1,4 +1,4 @@
-import type { Snapshot, ObservedStatus } from '../../../src/contract/types.ts';
+import type { Snapshot, ObservedStatus } from '../contract/types.ts';
 
 export const fixtureStates = ['master', 'request', 'paused', 'buffering', 'offline', 'needs_activation', 'empty', 'closed', 'due_song', 'due_paused', 'disconnected', 'long_titles', 'many_requests'] as const;
 export type FixtureState = typeof fixtureStates[number];

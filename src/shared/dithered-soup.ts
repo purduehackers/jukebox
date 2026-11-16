@@ -9,8 +9,6 @@ import {
   type ShaderMountUniforms,
 } from '@paper-design/shaders';
 
-const mounted = new WeakSet<HTMLElement>();
-
 export function mountDitheredSoup(container: HTMLElement, fgColor: string): () => void {
   const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
   const uniforms: ShaderMountUniforms = {
@@ -46,20 +44,5 @@ export function mountDitheredSoup(container: HTMLElement, fgColor: string): () =
     mql.removeEventListener('change', onChange);
     mount?.dispose();
     mount = null;
-  };
-}
-
-export function initDitheredSoups(root: ParentNode = document): () => void {
-  const cleanups: Array<() => void> = [];
-  for (const wrapper of root.querySelectorAll<HTMLElement>('.ph-dither-soup[data-fg-color]')) {
-    const target = wrapper.querySelector<HTMLElement>('[data-dither-soup-mount]') ?? wrapper;
-    if (mounted.has(target)) continue;
-    const fgColor = wrapper.dataset.fgColor;
-    if (!fgColor) continue;
-    mounted.add(target);
-    cleanups.push(mountDitheredSoup(target, fgColor));
-  }
-  return () => {
-    for (const cleanup of cleanups) cleanup();
   };
 }

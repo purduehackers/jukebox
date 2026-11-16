@@ -4,8 +4,8 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import type { ErrorCode, RequestEntryView, RequestStatus, Snapshot } from '../src/contract/types.ts';
-import { OriginError, queueEntryUrl } from '../app/src/queue/origin.ts';
-import { STATUS_COPY, describeError, describeEstimate, estimateTurn, formatDuration, readDisambiguation } from '../app/src/queue/model.ts';
+import { OriginError, queueEntryUrl } from '../src/queue/origin.ts';
+import { STATUS_COPY, describeError, describeEstimate, estimateTurn, formatDuration, readDisambiguation } from '../src/queue/model.ts';
 import { checkReachable } from '../scripts/queue-qr.ts';
 
 const ALL_CODES: ErrorCode[] = [

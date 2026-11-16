@@ -1,5 +1,5 @@
-import { POLICY } from '../../../src/contract/types.ts';
-import type { ObservedStatus, Snapshot } from '../../../src/contract/types.ts';
+import { POLICY } from '../contract/types.ts';
+import type { ObservedStatus, Snapshot } from '../contract/types.ts';
 
 export function duration(seconds: number | null | undefined) {
   if (seconds == null || !Number.isFinite(seconds)) return '—';

@@ -1,7 +1,7 @@
 // Framework-free state machine for "paste a link → see what will play → submit".
 // The React page only renders its state. Keeping it here lets tests drive double taps,
 // retries, and stale responses against the real service without a browser.
-import type { ApiError, CommandPayloads, CommandResponse, CommandResult, PreviewResult } from '../../../src/contract/types.ts';
+import type { ApiError, CommandPayloads, CommandResponse, CommandResult, PreviewResult } from '../contract/types.ts';
 
 type SendCommand = <T extends 'request.preview' | 'request.submit'>(
   type: T,

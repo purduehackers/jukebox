@@ -1,6 +1,6 @@
 // Browser client for the v1 contract. Owned by the integration owner; UI phases use it
 // rather than hand-rolling fetches so retries and stale-state rules stay consistent.
-import type { CommandPayloads, CommandResponse, CommandType, Snapshot } from '../../../src/contract/types.ts';
+import type { CommandPayloads, CommandResponse, CommandType, Snapshot } from '../contract/types.ts';
 
 export type { Snapshot };
 

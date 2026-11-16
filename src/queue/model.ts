@@ -1,7 +1,7 @@
 // Pure presentation logic for the attendee page: wording for every contract error and
 // request state, plus honest queue-timing estimates. No React, no network, so it is
 // unit-tested directly and the page stays a thin view.
-import type { ApiError, ErrorCode, RequestEntryView, RequestStatus, Snapshot } from '../../../src/contract/types.ts';
+import type { ApiError, ErrorCode, RequestEntryView, RequestStatus, Snapshot } from '../contract/types.ts';
 
 export function formatDuration(totalSec: number | null): string {
   if (totalSec === null || !Number.isFinite(totalSec)) return '–:––';

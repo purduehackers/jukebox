@@ -1,5 +1,5 @@
-import { POLICY } from '../../../src/contract/types.ts';
-import type { DesiredPlayback, ObservedStatus, PlayerReport, Snapshot } from '../../../src/contract/types.ts';
+import { POLICY } from '../contract/types.ts';
+import type { DesiredPlayback, ObservedStatus, PlayerReport, Snapshot } from '../contract/types.ts';
 import { sendCommand, subscribeSnapshots } from '../shared/api.ts';
 import { publishAnalyser, publishVisualGain } from '../shared/audio-tap.ts';
 import { VolumeTransition } from './volume-transition.ts';

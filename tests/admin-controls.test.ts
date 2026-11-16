@@ -3,15 +3,15 @@
 // system under test, so conflict handling and honesty rules here are the shipped rules.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CommandRunner, VolumeController } from '../app/src/admin/intents.ts';
-import type { Timers } from '../app/src/admin/intents.ts';
-import { describeTurn, estimatePosition, explainError, moveAnchor, optimisticIntent, playerState, queueSignature, waitingRequests } from '../app/src/admin/derive.ts';
-import { sendCommand } from '../app/src/shared/api.ts';
+import { CommandRunner, VolumeController } from '../src/admin/intents.ts';
+import type { Timers } from '../src/admin/intents.ts';
+import { describeTurn, estimatePosition, explainError, moveAnchor, optimisticIntent, playerState, queueSignature, waitingRequests } from '../src/admin/derive.ts';
+import { sendCommand } from '../src/shared/api.ts';
 import { URLS } from './helpers.ts';
 import { ORIGIN, ScriptedDisplay, organizer, startApp, startNight } from './admin-helpers.ts';
 import type { App, HttpClient } from './admin-helpers.ts';
 import type { CommandResponse } from '../src/contract/types.ts';
-import type { Send } from '../app/src/admin/intents.ts';
+import type { Send } from '../src/admin/intents.ts';
 
 test('add commands share one pending operation through slow resolution, errors, and retry', async () => {
   let response = Promise.withResolvers<CommandResponse>();

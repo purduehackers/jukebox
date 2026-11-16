@@ -6,9 +6,9 @@ import { test } from 'node:test';
 import type { CommandPayloads, CommandResponse } from '../src/contract/types.ts';
 import { canonicalizeUrl } from '../src/core/sources.ts';
 import type { Actor } from '../src/server/service.ts';
-import { RequestFlow } from '../app/src/queue/controller.ts';
-import type { IntentStore, PendingIntent } from '../app/src/queue/controller.ts';
-import { STATUS_COPY, describeError } from '../app/src/queue/model.ts';
+import { RequestFlow } from '../src/queue/controller.ts';
+import type { IntentStore, PendingIntent } from '../src/queue/controller.ts';
+import { STATUS_COPY, describeError } from '../src/queue/model.ts';
 import { MIN, URLS, harness, user } from './helpers.ts';
 import type { Harness } from './helpers.ts';
 

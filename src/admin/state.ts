@@ -1,7 +1,7 @@
 // Live admin state: SSE snapshots + a slow poll. The poll matters: player position heartbeats do not
 // bump the revision (so SSE stays quiet), and an open SSE stream keeps its connect-time role after
 // the session cookie expires. /api/v1/snapshot re-evaluates the cookie on every request.
-import type { Snapshot } from '../../../src/contract/types.ts';
+import type { Snapshot } from '../contract/types.ts';
 import { sendCommand, subscribeSnapshots } from '../shared/api.ts';
 import { queueSignature, serverNowAt } from './derive.ts';
 import { CommandRunner, VolumeController } from './intents.ts';

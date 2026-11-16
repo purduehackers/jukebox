@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
-import { PlayerController } from '../app/src/player/controller.ts';
+import { PlayerController } from '../src/player/controller.ts';
 import type { Snapshot } from '../src/contract/types.ts';
 import { harness, URLS } from './helpers.ts';
 import { ManualTransitionClock } from './manual-transition-clock.ts';
-import type { TransitionOptions } from '../app/src/player/volume-transition.ts';
+import type { TransitionOptions } from '../src/player/volume-transition.ts';
 
 // Exercise the actual controller + service with deterministic native-media events.
 // Firefox integration separately verifies real decoding and browser permissions.

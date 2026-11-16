@@ -143,19 +143,19 @@ export const MIGRATIONS: string[] = [
 
 export function openDatabase(path: string): Database {
   const db = new Database(path);
-  db.exec('pragma journal_mode = wal; pragma synchronous = full; pragma foreign_keys = on; pragma busy_timeout = 5000;');
+  db.run('pragma journal_mode = wal; pragma synchronous = full; pragma foreign_keys = on; pragma busy_timeout = 5000;');
   const version = (db.prepare('pragma user_version').get() as { user_version: number }).user_version;
   if (version > MIGRATIONS.length) {
     throw new Error(`Database schema ${version} is newer than this service (${MIGRATIONS.length})`);
   }
   for (let v = version; v < MIGRATIONS.length; v++) {
-    db.exec('begin immediate');
+    db.run('begin immediate');
     try {
-      db.exec(MIGRATIONS[v]!);
-      db.exec(`pragma user_version = ${v + 1}`);
-      db.exec('commit');
+      db.run(MIGRATIONS[v]!);
+      db.run(`pragma user_version = ${v + 1}`);
+      db.run('commit');
     } catch (error) {
-      db.exec('rollback');
+      db.run('rollback');
       throw error;
     }
   }

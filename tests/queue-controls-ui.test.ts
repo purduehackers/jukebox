@@ -4,10 +4,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createElement as reactCreateElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import * as rawViews from '../app/src/admin/views.tsx';
-import { describeTurn, explainError } from '../app/src/admin/derive.ts';
-import { displayModel } from '../app/src/display/model.ts';
-import { describeEstimate, estimateTurn } from '../app/src/queue/model.ts';
+import * as rawViews from '../src/admin/views.tsx';
+import { describeTurn, explainError } from '../src/admin/derive.ts';
+import { displayModel } from '../src/display/model.ts';
+import { describeEstimate, estimateTurn } from '../src/queue/model.ts';
 import { MIN, URLS, harness, submit } from './helpers.ts';
 
 const views = rawViews as unknown as Record<'QueueControls' | 'RequestQueuePanel' | 'NowPlayingPanel' | 'TurnPanel', (props: any) => unknown>;

@@ -1,8 +1,8 @@
 ---
 import Page from '../layouts/Page.astro';
 import SignInGate from '../components/SignInGate.astro';
-import { AdminPage } from '../../app/src/admin/AdminPage.tsx';
-import '../../app/src/shared/ph-ui.css';
+import { AdminPage } from '../admin/AdminPage.tsx';
+import '../shared/ph-ui.css';
 
 // Server-side gate: the React island (and its script) is only rendered for an
 // organizer session; everyone else gets the static Astro sign-in page.

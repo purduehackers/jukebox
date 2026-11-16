@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { PlayerController, type PlayerState } from './controller.ts';
-import type { Snapshot } from '../../../src/contract/types.ts';
+import type { Snapshot } from '../contract/types.ts';
 
 export interface PlayerProps {
   onSnapshot?: (snapshot: Snapshot) => void;

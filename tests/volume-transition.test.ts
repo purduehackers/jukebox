@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { TRANSITION_TIMING, VolumeTransition } from '../app/src/player/volume-transition.ts';
+import { TRANSITION_TIMING, VolumeTransition } from '../src/player/volume-transition.ts';
 import { ManualTransitionClock } from './manual-transition-clock.ts';
 
 test('production volume envelope fades for seven seconds and preserves a changed base volume', async () => {

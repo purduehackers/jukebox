@@ -1,7 +1,7 @@
 // Pure view-model helpers for /admin. No React, no I/O: unit-tested against the real service.
-import type { ApiError, MasterEntryView, RequestEntryView, Snapshot } from '../../../src/contract/types.ts';
+import type { ApiError, MasterEntryView, RequestEntryView, Snapshot } from '../contract/types.ts';
 import type { Intent } from './intents.ts';
-import { POLICY } from '../../../src/contract/types.ts';
+import { POLICY } from '../contract/types.ts';
 
 /** Server wall-clock "now", extrapolated from when the snapshot was received. */
 export function serverNowAt(snapshot: Snapshot, receivedAtLocal: number, localNow: number) {
