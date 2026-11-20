@@ -248,7 +248,7 @@ class Store:
                 with self.lock:
                     message = str(exc)[:1600]
                     # Permanent source/policy/probe errors are nonretryable; operational and extractor errors remain retryable.
-                    permanent = any(term in message.lower() for term in ('duration', 'six minutes', 'audio-only', 'combined/video', 'asset rejected', 'exactly one audio', 'unsupported source', 'invalid youtube', 'only canonical', 'kind must', 'completed individual', 'live recording'))
+                    permanent = any(term in message.lower() for term in ('duration', 'six minutes', 'audio-only', 'combined/video', 'asset rejected', 'exactly one audio', 'unsupported source', 'invalid youtube', 'invalid soundcloud', 'only canonical', 'kind must', 'completed individual', 'live recording', 'preview'))
                     self.db.execute("update jobs set status='failed',error=?,retryable=? where id=?", (message,0 if permanent else 1,item))
                     self.db.commit()
             finally:

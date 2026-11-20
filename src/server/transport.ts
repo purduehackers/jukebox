@@ -97,6 +97,7 @@ export function createTransport(options: TransportOptions) {
   type Stream = { actor: Actor; req: Request; controller: ReadableStreamDefaultController<Uint8Array>; sent: number; close: () => void };
   const streams = new Set<Stream>();
   const encoder = new TextEncoder();
+  let closing = false;
   function authorized(stream: Stream) {
     const current = actorFor(stream.req);
     if (current === 'invalid-device' || JSON.stringify(current) !== JSON.stringify(stream.actor)) {
@@ -119,7 +120,16 @@ export function createTransport(options: TransportOptions) {
     const snapshot = service.snapshot(stream.actor);
     if (snapshot.revision < stream.sent || (!heartbeat && snapshot.revision === stream.sent)) return;
     stream.sent = snapshot.revision;
-    stream.controller.enqueue(encoder.encode(`id: ${snapshot.revision}\nevent: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`));
+    try {
+      stream.controller.enqueue(encoder.encode(`id: ${snapshot.revision}\nevent: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`));
+    } catch {
+      stream.close();
+    }
+  }
+  function notifyDisplayPresence() {
+    for (const stream of streams) {
+      if (stream.actor.kind === 'user') pushSnapshot(stream, true);
+    }
   }
   const keepAlive = setInterval(() => {
     for (const stream of streams) pushSnapshot(stream, true);
@@ -140,19 +150,33 @@ export function createTransport(options: TransportOptions) {
       const body = new ReadableStream<Uint8Array>({
         start(controller) {
           let closed = false;
+          let registered = false;
           const close = () => {
             if (closed) return;
             closed = true;
             streams.delete(stream);
             req.signal.removeEventListener('abort', close);
             try { controller.close(); } catch { /* consumer cancelled */ }
+            if (registered && !closing && actor.kind === 'device') {
+              service.displayDisconnected(actor.deviceId);
+              notifyDisplayPresence();
+            }
           };
           stream = { actor, req, controller, sent: -1, close };
           streams.add(stream);
           req.signal.addEventListener('abort', close, { once: true });
           if (req.signal.aborted) { close(); return; }
-          controller.enqueue(encoder.encode('retry: 2000\n\n'));
-          pushSnapshot(stream);
+          if (actor.kind === 'device') {
+            registered = true;
+            service.displayConnected(actor.deviceId);
+            notifyDisplayPresence();
+          }
+          try {
+            controller.enqueue(encoder.encode('retry: 2000\n\n'));
+            pushSnapshot(stream);
+          } catch {
+            close();
+          }
         },
         cancel() { stream.close(); },
       }, { highWaterMark: 16 });
@@ -237,6 +261,7 @@ export function createTransport(options: TransportOptions) {
       }
     },
     close() {
+      closing = true;
       clearInterval(keepAlive);
       if (pending) clearTimeout(pending);
       unsubscribe();

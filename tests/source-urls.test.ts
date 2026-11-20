@@ -80,3 +80,32 @@ test('mobile share links discard tracking while preserving recording identity', 
   assert.equal(canonicalizeUrl(links[0]![0] + '&rowId=duplicate').canonicalUrl, links[0]![1]);
   assert.equal(canonicalizeUrl(links[1]![0] + '&is=duplicate').canonicalUrl, links[1]![1]);
 });
+
+test('SoundCloud track links canonicalize cleanly, preserve secret token case, and reject playlists/shorteners/profiles', () => {
+  for (const [url, expected] of cases.soundcloudAcceptedPairs as [string, string][]) {
+    const ref = canonicalizeUrl(url);
+    assert.equal(ref.provider, 'soundcloud', url);
+    assert.equal(ref.canonicalUrl, expected, url);
+    assert.deepEqual(canonicalizeUrl(ref.canonicalUrl), ref);
+  }
+  for (const url of cases.soundcloudRejected as string[]) {
+    assert.throws(() => canonicalizeUrl(url), { name: 'Error' }, url);
+  }
+});
+
+test('SoundCloud tracks work for master mixes and attendee requests with duplicate detection', async () => {
+  const h = harness();
+  try {
+    await h.startNight();
+    const scMix = 'https://soundcloud.com/dj-purdue/hack-night-mix';
+    const scShort = 'https://soundcloud.com/indie-artist/cool-song';
+    h.source.add(scMix, { title: 'Hack Night Mix', artist: 'DJ Purdue', durationSec: 2400, recordingKey: 'soundcloud:999001' });
+    h.source.add(scShort, { title: 'Cool Song', artist: 'Indie Artist', durationSec: 185, recordingKey: 'soundcloud:999002' });
+    await h.ok(h.admin, 'master.add', { url: `${scMix}?utm_source=clipboard#t=10` });
+    await h.fails('DURATION_REJECTED', h.alice, 'request.submit', { url: scMix });
+    await h.ok(h.alice, 'request.submit', { url: 'https://www.soundcloud.com/Indie-Artist/Cool-Song/?in=indie-artist/sets/ep&si=abc' });
+    await h.fails('DUPLICATE_REQUEST', h.bob, 'request.submit', { url: 'https://m.soundcloud.com/indie-artist/cool-song' });
+    assert.equal(h.snap(h.alice).quota?.used, 1);
+    assert.equal(h.snap(h.bob).quota?.used, 0);
+  } finally { h.svc.close(); }
+});

@@ -4,12 +4,16 @@ import sys
 import time
 import subprocess
 from pathlib import Path
-from .media import FIXTURES, FORMAT, validate_source, validate_selection, probe, MAX_ASSET_BYTES, duration_ok
+from .media import (
+    FIXTURES, MAX_ASSET_BYTES, duration_ok, format_for, probe,
+    source_provider, validate_identity, validate_selection, validate_source,
+)
 
 
 def prepare(source, kind, directory):
     start = time.monotonic()
     source = validate_source(source)
+    provider = source_provider(source)
     directory = Path(directory)
     selection = None
     transfers = []
@@ -28,13 +32,13 @@ def prepare(source, kind, directory):
         # components, thumbnails, subtitles, playlists, or video postprocessors.
         def audit(event):
             selected = event.get('info_dict', {})
-            validate_selection(selected, kind)
+            validate_selection(selected, kind, provider)
             if event['status'] == 'finished':
                 transfers.append({'formatId': selected.get('format_id'),
                                   'vcodec': selected.get('vcodec'), 'acodec': selected.get('acodec'),
                                   'downloadedBytes': event.get('downloaded_bytes'),
                                   'totalBytes': event.get('total_bytes'), 'status': 'finished'})
-        options = {'progress_hooks': [audit], 'format': FORMAT, 'noplaylist': True, 'socket_timeout': 15,
+        options = {'progress_hooks': [audit], 'format': format_for(provider), 'noplaylist': True, 'socket_timeout': 15,
                    'retries': 1, 'fragment_retries': 1, 'extractor_retries': 1,
                    'max_filesize': MAX_ASSET_BYTES, 'concurrent_fragment_downloads': 1,
                    'js_runtimes': {'bun': {}}, 'remote_components': [],
@@ -42,9 +46,8 @@ def prepare(source, kind, directory):
                    'noprogress': True, 'cachedir': False, 'fixup': 'never'}
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(source, download=False)
-            validate_selection(info, kind)  # BEFORE any media download
-            if info.get('id') != source.rsplit('=', 1)[-1]:
-                raise ValueError('Resolved recording identity changed')
+            validate_selection(info, kind, provider)  # BEFORE any media download
+            validate_identity(info, source, provider)
             selection = {k: info.get(k) for k in ('id', 'format_id', 'acodec', 'vcodec', 'protocol', 'duration')}
             # Persist only non-secret evidence, never temporary media URLs/headers.
             (directory / 'selection.json').write_text(json.dumps(selection))

@@ -58,12 +58,16 @@ test('now playing: requested vs confirmed vs unconfirmed vs offline are rendered
     const render = (snapshot: Snapshot, pendingVolume: number | null = null) =>
       html(createElement(views.NowPlayingPanel, { snapshot, serverNow: snapshot.serverTime, actions, pendingVolume }));
 
-    assert.match(render(await admin.snapshot()), /Waiting for playback/);
-    assert.doesNotMatch(text(render(await admin.snapshot())), /Display not open|Enable sound/);
+    const noDisplayOut = render(await admin.snapshot());
+    assert.match(noDisplayOut, /Waiting for playback/);
+    assert.doesNotMatch(text(noDisplayOut), /Display not open|Enable sound/);
+    assert.match(noDisplayOut, /data-adm-play="true"[^>]*disabled=""|disabled=""[^>]*data-adm-play="true"/);
 
     const display = await ScriptedDisplay.pair(app, admin);
-    assert.match(render(await admin.snapshot()), /Firefox blocked autoplay/);
-    assert.match(text(render(await admin.snapshot())), /Allow autoplay/);
+    const readyToPlay = render(await admin.snapshot());
+    assert.match(readyToPlay, /Firefox blocked autoplay/);
+    assert.match(text(readyToPlay), /Allow autoplay/);
+    assert.doesNotMatch(readyToPlay, /data-adm-play="true"[^>]*disabled=""|disabled=""[^>]*data-adm-play="true"/);
 
     assert.ok((await admin.raw('playback.play', {})).body.ok);
     let out = render(await admin.snapshot());
@@ -133,7 +137,7 @@ test('alerts band, request turn, queues, and unsupported-source guidance', async
     assert.match(addBar, /Queue/);
     assert.match(addBar, /Add to master/);
     assert.match(addBar, /Add to requests/);
-    assert.match(addBar, /YouTube, Spotify, Apple Music, or Deezer track link/);
+    assert.match(addBar, /YouTube, SoundCloud, Spotify, Apple Music, or Deezer track link/);
     assert.doesNotMatch(addBar, /Master mixes welcome/);
     assert.match(text(master), /· mix/);
     assert.match(master, /Move up/);

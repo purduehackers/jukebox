@@ -566,9 +566,15 @@ export function NowPlayingPanel({
               Pause
             </DitherButton>
           ) : (
-            <DitherButton className="adm-play" disabled={snapshot.night?.status !== 'open'} data-adm-play="true">
-              Play
-            </DitherButton>
+            <Tip title={snapshot.night?.status === 'open' && snapshot.openDisplays === 0 ? 'Open a display before playing music' : undefined}>
+              <DitherButton
+                className="adm-play"
+                disabled={snapshot.night?.status !== 'open' || snapshot.openDisplays === 0}
+                data-adm-play="true"
+              >
+                Play
+              </DitherButton>
+            </Tip>
           )}
           <Button
             variant="outline"
@@ -1062,7 +1068,7 @@ export function AddBar({
             onSubmitMaster?.();
           }}
         >
-          <Field label="YouTube, Spotify, Apple Music, or Deezer track link" htmlFor="adm-add-url">
+          <Field label="YouTube, SoundCloud, Spotify, Apple Music, or Deezer track link" htmlFor="adm-add-url">
             <div className="adm-add-row">
               <Input
                 id="adm-add-url"

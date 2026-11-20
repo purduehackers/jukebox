@@ -47,10 +47,10 @@ const ERROR_COPY: Record<ErrorCode, Omit<ErrorCopy, 'retry' | 'body'> & { body: 
   USERNAME_BANNED: { title: 'Requests are unavailable', body: 'This PH ID username cannot submit requests. Ask an organizer if you think this is a mistake.', tone: 'error', blocksLink: true },
   USERNAME_REQUIRED: { title: 'Sign in again', body: 'An organizer updated request access. Sign in again so your PH ID username can be checked.', tone: 'warn', blocksLink: true },
   DUPLICATE_REQUEST: { title: 'Already in the queue', body: 'That recording is already in the queue. Pick another song, or look for it in the list below.', tone: 'info', blocksLink: false },
-  INVALID_SOURCE: { title: 'That link doesn’t work', body: 'Paste a full https link to one YouTube, Spotify, Apple Music, or Deezer track.', tone: 'error', blocksLink: false },
+  INVALID_SOURCE: { title: 'That link doesn’t work', body: 'Paste a full https link to one YouTube, SoundCloud, Spotify, Apple Music, or Deezer track.', tone: 'error', blocksLink: false },
   SOURCE_UNSUPPORTED: {
     title: 'Link type not supported',
-    body: 'Playlists, albums, and other sites can’t be requested. Paste a single YouTube, Spotify, Apple Music, or Deezer track.',
+    body: 'Playlists, albums, and other sites can’t be requested. Paste a single YouTube, SoundCloud, Spotify, Apple Music, or Deezer track.',
     tone: 'error',
     blocksLink: false,
   },
@@ -67,6 +67,7 @@ const ERROR_COPY: Record<ErrorCode, Omit<ErrorCopy, 'retry' | 'body'> & { body: 
   DEVICE_REVOKED: { title: 'Not available here', body: 'That action isn’t for this page.', tone: 'error', blocksLink: true },
   PAIRING_INVALID: { title: 'Not available here', body: 'That action isn’t for this page.', tone: 'error', blocksLink: true },
   NOTHING_PLAYABLE: { title: 'Not available here', body: 'That action isn’t for this page.', tone: 'error', blocksLink: true },
+  NO_DISPLAY: { title: 'Not available here', body: 'That action isn’t for this page.', tone: 'error', blocksLink: true },
   INTERNAL: { title: 'Something went wrong on our side', body: 'Try again in a moment.', tone: 'error', blocksLink: false },
 };
 

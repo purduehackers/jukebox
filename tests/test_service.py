@@ -11,7 +11,7 @@ import unittest
 import urllib.error
 import urllib.request
 import uuid
-from jukebox.media import validate_source, validate_selection, duration_ok, probe
+from jukebox.media import validate_source, validate_selection, validate_identity, duration_ok, probe
 from jukebox.server import byte_range, make_server
 from jukebox.store import Store, EMPTY, Conflict
 
@@ -42,6 +42,36 @@ class SourcePolicy(unittest.TestCase):
         duration_ok(359.999,'request')
         for value in [float('nan'),float('inf'),-1,0,20000]:
             with self.assertRaises(ValueError): duration_ok(value,'master')
+
+    def test_soundcloud_audio_only_and_preview_policy(self):
+        http_mp3 = dict(id='12345', duration=180, vcodec='none', acodec=None, ext='mp3',
+                        protocol='http', format_id='http_mp3_128', extractor_key='Soundcloud',
+                        webpage_url='https://soundcloud.com/dj/track')
+        hls_opus = dict(id='12345', duration=180, vcodec='none', acodec='opus', ext='opus',
+                        protocol='m3u8_native', format_id='hls_opus_64', extractor_key='Soundcloud',
+                        webpage_url='https://soundcloud.com/dj/track')
+        validate_selection(http_mp3, 'request', 'soundcloud')
+        validate_selection(hls_opus, 'request', 'soundcloud')
+        validate_identity(http_mp3, 'https://soundcloud.com/dj/track', 'soundcloud')
+        for patch_data in [
+            {'format_id': 'hls_mp3_128_preview'},
+            {'format_id': 'http_mp3_128_preview'},
+            {'vcodec': 'avc1'},
+            {'acodec': 'none'},
+            {'acodec': None, 'ext': 'wav'},
+            {'protocol': 'rtmp'},
+            {'duration': 360},
+            {'requested_formats': [{}]},
+        ]:
+            with self.subTest(patch=patch_data), self.assertRaises(ValueError):
+                validate_selection({**http_mp3, **patch_data}, 'request', 'soundcloud')
+        for bad_id in [
+            {'id': 'not-numeric'},
+            {'extractor_key': 'Youtube'},
+            {'webpage_url': 'https://evil.test/dj/track'},
+        ]:
+            with self.subTest(bad_id=bad_id), self.assertRaises(ValueError):
+                validate_identity({**http_mp3, **bad_id}, 'https://soundcloud.com/dj/track', 'soundcloud')
 
     def test_ranges(self):
         for value, expected in [(None,(0,99,False)),('bytes=20-29',(20,29,True)),('bytes=95-',(95,99,True)),

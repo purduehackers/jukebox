@@ -2,35 +2,41 @@
 import json
 import sys
 from urllib.parse import urlsplit
-from .media import FORMAT, validate_selection, validate_source
+from .media import format_for, source_provider, validate_identity, validate_selection, validate_source
 
 
 def main():
     import yt_dlp
     source, kind = sys.argv[1:3]
     source = validate_source(source)
-    options = {'format': FORMAT, 'noplaylist': True, 'socket_timeout': 15,
+    provider = source_provider(source)
+    options = {'format': format_for(provider), 'noplaylist': True, 'socket_timeout': 15,
                'retries': 1, 'fragment_retries': 1, 'extractor_retries': 1,
                'max_filesize': 256 * 1024 * 1024, 'concurrent_fragment_downloads': 1,
                'js_runtimes': {'bun': {}}, 'remote_components': [], 'quiet': True,
                'noprogress': True, 'cachedir': False, 'fixup': 'never', 'skip_download': True}
-    # The visionOS client avoids the slower JS challenge path for ordinary
-    # recordings. Keep the same recording and strict audio-only format policy;
-    # fall back to yt-dlp's default clients when this client cannot resolve it.
-    try:
-        with yt_dlp.YoutubeDL({**options, 'extractor_args': {'youtube': {'player_client': ['visionos']}}}) as ydl:
-            info = ydl.extract_info(source, download=False)
-    except yt_dlp.utils.DownloadError:
+    if provider == 'youtube':
+        # The visionOS client avoids the slower JS challenge path for ordinary
+        # recordings. Keep the same recording and strict audio-only format policy;
+        # fall back to yt-dlp's default clients when this client cannot resolve it.
+        try:
+            with yt_dlp.YoutubeDL({**options, 'extractor_args': {'youtube': {'player_client': ['visionos']}}}) as ydl:
+                info = ydl.extract_info(source, download=False)
+        except yt_dlp.utils.DownloadError:
+            with yt_dlp.YoutubeDL(options) as ydl:
+                info = ydl.extract_info(source, download=False)
+    else:
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(source, download=False)
-    validate_selection(info, kind)
-    if info.get('id') != source.rsplit('=', 1)[-1]:
-        raise ValueError('Resolved recording identity changed')
+    validate_selection(info, kind, provider)
+    validate_identity(info, source, provider)
     thumbnail = info.get('thumbnail')
     if not isinstance(thumbnail, str) or urlsplit(thumbnail).scheme not in ('http', 'https'):
         thumbnail = None
+    artists = info.get('artists')
+    first_artist = artists[0] if isinstance(artists, list) and artists and isinstance(artists[0], str) else None
     result = {'id': info.get('id'), 'title': info.get('title'),
-              'artist': info.get('artist') or info.get('track_artist') or info.get('uploader'),
+              'artist': info.get('artist') or info.get('track_artist') or first_artist or info.get('uploader'),
               'duration': info.get('duration'), 'formatId': info.get('format_id'),
               'acodec': info.get('acodec'), 'thumbnail': thumbnail}
     print(json.dumps(result))

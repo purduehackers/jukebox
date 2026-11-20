@@ -20,8 +20,10 @@ RESOLVES = threading.BoundedSemaphore(2)
 
 
 def resolve_source(source, kind):
-    from .media import FIXTURES, validate_source
+    from .media import FIXTURES, source_provider, validate_source
     canonical = validate_source(source)
+    provider = source_provider(canonical)
+    label = 'SoundCloud' if provider == 'soundcloud' else 'YouTube'
     if kind not in ('master', 'request'):
         raise ValueError('kind must be master or request')
     if canonical in FIXTURES:
@@ -41,7 +43,7 @@ def resolve_source(source, kind):
             os.killpg(proc.pid, signal.SIGKILL); proc.communicate()
             raise ResolveUnavailable('Metadata resolve timed out')
         if proc.returncode:
-            message = 'YouTube metadata resolve failed; try again later'
+            message = f'{label} metadata resolve failed; try again later'
             # yt-dlp may emit warnings before our final JSON error. Read only our
             # structured error and remove upstream URLs rather than losing the cause.
             for line in reversed(err.decode(errors='replace').splitlines()):
@@ -53,12 +55,14 @@ def resolve_source(source, kind):
                 except (ValueError, AttributeError):
                     continue
             if 'requested format is not available' in message.lower():
+                if provider == 'soundcloud':
+                    raise ResolveUnavailable('SoundCloud did not expose a full audio-only stream for this track (Go+ preview-only or restricted tracks cannot be played).')
                 raise ResolveUnavailable('YouTube did not expose a suitable audio-only format to this worker. Try again later or use another recording; no video fallback is allowed.')
-            if any(s in message.lower() for s in ('duration', 'six minutes', 'audio-only', 'combined/video', 'completed individual', 'byte limit')):
+            if any(s in message.lower() for s in ('duration', 'six minutes', 'audio-only', 'combined/video', 'completed individual', 'byte limit', 'preview')):
                 raise ValueError(message)
             raise ResolveUnavailable(message)
         data = json.loads(out)
-        return {'source':canonical, **data, 'recordingKey':'youtube:'+str(data['id'])}
+        return {'source':canonical, **data, 'recordingKey':f'{provider}:'+str(data['id'])}
     except ResolveUnavailable:
         raise
     except ValueError:

@@ -104,6 +104,8 @@ export class JukeboxService {
   private reconciling: Promise<void> | null = null;
   private previewLimit: { max: number; windowMs: number };
   private previewTimes = new Map<string, number[]>();
+  private openDisplayStreams = new Map<string, number>();
+  private noDisplaySince: number | null = null;
 
   private writerLock: Database | null;
 
@@ -137,6 +139,34 @@ export class JukeboxService {
   onChange(listener: (revision: number) => void) {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /** Called by the HTTP transport when a display player's SSE stream opens. */
+  displayConnected(deviceId: string) {
+    this.openDisplayStreams.set(deviceId, (this.openDisplayStreams.get(deviceId) ?? 0) + 1);
+    this.noDisplaySince = null;
+  }
+
+  /** Called by the HTTP transport when a display player's SSE stream closes. */
+  displayDisconnected(deviceId: string) {
+    const remaining = (this.openDisplayStreams.get(deviceId) ?? 0) - 1;
+    if (remaining > 0) this.openDisplayStreams.set(deviceId, remaining);
+    else this.openDisplayStreams.delete(deviceId);
+    if (this.openDisplayStreams.size === 0) {
+      this.noDisplaySince = this.clock.now();
+      if (this.policy.noDisplayPauseMs <= 0) this.tick();
+    }
+  }
+
+  /** Number of currently open displays (active player SSE streams + live legacy paired lease). */
+  openDisplayCount(pb?: PlaybackRow, now = this.clock.now()): number {
+    let count = 0;
+    for (const n of this.openDisplayStreams.values()) count += n;
+    const row = pb ?? (this.db.prepare('select * from playback where id = 1').get() as unknown as PlaybackRow);
+    if (row.lease_device && !this.automaticDevice(row.lease_device) && this.leaseLive(row, now) && !this.openDisplayStreams.has(row.lease_device)) {
+      count++;
+    }
+    return count;
   }
 
   isAdmin(identity: Identity) {
@@ -552,7 +582,7 @@ export class JukeboxService {
   private schedule(tx: Tx) {
     const pb = tx.pb;
     if (pb.phase === 'master' && pb.current_id === null) {
-      if (pb.autostart && this.openNight() && this.nextMaster(pb.master_cursor, true)) {
+      if (pb.autostart && this.openNight() && this.openDisplayCount(pb, tx.now) > 0 && this.nextMaster(pb.master_cursor, true)) {
         pb.intent = 'playing';
         pb.autostart = 0;
         pb.period_started_at = tx.now;
@@ -619,11 +649,20 @@ export class JukeboxService {
     const id = randomUUID();
     this.db.prepare("insert into nights values(?, 'open', ?, null)").run(id, tx.now);
     this.resetMode(tx);
-    // Starting a session starts its music, including when preparation finishes later.
-    tx.pb.intent = 'playing';
-    if (tx.pb.current_id === null) this.selectMaster(tx, true);
-    tx.pb.autostart = tx.pb.current_id === null ? 1 : 0;
-    tx.pb.period_started_at = tx.pb.current_id === null ? null : tx.now;
+    this.noDisplaySince = null;
+    if (this.openDisplayCount(tx.pb, tx.now) > 0) {
+      // Starting a session with an open display starts its music, including when preparation finishes later.
+      tx.pb.intent = 'playing';
+      if (tx.pb.current_id === null) this.selectMaster(tx, true);
+      tx.pb.autostart = tx.pb.current_id === null ? 1 : 0;
+      tx.pb.period_started_at = tx.pb.current_id === null ? null : tx.now;
+    } else {
+      // With 0 displays open, stay paused until a display is opened and an organizer presses Play.
+      tx.pb.intent = 'paused';
+      tx.pb.autostart = 0;
+      if (tx.pb.current_id === null && this.nextMaster(tx.pb.master_cursor, true)) this.selectMaster(tx, true);
+      tx.pb.period_started_at = null;
+    }
     tx.pb.period_paused_at = null;
     this.bumpEpoch(tx);
     this.emit(tx, 'night.opened', { nightId: id });
@@ -633,6 +672,7 @@ export class JukeboxService {
   private nightClose(tx: Tx) {
     const night = this.openNight();
     if (!night) throw new CommandError('NIGHT_CLOSED', 'No night session is open');
+    this.noDisplaySince = null;
     tx.pb.intent = 'paused';
     tx.pb.autostart = 0;
     this.bumpEpoch(tx);
@@ -700,6 +740,10 @@ export class JukeboxService {
 
   private play(tx: Tx) {
     tx.pb.autostart = 0;
+    if (this.openDisplayCount(tx.pb, tx.now) === 0) {
+      throw new CommandError('NO_DISPLAY', 'No display is open; open a display before playing music');
+    }
+    this.noDisplaySince = null;
     if (tx.pb.intent === 'playing') return {};
     tx.pb.intent = 'playing';
     if (tx.pb.phase === 'master') {
@@ -710,6 +754,14 @@ export class JukeboxService {
     this.bumpEpoch(tx);
     this.emit(tx, 'playback.play');
     return {};
+  }
+
+  private pauseForNoDisplay(tx: Tx) {
+    tx.pb.autostart = 0;
+    if (tx.pb.intent === 'paused') return;
+    tx.pb.intent = 'paused';
+    this.bumpEpoch(tx);
+    this.emit(tx, 'playback.paused_no_display');
   }
 
   private pause(tx: Tx) {
@@ -1103,14 +1155,24 @@ export class JukeboxService {
   tick() {
     this.transaction((tx) => {
       const pb = tx.pb;
+      if (this.openDisplayStreams.size === 0 && this.noDisplaySince !== null && tx.now - this.noDisplaySince >= this.policy.noDisplayPauseMs) {
+        this.noDisplaySince = null;
+        if (this.openDisplayCount(pb, tx.now) === 0 && this.openNight() && (pb.intent === 'playing' || pb.autostart === 1)) {
+          this.pauseForNoDisplay(tx);
+        }
+      }
       if (pb.lease_device && pb.lease_expires <= tx.now) {
         const observed = pb.observed ? (JSON.parse(pb.observed) as ObservedPlayback) : null;
         if (observed?.status !== 'offline') {
           pb.observed = JSON.stringify({ ...(observed ?? {}), deviceId: pb.lease_device, status: 'offline' });
           this.emit(tx, 'player.offline', { deviceId: pb.lease_device });
         }
+        if (this.openDisplayStreams.size === 0 && this.automaticDevice(pb.lease_device) && this.openNight() && (pb.intent === 'playing' || pb.autostart === 1)) {
+          this.pauseForNoDisplay(tx);
+        }
       }
-      if (pb.acked_epoch !== pb.epoch && pb.desired_at && tx.now - pb.desired_at >= this.policy.ackTimeoutMs && !pb.unconfirmed_noted && pb.lease_device) {
+      const openDisplays = this.openDisplayCount(pb, tx.now);
+      if (pb.acked_epoch !== pb.epoch && pb.desired_at && tx.now - pb.desired_at >= this.policy.ackTimeoutMs && !pb.unconfirmed_noted && pb.lease_device && !(pb.intent === 'paused' && openDisplays === 0)) {
         pb.unconfirmed_noted = 1;
         this.emit(tx, 'player.unconfirmed', { epoch: pb.epoch });
       }
@@ -1270,7 +1332,8 @@ export class JukeboxService {
       : this.nextMaster(pb.master_cursor, pb.phase === 'master' && pb.current_id === null);
     const ready = !!this.nextReadyRequest();
     const due = pb.period_paused_at === null && pb.mode === 'auto' && pb.phase === 'master' && pb.period_started_at !== null && now - pb.period_started_at >= this.periodOf(pb) && ready;
-    const confirmation = night?.status !== 'open' || pb.current_id === null ? 'none'
+    const openDisplays = this.openDisplayCount(pb, now);
+    const confirmation = night?.status !== 'open' || pb.current_id === null || (pb.intent === 'paused' && openDisplays === 0) ? 'none'
       : (pb.acked_epoch ?? -1) >= pb.epoch ? 'confirmed'
       : now - pb.desired_at >= this.policy.ackTimeoutMs ? 'unconfirmed' : 'requested';
     const identity = actor.kind === 'user' ? actor.identity : null;
@@ -1294,6 +1357,7 @@ export class JukeboxService {
       role,
       night,
       quotaEnabled: !!pb.quota_enabled,
+      openDisplays,
       schedule: {
         phase: pb.phase,
         intent: pb.intent,

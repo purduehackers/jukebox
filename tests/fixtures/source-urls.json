@@ -74,5 +74,47 @@
     "https://youtu.be/yL-4oSQwzJI/extra",
     "https://%79outube.com/watch?v=yL-4oSQwzJI",
     "https://youtube.com./watch?v=yL-4oSQwzJI"
+  ],
+  "soundcloudAcceptedPairs": [
+    [
+      "https://soundcloud.com/artist-name/track-title",
+      "https://soundcloud.com/artist-name/track-title"
+    ],
+    [
+      "https://www.soundcloud.com/Artist_Name/Track-Title/?in=artist-name/sets/my-playlist&si=abc123&utm_source=clipboard#t=1:23",
+      "https://soundcloud.com/artist_name/track-title"
+    ],
+    [
+      "https://m.soundcloud.com/dj-purdue/hack-night-mix?utm_medium=text&utm_campaign=social_sharing",
+      "https://soundcloud.com/dj-purdue/hack-night-mix"
+    ],
+    [
+      "https://soundcloud.com/Artist/Secret-Track/s-AbCd1234EfGh?si=xyz",
+      "https://soundcloud.com/artist/secret-track/s-AbCd1234EfGh"
+    ]
+  ],
+  "soundcloudRejected": [
+    "https://soundcloud.com/artist-name",
+    "https://soundcloud.com/artist-name/",
+    "https://soundcloud.com/artist-name/sets/my-playlist",
+    "https://soundcloud.com/artist-name/sets",
+    "https://soundcloud.com/artist-name/albums",
+    "https://soundcloud.com/artist-name/tracks",
+    "https://soundcloud.com/artist-name/likes",
+    "https://soundcloud.com/artist-name/reposts",
+    "https://soundcloud.com/discover",
+    "https://soundcloud.com/discover/sets/charts",
+    "https://soundcloud.com/stations/track/12345",
+    "https://soundcloud.com/artist-name/track-title/recommended",
+    "https://soundcloud.com/artist-name/track-title/extra",
+    "https://soundcloud.com/artist-name/track-title/s-AbCd1234/extra",
+    "https://on.soundcloud.com/abc123XYZ",
+    "https://api.soundcloud.com/tracks/12345",
+    "https://soundcloud.com.evil.test/artist/track",
+    "https://soundcloud.com:443/artist/track",
+    "https://user:pass@soundcloud.com/artist/track",
+    "http://soundcloud.com/artist/track",
+    "https://soundcloud.com/artist/../other/track",
+    "https://soundcloud.com/artist/track;rm"
   ]
 }

@@ -53,7 +53,7 @@ export class WorkerAdapter implements SourcePort, MediaPort, CandidateSearchPort
       const error = this.workerError(body, response.status);
       // This is a selected recording's extraction failure, not a search miss or
       // a worker outage. Recognize the current worker and yt-dlp error wording.
-      if (/requested format is not available|did not expose a suitable audio-only format|no verified audio-only source format/i.test(error.message)) {
+      if (/requested format is not available|did not expose a (?:suitable|full) audio-only|no verified audio-only source format/i.test(error.message)) {
         error.details = { kind: 'audio_format_unavailable', stage: 'candidate_resolution' };
       }
       throw error;

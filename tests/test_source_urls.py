@@ -26,6 +26,14 @@ class SourceURLParity(unittest.TestCase):
                 canonical = validate_source(url)
                 self.assertEqual(canonical, expected)
                 self.assertEqual(validate_source(canonical), canonical)
+        for url, expected in fixtures['soundcloudAcceptedPairs']:
+            with self.subTest(url=url):
+                canonical = validate_source(url)
+                self.assertEqual(canonical, expected)
+                self.assertEqual(validate_source(canonical), canonical)
+        for url in fixtures['soundcloudRejected']:
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                validate_source(url)
         with self.assertRaises(ValueError): duration_ok(3443, 'request')
 
     def test_flat_search_filters_and_bounds_untrusted_metadata(self):
@@ -77,3 +85,27 @@ class SourceURLParity(unittest.TestCase):
                 resolve_source('https://youtu.be/yL-4oSQwzJI', 'master')
             self.assertIn('audio-only', str(failure.exception))
             self.assertIn('no video fallback', str(failure.exception))
+
+    def test_soundcloud_resolve_uses_soundcloud_recording_key_and_preview_errors(self):
+        with patch('jukebox.server.subprocess.Popen') as spawn, patch('jukebox.server.os.killpg'):
+            spawn.return_value.returncode = 0
+            spawn.return_value.communicate.return_value = (
+                b'{"id":"987654321","title":"SC Track","artist":"DJ","duration":180,"formatId":"http_mp3_128","acodec":null,"thumbnail":null}',
+                b'',
+            )
+            result = resolve_source('https://www.soundcloud.com/DJ/SC-Track/?si=abc', 'request')
+            self.assertEqual(result['source'], 'https://soundcloud.com/dj/sc-track')
+            self.assertEqual(result['recordingKey'], 'soundcloud:987654321')
+        with patch('jukebox.server.subprocess.Popen') as spawn, patch('jukebox.server.os.killpg'):
+            spawn.return_value.returncode = 1
+            spawn.return_value.communicate.return_value = (b'', b'{"error":"Requested format is not available"}\n')
+            with self.assertRaises(ResolveUnavailable) as failure:
+                resolve_source('https://soundcloud.com/dj/go-plus-track', 'request')
+            self.assertIn('SoundCloud', str(failure.exception))
+            self.assertIn('audio-only', str(failure.exception))
+        with patch('jukebox.server.subprocess.Popen') as spawn, patch('jukebox.server.os.killpg'):
+            spawn.return_value.returncode = 1
+            spawn.return_value.communicate.return_value = (b'', b'{"error":"ValueError: Only full SoundCloud tracks are supported; 30-second previews cannot be played"}\n')
+            with self.assertRaises(ValueError) as failure:
+                resolve_source('https://soundcloud.com/dj/preview-track', 'request')
+            self.assertIn('preview', str(failure.exception))

@@ -1,5 +1,27 @@
 # Decisions and question backlog
 
+## Pause with 0 displays open and SoundCloud support (2026-11-19)
+
+The user requested pausing music when 0 displays are open and adding SoundCloud
+support, and confirmed the recommended behaviors for both:
+
+- **Zero-display pause:** Active organizer display SSE connections (plus live
+  legacy paired leases in fixtures) determine `openDisplays`. When open displays
+  drop to 0 during an open night, playback pauses automatically after a 3-second
+  reload grace window (`noDisplayPauseMs`), and silent automatic-display
+  heartbeat expiry (`leaseMs`) also pauses playback. Starting a night with 0
+  displays open stays paused, and `playback.play` is refused (`NO_DISPLAY`) and
+  disabled on `/admin` until at least one display is open. Reopening a display
+  stays paused until an organizer explicitly presses Play.
+- **Direct SoundCloud audio-only playback:** `soundcloud.com`,
+  `www.soundcloud.com`, and `m.soundcloud.com` single-track links (including
+  `/s-<token>` secret links) canonicalize ID/path-only in both TS and Python,
+  discarding query parameters and fragments; playlists/sets, albums, profiles,
+  and `on.soundcloud.com` shorteners remain unsupported. The Python worker
+  resolves and prepares audio-only directly via `yt-dlp` (progressive HTTP or
+  `m3u8_native` audio-only HLS, rejecting 30-second Go+ `_preview` formats and
+  any non-audio stream via `vcodec=none` and `ffprobe`).
+
 ## Production container update through SSH (2026-11-16)
 
 The user requested updating phack.sh after the GitHub Actions image publish.

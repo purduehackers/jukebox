@@ -74,9 +74,14 @@ async function setup(t: TestContext, transition: TransitionOptions = { timing: {
     }
     if (String(url).endsWith('/snapshot')) return Response.json(h.snap(actor));
     const body = new ReadableStream<Uint8Array>({ start(controller) {
+      if (deviceId) h.svc.displayConnected(deviceId);
       const send = () => controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(h.snap(actor))}\n\n`));
       subscribers.add(send); send();
-      init?.signal?.addEventListener('abort', () => { subscribers.delete(send); controller.close(); }, { once: true });
+      init?.signal?.addEventListener('abort', () => {
+        subscribers.delete(send);
+        if (deviceId) h.svc.displayDisconnected(deviceId);
+        controller.close();
+      }, { once: true });
     } });
     return new Response(body);
   };

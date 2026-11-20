@@ -70,8 +70,9 @@ test('reload checkpoints cannot override a pending seek, and stale seek reports 
   const h = harness(); t.after(() => h.svc.close());
   await h.ok(h.admin, 'master.add', { url: URLS.mix });
   await h.svc.reconcile();
-  await h.ok(h.admin, 'night.open', {});
   const device = await h.ok(h.admin, 'display.connect', { secret: secret() });
+  h.svc.displayConnected(device.deviceId);
+  await h.ok(h.admin, 'night.open', {});
   const actor = { kind: 'device', deviceId: device.deviceId } as const;
   const d = h.snap(actor).desired!;
   const report = { generation: device.generation, epoch: d.epoch, loadId: d.loadId, status: 'playing' as const, positionSec: 42 };
@@ -84,11 +85,21 @@ test('reload checkpoints cannot override a pending seek, and stale seek reports 
   assert.equal(h.snap(actor).desired!.startPositionSec, 101);
 });
 
-test('session start plays a prepared master and session end pauses it', async (t) => {
+test('session start plays a prepared master when a display is open, stays paused with 0 displays, and session end pauses it', async (t) => {
   const h = harness(); t.after(() => h.svc.close());
   await h.ok(h.admin, 'master.add', { url: URLS.mix });
   await h.svc.reconcile();
   assert.equal(h.snap().schedule.intent, 'paused');
+  assert.equal(h.snap().openDisplays, 0);
+  await h.ok(h.admin, 'night.open', {});
+  assert.equal(h.snap().schedule.intent, 'paused', '0 displays open starts paused');
+  assert.equal(h.snap().nowPlaying?.title, 'Hour Mix');
+  await h.fails('NO_DISPLAY', h.admin, 'playback.play', {});
+  await h.ok(h.admin, 'night.close', {});
+
+  const display = await h.ok(h.admin, 'display.connect', { secret: secret() });
+  h.svc.displayConnected(display.deviceId);
+  assert.equal(h.snap().openDisplays, 1);
   await h.ok(h.admin, 'night.open', {});
   assert.equal(h.snap().schedule.intent, 'playing');
   assert.equal(h.snap().nowPlaying?.title, 'Hour Mix');
@@ -102,8 +113,11 @@ test('session start plays a prepared master and session end pauses it', async (t
 
 test('session started before media is ready starts when prepared, survives restart, and respects explicit pause', async (t) => {
   const h = harness(); t.after(() => h.svc.close());
+  const display = await h.ok(h.admin, 'display.connect', { secret: secret() });
+  h.svc.displayConnected(display.deviceId);
   await h.ok(h.admin, 'night.open', {});
   h.restart();
+  h.svc.displayConnected(display.deviceId);
   await h.ok(h.admin, 'master.add', { url: URLS.mix });
   await h.svc.reconcile();
   assert.equal(h.snap().schedule.intent, 'playing');
@@ -165,6 +179,8 @@ test('alternating paused displays cannot move the checkpoint, while explicit see
   await h.ok(h.admin, 'playback.pause', {});
   const a = await h.ok(h.admin, 'display.connect', { secret: secret() });
   const b = await h.ok(h.admin, 'display.connect', { secret: secret() });
+  h.svc.displayConnected(a.deviceId);
+  h.svc.displayConnected(b.deviceId);
   const actor = (device: typeof a) => ({ kind: 'device' as const, deviceId: device.deviceId });
   const report = async (device: typeof a, positionSec: number) => {
     const d = h.snap(actor(device)).desired!;
@@ -204,4 +220,73 @@ test('display receives attribution only for the playing request', async (t) => {
   await h.ok(h.admin, 'request.playNow', { entryId: submitted.entryId });
   assert.equal(h.snap(player.actor).requests.find(r => r.id === submitted.entryId)?.requester, 'alice');
   assert.equal(h.snap(publicActor).requests.find(r => r.id === submitted.entryId)?.requester, undefined);
+});
+
+test('music pauses when open displays drop to 0 after reload grace, stays paused on reopen, and survives quick reload', async (t) => {
+  const h = harness(); t.after(() => h.svc.close());
+  await h.ok(h.admin, 'master.add', { url: URLS.mix });
+  await h.svc.reconcile();
+  const a = await h.ok(h.admin, 'display.connect', { secret: secret() });
+  const b = await h.ok(h.admin, 'display.connect', { secret: secret() });
+  h.svc.displayConnected(a.deviceId);
+  h.svc.displayConnected(b.deviceId);
+  await h.ok(h.admin, 'night.open', {});
+  assert.equal(h.snap().schedule.intent, 'playing');
+  assert.equal(h.snap().openDisplays, 2);
+
+  // Closing one of two displays keeps music playing.
+  h.svc.displayDisconnected(a.deviceId);
+  h.clock.advance(h.svc.policy.noDisplayPauseMs + 1000);
+  h.svc.tick();
+  assert.equal(h.snap().schedule.intent, 'playing');
+  assert.equal(h.snap().openDisplays, 1);
+
+  // Quick reload of the last display within grace window does not pause music.
+  h.svc.displayDisconnected(b.deviceId);
+  h.clock.advance(h.svc.policy.noDisplayPauseMs - 500);
+  h.svc.tick();
+  assert.equal(h.snap().schedule.intent, 'playing');
+  const reloaded = await h.ok(h.admin, 'display.connect', { secret: secret() });
+  h.svc.displayConnected(reloaded.deviceId);
+  h.clock.advance(h.svc.policy.noDisplayPauseMs + 1000);
+  h.svc.tick();
+  assert.equal(h.snap().schedule.intent, 'playing');
+
+  // Closing the last display for longer than the grace window pauses music.
+  h.svc.displayDisconnected(reloaded.deviceId);
+  assert.equal(h.snap().openDisplays, 0);
+  h.clock.advance(h.svc.policy.noDisplayPauseMs);
+  h.svc.tick();
+  assert.equal(h.snap().schedule.intent, 'paused');
+  assert.equal(h.snap().playback.confirmation, 'none');
+  assert.ok(h.svc.events(0).some((e) => e.type === 'playback.paused_no_display'));
+  await h.fails('NO_DISPLAY', h.admin, 'playback.play', {});
+
+  // Opening a display again stays paused until an organizer explicitly presses Play.
+  const reopened = await h.ok(h.admin, 'display.connect', { secret: secret() });
+  h.svc.displayConnected(reopened.deviceId);
+  assert.equal(h.snap().openDisplays, 1);
+  assert.equal(h.snap().schedule.intent, 'paused');
+  await h.ok(h.admin, 'playback.play', {});
+  assert.equal(h.snap().schedule.intent, 'playing');
+});
+
+test('automatic display heartbeat expiry with 0 open display streams (e.g. after restart) pauses playback', async (t) => {
+  const h = harness(); t.after(() => h.svc.close());
+  await h.ok(h.admin, 'master.add', { url: URLS.mix });
+  await h.svc.reconcile();
+  const d = await h.ok(h.admin, 'display.connect', { secret: secret() });
+  const actor = { kind: 'device', deviceId: d.deviceId } as const;
+  h.svc.displayConnected(d.deviceId);
+  await h.ok(h.admin, 'night.open', {});
+  const desired = h.snap(actor).desired!;
+  await h.ok(actor, 'player.report', { generation: d.generation, epoch: desired.epoch, loadId: desired.loadId, status: 'playing', positionSec: 25 });
+  assert.equal(h.snap().schedule.intent, 'playing');
+  // Service restarts and no display reconnects.
+  h.restart();
+  assert.equal(h.snap().openDisplays, 0);
+  h.clock.advance(h.svc.policy.leaseMs);
+  h.svc.tick();
+  assert.equal(h.snap().playback.observed?.status, 'offline');
+  assert.equal(h.snap().schedule.intent, 'paused');
 });

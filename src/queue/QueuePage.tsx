@@ -172,7 +172,7 @@ function RequestForm({ flow, state, remaining }: { flow: RequestFlow; state: Flo
           void flow.check();
         }}
       >
-        <Field label="Paste a YouTube, Spotify, Apple Music, or Deezer track link" htmlFor="q-link">
+        <Field label="Paste a YouTube, SoundCloud, Spotify, Apple Music, or Deezer track link" htmlFor="q-link">
           <Input
             id="q-link"
             type="url"

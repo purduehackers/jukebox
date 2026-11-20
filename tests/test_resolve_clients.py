@@ -36,3 +36,27 @@ class ResolveClients(unittest.TestCase):
         self.assertEqual(len(options), 2)
         self.assertNotIn('extractor_args', options[1])
         self.assertEqual(options[0]['format'], options[1]['format'])
+
+    def test_soundcloud_resolve_skips_youtube_client_args_and_extracts_metadata(self):
+        import json
+        import yt_dlp
+        options = []
+        class Client:
+            def __init__(self, opts): options.append(opts)
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def extract_info(self, source, download):
+                assert source == 'https://soundcloud.com/dj-purdue/track-one' and download is False
+                return {'id': '123456789', 'title': 'Track One', 'artists': ['DJ Purdue'],
+                        'uploader': 'dj-purdue', 'duration': 200, 'vcodec': 'none', 'acodec': None,
+                        'ext': 'mp3', 'protocol': 'http', 'format_id': 'http_mp3_128',
+                        'extractor_key': 'Soundcloud', 'webpage_url': 'https://soundcloud.com/dj-purdue/track-one'}
+        buf = io.StringIO()
+        with patch.object(yt_dlp, 'YoutubeDL', Client), patch.object(sys, 'argv', ['resolve', 'https://www.soundcloud.com/DJ-Purdue/Track-One?si=abc', 'request']), contextlib.redirect_stdout(buf):
+            main()
+        self.assertEqual(len(options), 1)
+        self.assertNotIn('extractor_args', options[0])
+        self.assertIn('format_id!*=_preview', options[0]['format'])
+        parsed = json.loads(buf.getvalue())
+        self.assertEqual(parsed['id'], '123456789')
+        self.assertEqual(parsed['artist'], 'DJ Purdue')

@@ -35,6 +35,36 @@ test('resolve mapping, duration errors, provider bypass, timeout',async()=>{
   } finally {w.server.close();}
 });
 
+test('SoundCloud links resolve directly through the audio worker without catalog matching', async () => {
+  const scUrl = 'https://soundcloud.com/artist-name/track-title';
+  const w = await worker((req, res) => {
+    let data = '';
+    req.on('data', (c: any) => data += c);
+    req.on('end', () => {
+      const body = JSON.parse(data);
+      assert.equal(req.url, '/api/resolve');
+      assert.equal(body.source, scUrl);
+      assert.equal(body.kind, 'request');
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({
+        source: scUrl, id: '123456789', title: 'Track Title', artist: 'Artist Name',
+        duration: 210, recordingKey: 'soundcloud:123456789', thumbnail: 'https://i1.sndcdn.com/artworks-123-t500x500.jpg',
+      }));
+    });
+  });
+  try {
+    const adapter = new WorkerAdapter({ baseUrl: w.base });
+    const ref = adapter.canonicalize('https://www.soundcloud.com/Artist-Name/Track-Title/?si=share');
+    assert.equal(ref.provider, 'soundcloud');
+    const resolved = await adapter.resolve(ref, 'request');
+    assert.equal(resolved.recordingKey, 'soundcloud:123456789');
+    assert.equal(resolved.title, 'Track Title');
+    assert.equal(resolved.artist, 'Artist Name');
+    assert.equal(resolved.durationSec, 210);
+    assert.deepEqual(resolved.selection, { source: scUrl });
+  } finally { w.server.close(); }
+});
+
 test('job mapping, transient poll, retention, media proxy range/HEAD/header allowlist',async()=>{
   const w=await worker((req,res)=>{
     if(req.url==='/api/jobs/ready'){res.end(JSON.stringify({status:'ready',asset:{id,url:'/media/'+id,mime:'audio/webm',codec:'opus',duration:4,bytes:20}}));return;}

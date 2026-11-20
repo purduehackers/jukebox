@@ -5,11 +5,23 @@ import { PortError } from './ports.ts';
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
 const SPOTIFY_ID = /^[A-Za-z0-9]{22}$/;
 const NUMERIC_ID = /^\d{1,15}$/;
+const SOUNDCLOUD_ARTIST = /^[A-Za-z0-9_-]{1,100}$/;
+const SOUNDCLOUD_TRACK = /^[A-Za-z0-9_-]{1,200}$/;
+const SOUNDCLOUD_SECRET = /^s-[A-Za-z0-9_-]{4,64}$/;
+const SOUNDCLOUD_RESERVED_FIRST = new Set([
+  'discover', 'stream', 'upload', 'search', 'you', 'settings', 'notifications', 'messages',
+  'charts', 'stations', 'popular', 'pages', 'terms-of-use', 'imprint', 'jobs', 'pro', 'go',
+  'mobile', 'creators', 'people', 'tags', 'tracks', 'sets', 'albums', 'playlists',
+]);
+const SOUNDCLOUD_RESERVED_SECOND = new Set([
+  'tracks', 'albums', 'sets', 'reposts', 'likes', 'spotlight', 'comments', 'popular-tracks',
+  'followers', 'following', 'recommended',
+]);
 export const FIXTURE_SOURCES = ['fixture:master', 'fixture:request', 'fixture:song', 'fixture:aac'] as const;
 
 export function canonicalizeUrl(input: unknown): SourceRef {
   if (typeof input !== 'string' || input.length === 0 || input.length > 2048) {
-    throw new PortError('INVALID_SOURCE', 'Paste a single YouTube, Spotify, Apple Music, or Deezer track link');
+    throw new PortError('INVALID_SOURCE', 'Paste a single YouTube, SoundCloud, Spotify, Apple Music, or Deezer track link');
   }
   const raw = input.trim();
   if (/(?:^|\/)(?:\.|%2e){1,2}(?:\/|[?#]|$)/i.test(raw) || /[\\\u0000-\u0020\u007f]/.test(raw) || /^https:\/\/[^/]*:/.test(raw)) throw new PortError('INVALID_SOURCE', 'Use a plain HTTPS track link without a port');
@@ -75,8 +87,31 @@ export function canonicalizeUrl(input: unknown): SourceRef {
       return { provider: 'apple_music', itemId: id, canonicalUrl: `https://music.apple.com/${country && country !== 'us' ? country + '/' : ''}song/${id}` };
     }
   }
+  if (host === 'on.soundcloud.com') {
+    throw new PortError('SOURCE_UNSUPPORTED', 'Shortened SoundCloud links are not supported; open the link and paste the full soundcloud.com track URL');
+  }
+  if (host === 'soundcloud.com' || host === 'www.soundcloud.com' || host === 'm.soundcloud.com') {
+    const trimmedPath = url.pathname.length > 1 && url.pathname.endsWith('/') ? url.pathname.slice(0, -1) : url.pathname;
+    const segments = trimmedPath.split('/').slice(1);
+    const artist = segments[0] ?? '';
+    const track = segments[1] ?? '';
+    const third = segments[2];
+    if (segments.length >= 2 && (track.toLowerCase() === 'sets' || track.toLowerCase() === 'albums')) {
+      throw new PortError('SOURCE_UNSUPPORTED', 'Playlists and albums cannot be requested; send a single track link');
+    }
+    if ((segments.length === 2 || segments.length === 3)
+      && SOUNDCLOUD_ARTIST.test(artist) && SOUNDCLOUD_TRACK.test(track)
+      && !SOUNDCLOUD_RESERVED_FIRST.has(artist.toLowerCase())
+      && !SOUNDCLOUD_RESERVED_SECOND.has(track.toLowerCase())
+      && (third === undefined || SOUNDCLOUD_SECRET.test(third))) {
+      const slug = `${artist.toLowerCase()}/${track.toLowerCase()}`;
+      const itemId = third ? `${slug}/${third}` : slug;
+      return { provider: 'soundcloud', itemId, canonicalUrl: `https://soundcloud.com/${itemId}` };
+    }
+    throw new PortError('SOURCE_UNSUPPORTED', 'Unsupported SoundCloud link; send a single soundcloud.com track link');
+  }
   if (url.searchParams.has('list') || /playlist|album/.test(url.pathname)) {
     throw new PortError('SOURCE_UNSUPPORTED', 'Playlists and albums cannot be requested; send a single track link');
   }
-  throw new PortError('SOURCE_UNSUPPORTED', 'Unsupported link; use a YouTube, Spotify, Apple Music, or Deezer track');
+  throw new PortError('SOURCE_UNSUPPORTED', 'Unsupported link; use a YouTube, SoundCloud, Spotify, Apple Music, or Deezer track');
 }

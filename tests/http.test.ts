@@ -269,3 +269,48 @@ test('automatic player tokens require a current organizer cookie; logout/expiry 
   await expiring.ended;
   assert.equal((await wall.fetch('/api/v1/snapshot')).status, 401);
 });
+
+test('HTTP/SSE tracks open displays, notifies admin, and pauses playback when the last display closes', { timeout: 10_000 }, async (t) => {
+  const clock = new FakeClock();
+  const source = new FakeSource().add(URLS.mix, { title: 'Hour Mix', durationSec: 3600 });
+  const app = await start(mkdtempSync(join(tmpdir(), 'jukebox-no-display-')), clock, source, new FakeMedia());
+  t.after(() => app.stop());
+  const admin = new Client(app.base), wall = new Client(app.base);
+  await admin.login('organizer', true);
+  await wall.login('wall', true);
+  assert.ok((await admin.command('master.add', { url: URLS.mix })).body.ok);
+  await app.service.reconcile();
+
+  // Opening a night with 0 displays starts paused and refuses Play.
+  const adminStream = admin.stream(); t.after(() => adminStream.close());
+  await adminStream.until(s => s.openDisplays === 0);
+  assert.ok((await admin.command('night.open', {})).body.ok);
+  assert.equal((await admin.snapshot()).schedule.intent, 'paused');
+  assert.equal((await admin.command('playback.play', {})).body.error?.code, 'NO_DISPLAY');
+
+  // Connecting a display SSE stream updates admin immediately and enables Play.
+  const connected = await wall.command('display.connect', { secret: 'd'.repeat(64) });
+  wall.bearer = connected.body.result!.token as string;
+  const displayStream = wall.stream(); t.after(() => displayStream.close());
+  await displayStream.until(s => s.role === 'player');
+  await adminStream.until(s => s.openDisplays === 1);
+  assert.ok((await admin.command('playback.play', {})).body.ok);
+  assert.equal((await admin.snapshot()).schedule.intent, 'playing');
+
+  // Closing the last display updates openDisplays to 0 and pauses after the reload grace period.
+  const beforeClose = adminStream.seen.length;
+  displayStream.close();
+  await adminStream.until(() => adminStream.seen.slice(beforeClose).some(s => s.openDisplays === 0));
+  const beforePause = adminStream.seen.length;
+  clock.advance(app.service.policy.noDisplayPauseMs);
+  app.service.tick();
+  await adminStream.until(() => adminStream.seen.slice(beforePause).some(s => s.schedule.intent === 'paused'));
+  assert.equal((await admin.snapshot()).schedule.intent, 'paused');
+
+  // Reopening a display keeps playback paused until an organizer clicks Play.
+  const beforeReopen = adminStream.seen.length;
+  const reopened = wall.stream(); t.after(() => reopened.close());
+  await reopened.until(s => s.role === 'player');
+  await adminStream.until(() => adminStream.seen.slice(beforeReopen).some(s => s.openDisplays === 1));
+  assert.equal((await admin.snapshot()).schedule.intent, 'paused');
+});

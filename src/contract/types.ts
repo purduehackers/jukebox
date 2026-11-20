@@ -18,6 +18,8 @@ export const POLICY = {
   quotaPerNight: 3,
   /** Paired player lease; renewed by every accepted report. */
   leaseMs: 15_000,
+  /** Grace window after the last open display disconnects before auto-pausing (covers page reloads). */
+  noDisplayPauseMs: 3_000,
   /** Expected player report cadence; also the resume checkpoint tolerance. */
   heartbeatMs: 5_000,
   /** Desired playback not acknowledged by the player within this is "unconfirmed". */
@@ -49,7 +51,7 @@ export interface Identity {
 }
 
 // ---- Sources and media ----
-export type Provider = 'youtube' | 'spotify' | 'apple_music' | 'deezer' | 'fixture';
+export type Provider = 'youtube' | 'soundcloud' | 'spotify' | 'apple_music' | 'deezer' | 'fixture';
 
 export interface SourceRef {
   provider: Provider;
@@ -236,6 +238,8 @@ export interface Snapshot {
   quota?: { used: number; limit: number; remaining: number };
   /** Whether the per-person request quota is enforced; admins can disable it (`quota.set`). */
   quotaEnabled: boolean;
+  /** Number of currently connected display players (SSE displays + live legacy lease). */
+  openDisplays?: number;
   /** Player only: automatic displays during an open night; legacy players also require a lease. */
   desired?: DesiredPlayback | null;
   lease?: { deviceId: string; generation: number; expiresAt: number } | null;
@@ -377,6 +381,7 @@ export type ErrorCode =
   | 'DEVICE_REVOKED'
   | 'PAIRING_INVALID'
   | 'NOTHING_PLAYABLE'
+  | 'NO_DISPLAY'
   | 'NOT_READY'
   | 'INTERNAL';
 
