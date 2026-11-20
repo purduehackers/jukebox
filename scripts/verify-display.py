@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 4C evidence: actual Firefox, automatic session player, real fixture audio.
+"""Display verification: actual Firefox, automatic session player, real fixture audio.
 
 Uses isolated loopback service/worker and disposable Firefox profiles. No provider
 traffic, credentials, global autoplay overrides, or production state. Screenshots and

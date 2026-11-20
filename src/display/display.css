@@ -79,11 +79,6 @@
 .display-idle { box-sizing: border-box; min-height: 100dvh; display: grid; place-items: center; background: var(--jb-canvas); text-align: center; padding: 32px; }
 .display-idle h1 { color: var(--jb-purple); font: 400 clamp(48px, 7vw, 100px)/1 PixelHackers, monospace; margin: 0 0 24px; }
 .display-idle p { font: 400 clamp(20px, 2vw, 30px)/1.4 PolySans, sans-serif; color: #ffffffb3; }
-.display-sound-prompt { box-sizing: border-box; position: fixed; z-index: 5; inset: 0; margin: auto; width: min(440px, calc(100vw - 48px)); height: fit-content; padding: 28px; border: 1px solid var(--jb-purple); background: var(--jb-canvas); box-shadow: 0 0 0 100vmax #0009; font-family: Inconsolata, monospace; }
-.display-sound-prompt h2 { font: 400 30px/1.1 PolySans, sans-serif; margin: 0 0 12px; }
-.display-sound-prompt p { font-size: 20px; line-height: 1.4; color: #ffffffb3; margin: 0 0 24px; }
-.display-sound-prompt button { cursor: pointer; width: 100%; padding: 14px 20px; border: 1px solid var(--jb-purple); background: var(--jb-purple); color: white; font: 700 20px Inconsolata, monospace; }
-.display-sound-prompt button:focus-visible { outline: 2px solid var(--jb-yellow); outline-offset: 4px; }
 .display-player-notice { position: fixed; bottom: 8px; left: 32px; margin: 0; padding: 8px 12px; background: var(--jb-canvas); color: var(--jb-yellow); font: 18px Inconsolata, monospace; }
 
 .display-queue li[data-playing="true"] { border-left: 3px solid var(--jb-yellow); padding-left: 12px; color: var(--jb-yellow); }

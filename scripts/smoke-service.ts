@@ -1,4 +1,4 @@
-// End-to-end local smoke: real phase-1 worker (owned fixtures only, no network) behind
+// End-to-end local smoke: real Python worker (owned fixtures only, no network) behind
 // the queue service, driven over HTTP by admin, attendee, and a paired player.
 // Usage: bun scripts/smoke-service.ts   (needs .venv and ffmpeg; ~10s)
 import assert from 'node:assert/strict';

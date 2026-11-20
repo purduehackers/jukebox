@@ -16,9 +16,10 @@ test('real Python worker fixture resolve → prepare → job → retain → prox
   const child=spawn(python,['-m','jukebox.server','--port','0','--data',dir],{cwd:process.cwd(),stdio:['ignore','pipe','pipe']});
   let output='';child.stdout.setEncoding('utf8');child.stdout.on('data',(s:string)=>output+=s);
   try {
-    const deadline=Date.now()+8000;while(!output.includes('proof: ')&&Date.now()<deadline)await new Promise(r=>setTimeout(r,30));
-    assert.match(output,/proof: http:\/\/127\.0\.0\.1:\d+\/display/);
-    const base=output.match(/proof: (http:\/\/127\.0\.0\.1:\d+)\/display/)![1]!;
+    const deadline = Date.now() + 8000;
+    while (!output.includes('Audio worker: ') && Date.now() < deadline) await new Promise((r) => setTimeout(r, 30));
+    assert.match(output, /Audio worker: http:\/\/127\.0\.0\.1:\d+\/display/);
+    const base = output.match(/Audio worker: (http:\/\/127\.0\.0\.1:\d+)\/display/)![1]!;
     const adapter=new WorkerAdapter({baseUrl:base,requestTimeoutMs:10000});
     const resolved=await adapter.resolve(adapter.canonicalize('fixture:request'),'request');assert.equal(resolved.durationSec,4);
     const job=await adapter.prepare(resolved,'request');let state=await adapter.job(job.jobId);const jobDeadline=Date.now()+15000;

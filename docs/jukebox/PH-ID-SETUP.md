@@ -1,19 +1,19 @@
-# PH ID setup and local verification
+# PH ID setup
 
-PH ID's [source](https://github.com/purduehackers/id) at `eacf5a7e46cb091f1825262b538119f409aa56e6` exposes OpenID Connect discovery, authorization code with PKCE, and a member application registration page. Jukebox already had an adapter and routes on the integrated baseline. This phase hardens discovery and redirects and verifies the complete HTTP login and logout against a local provider fixture. On 2026-11-02 the user verified live local sign-in with a registered client; their screenshot shows `/queue` signed in as `patiowizard`. Live organizer/admin access was pending a PH ID role grant in that verification; the 2026-11-06 scan did not repeat live sign-in or establish current role grants.
+PH ID (`purduehackers/id`) exposes OpenID Connect discovery, authorization code with PKCE, and a member application registration page.
 
 ## Registration
 
-In PH ID's **Your applications** page create an application named **Purdue Hackers Jukebox**. Use **Confidential**: the Node service keeps its secret on the server. Enter one callback per line, exactly:
+In PH ID's **Your applications** page create an application named **Purdue Hackers Jukebox**. Use **Confidential**: the service keeps its secret on the server. Enter one callback per line, exactly:
 
 ```
 http://127.0.0.1:5173/auth/callback
 https://jukebox.purduehackers.com/auth/callback
 ```
 
-The first is for the local Astro development origin; the second is the intended production origin, not a claim that it is deployed. If PH ID rejects a callback, do not substitute a different URL without also configuring that exact origin in Jukebox. Select `openid`, `profile`, and `roles`; the last supplies the organizer/admin claim used by the existing Jukebox admin rule. Email, offline access, device sign-in, and user-data scopes are unnecessary. PH ID's application page creates confidential clients with `client_secret_basic`; Jukebox uses that method and PKCE S256. PH ID's source currently allows members to register applications; this supersedes the older phase-2 note that an ID admin must create clients.
+The first is for local development; the second is for production. If PH ID rejects a callback, do not substitute a different URL without also configuring that exact origin in Jukebox. Select `openid`, `profile`, and `roles`; the last supplies the `organizer`/`admin` claim. Email, offline access, device sign-in, and user-data scopes are unnecessary. PH ID's application page creates confidential clients with `client_secret_basic`; Jukebox uses that method and PKCE S256.
 
-Store the resulting client secret privately on the server; do not commit it or send it in chat. For local use copy `.env.example` to `.env.local` in the checkout where you run the app, then fill it in once. `bun run dev` and its startup script load that file automatically. It is ignored by Git; existing exported variables take precedence. Set:
+Store the resulting client secret privately on the server; do not commit it. For local use copy `.env.example` to `.env.local`, then fill it in once. `bun run dev` and its startup script load `.env.local` automatically (ignored by Git; exported env vars take precedence). Set:
 
 ```
 JUKEBOX_PHID_CLIENT_ID=<client id>
@@ -22,55 +22,24 @@ JUKEBOX_PHID_REDIRECT_URI=http://127.0.0.1:5173/auth/callback
 JUKEBOX_SESSION_SECRET=<random secret of at least 32 characters>
 ```
 
-Generate the session secret once with `openssl rand -base64 32`, save it in `.env.local`, and keep it stable across restarts. Do not prefix private credentials with `VITE_` (those variables are browser-visible). Run `bun run dev`, visit `http://127.0.0.1:5173/queue`, and sign in. The development script selects PH ID when a client ID is set; without it, startup requires explicit `--dev-auth` for the labelled test identity. The service remains loopback-only and is not a production deployment. For production, use the production callback and origin only after the separately planned hosting and ingress work.
+Generate the session secret once with `openssl rand -base64 32` and keep it stable across restarts. Do not prefix private credentials with `VITE_` (those variables are exposed to the browser). Run `bun run dev`, visit `http://127.0.0.1:5173/queue`, and sign in. Startup uses PH ID whenever a client ID is set; without it, `--dev-auth` is required for local fake sign-in.
 
-The service stores opaque session identifiers as hashes and keeps identity and role claims server-side for 12 hours. Roles are captured at login and do not refresh during that session. `organizer` or `admin` grants Jukebox admin under the existing phase-2 implementation choice; an explicit admin-key allowlist is also supported. Discovery and endpoint requests are restricted to the configured PH ID origin, HTTPS except loopback fixtures, without HTTP redirects. Userinfo over that trusted connection is authoritative; the ID token is not signature-verified and is not used as authentication proof. Automated coverage uses fixtures; the user separately verified live local sign-in. Production deployment and live admin-role access remain unverified.
+The service stores opaque session identifiers as hashes and keeps identity and role claims server-side for 12 hours. Roles are captured at login and do not refresh during that session. `organizer` or `admin` grants Jukebox admin; an explicit `JUKEBOX_ADMIN_KEYS` allowlist is also supported. Discovery and endpoint requests are restricted to the configured PH ID origin, HTTPS except loopback tests, without HTTP redirects. Userinfo over that trusted connection is authoritative.
 
-## Organizer display and stream authorization (2026-11-06)
+## Organizer display and stream authorization
 
-Organizer/admin PH ID access is required for the **whole `/display` page** and
-`/visual`. After signing in, the display connects and plays automatically. There
-is no public display mode. Automatic player tokens require a current organizer
-cookie on every request, including SSE; a bearer alone is insufficient. Logout
-immediately closes affected streams. Expiry/revocation is checked before every
-snapshot and at the five-second heartbeat, using local indexed database lookups.
-No PH ID round trip is added to playback reports or event delivery. The old
-stream-after-logout limitation is fixed, with HTTP regression coverage.
+Organizer/admin PH ID access is required for `/display` and `/visual`. After signing in, the display connects automatically. Automatic player tokens require a current organizer cookie on every request, including SSE; a bearer alone is insufficient. Logout immediately closes affected streams. Expiry/revocation is checked before every snapshot and on the five-second heartbeat via local SQLite lookups without extra PH ID requests.
 
-The current session TTL is 12 hours. Plan a fresh venue sign-in before each night;
-expiry stops authorization and requires sign-in again. Roles remain the claims
-captured at login: after a provider role change, complete a fresh sign-in. Immediate
-remote provider-role revocation is not polled on each report.
+## Token exchange CSRF guard
 
-## Live token exchange failure, 2026-11-02
-
-The first real login returned `invalid_request` HTTP 403 during code exchange. A credential-free probe reproduced this with Node `fetch`: PH ID returned `Cross-site POST form submissions are forbidden`. Node's automatic `Sec-Fetch-Mode: cors` header triggers PH ID's browser CSRF guard (`src/lib/server/csrf.ts` in the ID repository). The adapter now uses Node's server HTTP transport without browser Fetch Metadata. The same live probe reaches OAuth validation and returns the expected HTTP 400 `unsupported_grant_type` for its deliberately invalid grant. This proves the transport clears the CSRF rejection; the user subsequently verified a fresh live sign-in on the local queue page. The local provider fixture now enforces this guard, and regression coverage reproduces the old failure before verifying login with the new transport.
-
-For infrastructure, DNS, production callback ownership, and operator questions, see [Deployment handoff](DEPLOYMENT-HANDOFF.md). After PH ID grants an organizer/admin role, sign out and back in to refresh the server session before testing `/admin`.
-
+PH ID blocks browser-like `Sec-Fetch-Mode: cors` POSTs on token exchange (`Cross-site POST form submissions are forbidden`), so `src/adapters/oidc-http.ts` uses Node HTTP transport without browser Fetch Metadata headers.
 
 ## Role changes after sign-in
 
-Jukebox saves the PH ID roles returned at login; checking `/auth/me` or refreshing
-an admin snapshot does not fetch new provider claims. If PH ID grants a role after
-that login, complete a fresh `/auth/login?returnTo=/admin` flow. The forbidden
-admin screen's **Check again** link now does this instead of rereading the cached
-session. PH ID's `identityClaims` returns `roles` only for the `roles` scope, and
-its `grantedRoles` maps `admin` to both `organizer` and `admin`. Jukebox accepts
-either. An empty saved array alone does not prove that the current provider
-account lacks access; verify again after a fresh sign-in and confirm the registered
-client allows `roles` if it remains empty.
+Jukebox saves the PH ID roles returned at login; checking `/auth/me` or refreshing an admin snapshot does not fetch new provider claims. If PH ID grants a role after login, sign in again via `/auth/login?returnTo=/admin` (the forbidden admin screen's **Check again** button triggers this).
 
-## Local hostname consistency (2026-11-05)
+## Local hostname consistency
 
-The development server redirects local aliases to the configured origin (or the
-registered PH ID callback origin). For the current registration, use
-`http://127.0.0.1:5173`. Opening `localhost` now redirects before a login cookie is
-set. Mixing the two previously lost the host-scoped login cookie at callback and
-caused `Missing login state`; display commands from the other origin were rejected
-by the API's CSRF check. That check remains strict. Start a fresh sign-in after
-fixing a mismatched origin; an old callback cannot recover its missing state.
+The development server redirects local aliases to the configured origin (or the registered PH ID callback origin). Use `http://127.0.0.1:5173` consistently so the login state cookie and same-origin CSRF checks match.
 
-When reusing a saved service database from another worktree, also reuse the same
-worker/cache directory via private `JUKEBOX_WORKER_DATA`. Queue asset references
-belong to that worker state; an empty cache makes them return 404.
+When reusing a saved service database from another checkout, also reuse the same worker/cache directory via `JUKEBOX_WORKER_DATA` so cached media asset IDs match.

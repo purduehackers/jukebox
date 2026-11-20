@@ -1,7 +1,6 @@
 # Operator deployment guide
 
-Updated 2026-11-14. Target: Podman on phack.sh behind its existing host Caddy.
-No server login, deployment, DNS change or operator message is part of this rewrite.
+Target: Podman on `phack.sh` behind its existing host Caddy.
 
 ## Pull and run on phack.sh
 
@@ -161,7 +160,7 @@ for each release. Restore both data directories and matching code/image if rolli
 back across an incompatible migration; code rollback alone is insufficient.
 The runtime rewrite itself adds no schema migration; later features append
 migrations 5 (username bans), 6 (request-timer pause timestamp) and 7
-(request-quota toggle `quota_enabled`) — current schema is 7. Back up before
+(request-quota toggle `quota_enabled`); current schema is 7. Back up before
 upgrading, and restore compatible data when rolling back to code that only
 understands an older schema. The new authority lock is a separate
 `state.sqlite3.authority-lock` SQLite file; the OS releases it after a crash.
@@ -187,10 +186,6 @@ The build-context allowlist excludes local secrets and saved state.
   during a control outage, so keep a physical/local stop method.
 - Replace/restart the container with the same volume, restore a backup in isolated
   storage, and confirm queues, quotas, sessions, checkpoints and worker assets.
-
-Local fixture tests and container smoke results are recorded in
-[the migration record](ASTRO-BUN-MIGRATION.md). They do not establish production
-PH ID, server-source egress, DNS, actual Caddy operation or HDMI behavior.
 
 
 ### Audio cache capacity

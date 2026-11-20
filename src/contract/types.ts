@@ -1,9 +1,8 @@
-// Shared Jukebox contract, version 1. Owned by the phase-2 integration owner.
-// UI/player phases import these types; propose changes instead of forking them.
+// Shared Jukebox contract, version 1.
 
 export const CONTRACT_VERSION = 1;
 
-// ---- Policy constants (production values; tests inject a short period) ----
+// Policy constants (production values; tests inject a short period)
 export const POLICY = {
   /** Elapsed master playback before a request turn. Pause/buffering count. */
   periodMs: 15 * 60 * 1000,
@@ -35,7 +34,7 @@ export const POLICY = {
 
 export type Policy = { -readonly [K in keyof typeof POLICY]: number };
 
-// ---- Identity and roles ----
+// Identity and roles
 export type Role = 'public' | 'attendee' | 'admin' | 'player';
 
 export interface Identity {
@@ -50,7 +49,7 @@ export interface Identity {
   roles: string[];
 }
 
-// ---- Sources and media ----
+// Sources and media
 export type Provider = 'youtube' | 'soundcloud' | 'spotify' | 'apple_music' | 'deezer' | 'fixture';
 
 export interface SourceRef {
@@ -96,7 +95,7 @@ export interface AssetDescriptor {
 
 export type MediaPurpose = 'master' | 'request';
 
-// ---- Queues ----
+// Queues
 export type MasterStatus = 'preparing' | 'ready' | 'failed' | 'unusable';
 
 export type RequestStatus =
@@ -135,7 +134,7 @@ export interface RequestEntryView {
   error?: string;
 }
 
-// ---- Playback ----
+// Playback
 export type Intent = 'playing' | 'paused';
 export type Phase = 'master' | 'request';
 /**
@@ -263,7 +262,7 @@ export interface DeviceView {
   holdsLease: boolean;
 }
 
-// ---- Commands ----
+// Commands
 export interface CommandEnvelope<T extends CommandType = CommandType> {
   /** Client-generated UUID, stable across retries of the same intent. */
   commandId: string;
@@ -356,7 +355,7 @@ export type CommandResponse<T extends CommandType = CommandType> =
   | { ok: true; commandId: string; revision: number; result: CommandResult<T>; replayed: boolean }
   | { ok: false; commandId: string | null; error: ApiError; replayed: boolean };
 
-// ---- Errors ----
+// Errors
 export type ErrorCode =
   | 'BAD_REQUEST'
   | 'UNAUTHENTICATED'
@@ -394,7 +393,7 @@ export interface ApiError {
   details?: Record<string, unknown>;
 }
 
-// ---- Durable events (audit log and change feed) ----
+// Durable events (audit log and change feed)
 export interface EventRecord {
   /** Monotonic event sequence; several events may share one revision. */
   seq: number;

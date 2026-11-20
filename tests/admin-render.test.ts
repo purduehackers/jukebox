@@ -1,6 +1,6 @@
-// Component tests without a browser dependency: render the real pure-TS admin view builders
-// directly from snapshots taken from the live service. Interaction and layout are covered by
-// scripts/verify-admin.py (real Firefox) — this covers the truthful states.
+// Component tests without a browser dependency: render the admin view builders
+// directly from live service snapshots. Interaction and layout are covered by
+// scripts/verify-admin.py (real Firefox).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createElement as reactCreateElement } from 'react';
@@ -180,7 +180,7 @@ test('session panel; activity list explains failures and offers retry only when 
       { ...base, id: '4', label: 'Play', status: 'pending', error: null },
     ] as const;
     const activity = html(createElement(views.ActivityPanel, { intents: [...intents], actions }));
-    assert.match(text(activity), /another organizer or the schedule moved on/);
+    assert.match(text(activity), /no longer playing/);
     assert.match(activity, /not applied/);
     assert.equal((activity.match(/>Retry</g) ?? []).length, 1, 'only the retryable failure offers Retry');
     assert.match(text(activity), /Already applied earlier/);

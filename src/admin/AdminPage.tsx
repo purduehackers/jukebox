@@ -1,4 +1,4 @@
-// Phase 4A: organizer controls at /admin. Composition only: data in state.ts, rules in derive.ts,
+// Organizer controls at /admin. Composition only: data in state.ts, rules in derive.ts,
 // command identity in intents.ts, markup in views.tsx. Rendered as an Astro React island
 // (client:load): the gate/loading states are server-rendered, the console hydrates in place.
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';

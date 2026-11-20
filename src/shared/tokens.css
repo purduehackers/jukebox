@@ -1,5 +1,4 @@
-/* Exact dashboard tokens from docs/jukebox/DESIGN-REFERENCE.md. Fonts are owned by
-   phase 4C (asset reuse must be confirmed); other pages use these variables. */
+/* Shared dark-mode tokens matching the Hack Night dashboard palette. */
 :root {
   --jb-background: #171717;
   --jb-canvas: #000000;

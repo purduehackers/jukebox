@@ -1,7 +1,7 @@
 # Master/request volume transitions
 
-Requested 2026-11-09. The player changes only the audio element's volume; track
-selection, quota, scheduling and source preparation remain server-owned.
+The player changes only the audio element's volume; track selection, quota,
+scheduling, and source preparation remain server-owned.
 
 ## Sequence
 
@@ -49,5 +49,4 @@ constants, base-volume changes, silence deadlines and cancellation.
 exact interrupted position, ordinary-song tail, pause and night-close cancellation.
 `uv run --locked python scripts/verify-fades.py` verifies the production build in
 real Firefox with the real worker's synthetic audio and disposable identity/state.
-Detailed local evidence is under `.local/`; compact verified evidence is archived
-under `docs/jukebox/evidence/`. These checks do not verify audible HDMI or venue output.
+These checks do not verify audible HDMI or venue output.

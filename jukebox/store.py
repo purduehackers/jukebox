@@ -1,4 +1,4 @@
-"""Single-local-service SQLite proof checkpoint, cache references, and bounded jobs."""
+"""SQLite job/asset cache, retention pins, and standalone player checkpoint."""
 import copy
 import fcntl
 import json
@@ -74,7 +74,7 @@ class Store:
         with self.lock:
             p = self.player()
             if p['owner'] != token and p['expires'] > time.time():
-                raise Conflict('Another local proof tab owns playback; pause/release it or wait 10 seconds')
+                raise Conflict('Another local tab owns playback; pause/release it or wait 10 seconds')
             self.db.execute('update player set owner=?,expires=?', (token, time.time()+10))
             self.db.commit()
             return self.player()
@@ -100,7 +100,7 @@ class Store:
 
     def validate_state(self, state):
         if set(state) != set(EMPTY) or state['role'] not in ('master', 'request') or not isinstance(state['paused'], bool):
-            raise ValueError('Malformed proof checkpoint')
+            raise ValueError('Malformed playback checkpoint')
         for field in ('position', 'masterPosition', 'offsetMs'):
             value = state[field]
             if not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1e12:

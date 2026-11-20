@@ -121,7 +121,7 @@ export class CommandRunner {
   }
 }
 
-// ------------------------------------------------------------ slider traffic
+// Slider traffic
 
 export interface Timers {
   set(callback: () => void, ms: number): unknown;

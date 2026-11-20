@@ -1,4 +1,4 @@
-// Phase 4A test harness: the real HTTP service (fake clock/adapters), cookie-jar browser stand-ins,
+// Admin test harness: the real HTTP service (fake clock/adapters), cookie-jar browser stand-ins,
 // and a scripted fake display that talks only HTTP. No browser, no network beyond loopback.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -93,7 +93,7 @@ export async function organizer(app: App, sub = 'organizer1') {
   return await app.client().login(sub, true);
 }
 
-/** A paired display driven by the test: claims the lease and reports like the phase-3 player would. */
+/** A paired display driven by the test: claims the lease and sends player reports. */
 export class ScriptedDisplay {
   readonly client: HttpClient;
   generation = 0;

@@ -11,7 +11,7 @@ const identity = runtime.transport.sessionIdentity(Astro.request);
 const allowed = !!identity && runtime.service.isAdmin(identity);
 ---
 
-<Page title="Purdue Hackers Jukebox — Admin">
+<Page title="Admin · Purdue Hackers Jukebox">
   {allowed ? (
     <AdminPage client:load />
   ) : identity ? (

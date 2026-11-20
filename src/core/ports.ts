@@ -32,7 +32,7 @@ export type JobState =
   | { status: 'ready'; asset: AssetDescriptor }
   | { status: 'failed'; error: string; retryable: boolean };
 
-/** Audio-only preparation/cache (phase-1 Python worker in production-like local runs). */
+/** Audio-only preparation/cache (backed by the Python worker in normal runs). */
 export interface MediaPort {
   prepare(source: ResolvedSource, purpose: MediaPurpose): Promise<{ jobId: string }>;
   job(jobId: string): Promise<JobState>;

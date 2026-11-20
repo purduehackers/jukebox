@@ -33,8 +33,7 @@
 .q-page .q-text { overflow-wrap: anywhere; }
 .q-page .q-success { border-color: var(--primary); }
 
-/* Dotted "Found match" card */
-.q-page .q-match { border: 1px dotted var(--input); background: var(--background); }
+.q-page .q-match { border: 1px solid var(--border); background: var(--background); }
 
 .q-page .q-candidates { display: grid; gap: 0.5rem; margin-top: 0.5rem; overflow-wrap: anywhere; }
 .q-page .q-list { display: grid; gap: 0.75rem; }
@@ -45,5 +44,3 @@
 .q-page .ph-dither-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 .q-page .ph-dither-btn { min-height: 48px; }
 .q-page .q-wide { width: 100%; }
-
-.q-searching-label { font-size: 14px; white-space: nowrap; }

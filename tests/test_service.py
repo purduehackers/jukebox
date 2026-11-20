@@ -166,7 +166,7 @@ class CacheCheckpoint(unittest.TestCase):
             process=subprocess.Popen([sys.executable,'-m','jukebox.server','--port','0','--data',tmp],stdout=subprocess.PIPE,text=True)
             try:
                 line=process.stdout.readline().strip()
-                base=line.split('proof: ')[1].removesuffix('/display')
+                base=line.split('worker: ')[1].removesuffix('/display')
                 request=urllib.request.Request(base+'/api/prepare',data=json.dumps({'source':'fixture:master','kind':'master'}).encode(),headers={'Content-Type':'application/json'})
                 with urllib.request.urlopen(request) as response: job=json.load(response)
                 deadline=time.monotonic()+5

@@ -1,4 +1,4 @@
-// Phase 4B exit gate: the attendee request flow (the same RequestFlow the page uses) driven
+// Attendee request flow (the same RequestFlow the page uses) driven
 // against the real service with a fake clock, fixture sources, and fake media. No network.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';

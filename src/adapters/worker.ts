@@ -89,41 +89,55 @@ export class WorkerAdapter implements SourcePort, MediaPort, CandidateSearchPort
     this.searches.set(cacheKey, { until: Date.now() + 60000, value: candidates });
     return structuredClone(candidates);
   }
-  async prepare(source: ResolvedSource, purpose: MediaPurpose): Promise<{jobId:string}> {
-    const selection = source.selection as {source?:unknown};
-    if (typeof selection?.source !== 'string') throw new PortError('SOURCE_UNAVAILABLE','Resolved worker selection is malformed',false);
+  async prepare(source: ResolvedSource, purpose: MediaPurpose): Promise<{ jobId: string }> {
+    const selection = source.selection as { source?: unknown };
+    if (typeof selection?.source !== 'string') throw new PortError('SOURCE_UNAVAILABLE', 'Resolved worker selection is malformed', false);
     try {
-      const {response,body} = await this.json('/api/prepare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({source:selection.source,kind:purpose})},this.requestTimeoutMs);
-      if (!response.ok) throw new PortError('SOURCE_UNAVAILABLE',typeof body.error==='string'?body.error:`Worker prepare failed (${response.status})`,body.retryable === true || response.status >= 500);
-      return {jobId:body.id};
-    } catch(error) {
-      if(error instanceof PortError) throw error;
-      throw new PortError('SOURCE_UNAVAILABLE',error instanceof Error?error.message:'Worker prepare unavailable',true);
+      const { response, body } = await this.json('/api/prepare', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ source: selection.source, kind: purpose }),
+      }, this.requestTimeoutMs);
+      if (!response.ok) {
+        throw new PortError('SOURCE_UNAVAILABLE', typeof body.error === 'string' ? body.error : `Worker prepare failed (${response.status})`, body.retryable === true || response.status >= 500);
+      }
+      return { jobId: body.id };
+    } catch (error) {
+      if (error instanceof PortError) throw error;
+      throw new PortError('SOURCE_UNAVAILABLE', error instanceof Error ? error.message : 'Worker prepare unavailable', true);
     }
   }
   async job(jobId: string): Promise<JobState> {
     try {
-      const {response,body} = await this.json(`/api/jobs/${encodeURIComponent(jobId)}`,{method:'GET'},this.requestTimeoutMs);
-      if (!response.ok) return {status:'failed',error:typeof body.error==='string'?body.error:`Worker job lookup failed (${response.status})`,retryable:body.retryable === true || response.status >= 500};
-      if (body.status === 'queued' || body.status === 'preparing') return {status:'preparing'};
-      if (body.status === 'failed') return {status:'failed',error:body.error ?? 'Media preparation failed',retryable:body.retryable === true};
-      if (body.status === 'ready' && body.asset) {
-        const a=body.asset;
-        // Same-origin path served by proxyMedia: Web Audio analysis needs same-origin media in Firefox.
-        const asset:AssetDescriptor={assetId:a.id,url:`/media/${a.id}`,mime:a.mime,codec:a.codec,durationSec:a.duration,byteLength:a.bytes};
-        return {status:'ready',asset};
+      const { response, body } = await this.json(`/api/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' }, this.requestTimeoutMs);
+      if (!response.ok) {
+        return { status: 'failed', error: typeof body.error === 'string' ? body.error : `Worker job lookup failed (${response.status})`, retryable: body.retryable === true || response.status >= 500 };
       }
-      return {status:'preparing'};
+      if (body.status === 'queued' || body.status === 'preparing') return { status: 'preparing' };
+      if (body.status === 'failed') return { status: 'failed', error: body.error ?? 'Media preparation failed', retryable: body.retryable === true };
+      if (body.status === 'ready' && body.asset) {
+        const a = body.asset;
+        // Same-origin path served by proxyMedia: Web Audio analysis needs same-origin media in Firefox.
+        const asset: AssetDescriptor = { assetId: a.id, url: `/media/${a.id}`, mime: a.mime, codec: a.codec, durationSec: a.duration, byteLength: a.bytes };
+        return { status: 'ready', asset };
+      }
+      return { status: 'preparing' };
     } catch {
       // A lost poll response says nothing about the worker job; keep polling.
-      return {status:'preparing'};
+      return { status: 'preparing' };
     }
   }
-  async retain(revision:number, assetIds:string[]):Promise<void> {
+  async retain(revision: number, assetIds: string[]): Promise<void> {
     try {
-      const {response,body}=await this.json('/api/retention',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({revision,assets:assetIds})},this.requestTimeoutMs);
-      if(!response.ok) throw new Error(typeof body.error==='string'?body.error:`Worker retention failed (${response.status})`);
-    } catch(error) { throw new Error(`Worker retention failed: ${error instanceof Error?error.message:'network error'}`); }
+      const { response, body } = await this.json('/api/retention', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ revision, assets: assetIds }),
+      }, this.requestTimeoutMs);
+      if (!response.ok) throw new Error(typeof body.error === 'string' ? body.error : `Worker retention failed (${response.status})`);
+    } catch (error) {
+      throw new Error(`Worker retention failed: ${error instanceof Error ? error.message : 'network error'}`);
+    }
   }
 }
 

@@ -10,7 +10,7 @@ for scraping. It exports only aggregate counts, without identities or song URLs.
   preparing. Requests count only preparing/ready entries in the open night.
   Masters count non-removed preparing/ready entries, excluding the current track
   and any suspended master mix. Master entries remain available between nights.
-- `jukebox_songs_submitted_total{queue="request|master",source="youtube|spotify|apple_music|fixture"}`:
+- `jukebox_songs_submitted_total{queue="request|master",source="youtube|soundcloud|spotify|apple_music|deezer|fixture"}`:
   accepted additions over the lifetime of the database. Counts the submitted
   provider, rather than the matched playback provider. Retries of the same command
   do not increment it; rejected submissions do not count. Removal, failure, refund
@@ -35,4 +35,3 @@ scrape_configs:
 Total waiting requests: `jukebox_queue_length{queue="request"}`.
 Accepted additions per source over an hour:
 `sum by (source) (increase(jukebox_songs_submitted_total[1h]))`.
-No production scraper or Grafana dashboard has been configured by this change.

@@ -183,7 +183,7 @@ export class JukeboxService {
     return Number((this.db.prepare("select value from meta where key = 'revision'").get() as { value: string }).value);
   }
 
-  // ---------------------------------------------------------------- commands
+  // commands
 
   async execute(actor: Actor, body: unknown): Promise<CommandResponse> {
     let envelope: CommandEnvelope;
@@ -392,7 +392,7 @@ export class JukeboxService {
     }
   }
 
-  // ---------------------------------------------------------- transactions
+  // transactions
 
   private transaction<T, R>(fn: (tx: Tx) => T, finish: (result: T, revision: number) => R): R {
     this.db.run('begin immediate');
@@ -432,7 +432,7 @@ export class JukeboxService {
     return {};
   }
 
-  // ------------------------------------------------------------ queries
+  // queries
 
   private openNight(): NightRow | undefined {
     return this.db.prepare("select * from nights where status = 'open'").get() as unknown as NightRow | undefined;
@@ -475,7 +475,7 @@ export class JukeboxService {
     return row.duration_sec > this.policy.mixThresholdSec;
   }
 
-  // ------------------------------------------------------- scheduler core
+  // scheduler core
 
   private newLoad(tx: Tx, startPosition: number) {
     tx.pb.load_id++;
@@ -642,7 +642,7 @@ export class JukeboxService {
     this.finishTurn(tx, status !== 'archived');
   }
 
-  // ------------------------------------------------------- admin commands
+  // admin commands
 
   private nightOpen(tx: Tx) {
     if (this.openNight()) throw new CommandError('NIGHT_ALREADY_OPEN', 'A night session is already open');
@@ -804,7 +804,7 @@ export class JukeboxService {
     return {};
   }
 
-  // ------------------------------------------------------- queue control
+  // queue control
 
   private resetMode(tx: Tx) {
     if (tx.pb.mode === 'auto') return;
@@ -899,7 +899,7 @@ export class JukeboxService {
     return {};
   }
 
-  // ------------------------------------------------------ device authority
+  // device authority
 
   private pairingCreate(tx: Tx, name: string) {
     const bytes = randomBytes(8);
@@ -1078,7 +1078,7 @@ export class JukeboxService {
     else this.newLoad(tx, positionSec);
   }
 
-  // ----------------------------------------------------- attendee commands
+  // attendee commands
 
   private requestSubmit(tx: Tx, identity: Identity, resolved: ResolvedSource, commandId: string) {
     this.assertUsernameCanRequest(identity);
@@ -1129,7 +1129,7 @@ export class JukeboxService {
     return { username, banned };
   }
 
-  // ---------------------------------------------------------- reconcile
+  // reconcile
 
   /**
    * Time-based transitions, lease expiry, ack timeouts, preparation, and cache
@@ -1306,7 +1306,7 @@ export class JukeboxService {
     }
   }
 
-  // ---------------------------------------------------------- snapshots
+  // snapshots
 
   events(after: number, limit = 200): EventRecord[] {
     return (this.db.prepare('select * from events where revision > ? order by seq limit ?').all(after, limit) as

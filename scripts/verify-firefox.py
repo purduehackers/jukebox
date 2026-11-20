@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Exercise real Firefox with a new temporary profile; never reads user profiles.
 
-Uses the browser explicitly required by the Phase-1 brief, rather than treating
-T3's Chromium preview as Firefox evidence. Player controls use visible UI;
-diagnostics, the autoplay attempt, and declared fault injection use evaluation.
+Player controls use visible UI; diagnostics, the autoplay attempt, and declared
+fault injection use page evaluation.
 """
 import argparse
 from datetime import datetime, timezone
@@ -181,7 +180,7 @@ def main():
         main_handle=driver.current_window_handle
         driver.switch_to.new_window('tab');driver.get(base+'/display')
         wait.until(lambda d:d.execute_script('return !!window.proof?.inspect().state'))
-        click('activate');wait.until(lambda d:'Another local proof tab' in driver.find_element(By.ID,'error').text)
+        click('activate');wait.until(lambda d:'Another local tab' in driver.find_element(By.ID,'error').text)
         assert inspect()['paused'] and not inspect()['owned']
         report['checks']['secondTabRejected']=True
         driver.close();driver.switch_to.window(main_handle)

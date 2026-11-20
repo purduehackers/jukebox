@@ -1,111 +1,51 @@
 # Purdue Hackers Jukebox
 
-## Start here
+## Architecture
 
-Read `docs/jukebox/README.md`, `docs/jukebox/DECISIONS.md`, and the applicable phase brief.
-This is `purduehackers/jukebox`, a separate app from the Hack Night dashboard.
-Phase 1 includes a local Python audio worker/cache and minimal Firefox proof page
-(`docs/jukebox/PHASE-1-FINDINGS.md`). Phase 2 adds the shared contract
-(`src/contract/`) and a durable local queue/scheduler/authority service
-(`src/server/`); read `docs/jukebox/PHASE-2-CONTRACT.md` before phase 3/4 work and
-propose contract/migration changes to the integration owner instead of forking them.
-There is a local player/admin/attendee/display app. Live local PH ID sign-in was
-verified on 2026-11-02; production deployment remains unconfigured. Do not assume dashboard scripts exist here.
+- Separate app (`purduehackers/jukebox`) for `jukebox.purduehackers.com`, serving
+  `/display`, `/admin`, `/queue`, and `/visual`. The existing Hack Night dashboard
+  (`purduehackers/hack-night-dashboard`) is a visual reference only; do not modify
+  or couple to it.
+- Astro owns pages, middleware, and route injection; Bun runs the HTTP transport
+  and SQLite queue authority (`src/server/`); the local Python worker (`jukebox/`)
+  handles `yt-dlp` resolution, download, and FFmpeg validation behind `src/adapters/worker.ts`.
+- Shared contract types and validation live in `src/contract/`; URL parsing and
+  provider canonicalization live in `src/core/sources.ts` and `jukebox/media.py`.
 
-The user approved `docs/jukebox/APPROVAL-PLAN.md` on 2026-10-30, including its
-defaults and subsequent display/server clarifications. Phase 1 is authorized to
-start in its own chat/worktree. Follow the approved dependency order; paid hosting,
-production changes, and later component discussions remain later steps. Do not
-ask for the same product-plan approval again.
+## Requirements
 
-## Current baseline
+- **Audio only:** No video download, stream, embed, or hidden-video fallback. Fail
+  clearly if no suitable audio-only source exists.
+- **Display playback:** One venue Firefox browser produces music through HDMI.
+  Admin and attendee pages stay silent and sync via authoritative server state.
+  `/display` and `/visual` require organizer PH ID login. Playback auto-pauses
+  if open displays drop to 0 (after the reload grace window) and stays paused on
+  reopen until an organizer presses Play.
+- **Scheduling:** Ordinary master songs (≤ 360 s) finish before a due request;
+  master tracks > 360 s are mixes that interrupt and resume at their saved
+  position. Exactly one user request plays per turn, followed by a 15-minute
+  master interval (configurable 1–120 min). Elapsed time counts during pauses
+  and buffering; seeks do not move the period timer; empty turns reset the
+  interval.
+- **Requests & quota:** Attendees sign in with Purdue Hackers ID (3 requests per
+  admin-managed night session when quota is enabled, strictly < 360 s). Accepted
+  submissions count toward quota; technical preparation/playback failures refund
+  automatically.
+- **Display visuals:** Keep the Hack Night dashboard fonts, token colors, borders,
+  and audio-reactive dithered soundbar (`docs/jukebox/references/soundbar-display-settings-2026-11-09.json`),
+  with the sketch layout (`docs/jukebox/references/display-sketch.png`).
+- **UI scope:** `/admin` and `/queue` use `.agents/skills/purdue-hackers-ui/SKILL.md`
+  with dark mode and minimal copy. Do not apply global UI resets to `/display`.
 
-For a new chat, read `docs/jukebox/NEXT-CHAT.md` before continuing. It records
-the deployed-code baseline, private local setup location and remaining operator work.
+## Implementation rules
 
-`main` is the consolidated app baseline. New work should start from the latest
-`origin/main` in an isolated worktree, not an older phase branch. Existing feature
-branches must merge/rebase current main before continuing; uncommitted edits in
-another worktree are not inherited. Keep `.env.local` and `.local/` private.
-
-`/admin` and `/queue` now use the official Purdue Hackers component skill at
-`.agents/skills/purdue-hackers-ui/SKILL.md`, with dark mode and minimal copy.
-The display retains its existing dashboard identity; do not apply global UI
-resets or restyle it during admin/queue work. Preserve the removed helper copy.
-For normal local use, keep real PH ID and the audio worker. Fixture auth/media
-are for explicit tests or demos, not the default user-facing preview. Private
-configuration is not included in new worktrees; reuse the existing local config
-when authorized rather than silently switching to the fake sign-in form.
-
-## Confirmed requirements
-
-- Intended hostname: `jukebox.purduehackers.com`; routes `/display`, `/admin`,
-  and `/queue` live underneath it.
-- Audio only throughout the media path. No video download, stream, embed, or
-  hidden-video fallback. Fail clearly if no suitable audio-only source exists.
-- One designated laptop browser produces music through HDMI. Admin and attendee
-  pages remain silent and communicate through shared authoritative state.
-- Ordinary master songs finish before a due request. Tracks over six minutes are
-  mixes that may be interrupted and must resume at their saved position. After
-  requested music, allow another 15 minutes of master playback before the next
-  request turn. Exactly one user song plays per turn. The 15-minute period uses
-  elapsed time even during pause/buffering; seeking does not jump the timer.
-- Attendees must sign in with Purdue Hackers ID; the limit is three songs per
-  person per admin-managed night session. Valid requests enter automatically;
-  admins may remove them. Count accepted submissions; refund technical playback
-  failures. Further removal/skip rules are in the approved plan.
-- The designated display browser is Firefox. Test codecs, activation, seeking,
-  and any media-origin behavior in Firefox; do not infer support from Chrome.
-- If a request turn is empty, wait for a new 15-minute master interval. Working
-  rule: the empty turn resets the interval. Empty at 9:15 and a request at 9:17
-  waits until 9:30 with uninterrupted master music.
-- The wall has two independent monitors. The existing dashboard is only a visual
-  reference: do not add widgets, edit its chat/layout, or implement cross-dashboard
-  coordination as part of this scope. Jukebox's display runs on its own monitor.
-- Exact Hack Night dashboard visual identity: preserve actual fonts, token color
-  values, border treatment, and dithering as documented in DESIGN-REFERENCE.md.
-- The display has a real audio-reactive dithered visualizer, not just idle shader
-  motion. Follow the user's sketch in `docs/jukebox/references/display-sketch.png`:
-  large left visualizer, now-playing strip below, queue and request QR on the right.
-  Keep the QR, “Song requests” heading and URL; omit the PH ID/allowance line (2026-11-05).
-  Detailed audio analysis/rendering choices belong to the display-phase discussion.
-- Reuse the existing PH ID implementation (`purduehackers/id`) when the auth phase
-  begins; inspect current code and supported integration rather than inventing ID.
-- The user reports an existing capable server. Evaluate it for hosted media/cache
-  and related workloads before proposing new infrastructure; specs/access/runtime
-  are not verified and must be discussed in the relevant phase.
-- Work locally first; verify real audio preparation and seeking before polishing
-  UI. Do not claim media/network/hardware behavior was tested from docs alone.
-
-## Implementation discipline
-
-- Keep user-confirmed decisions, proposals, and open questions distinct. Update
-  the decision log when the user answers; their latest instructions take priority.
-- Keep scheduling, link metadata/matching, media preparation/cache, and browser
-  playback as separate responsibilities. A Spotify/Apple URL is not itself audio.
-- Shared queues/checkpoints must survive supported restarts and concurrent clients.
-  Browser storage, module memory, or Edge Config alone is not queue authority.
-- Use stable command IDs, actual player acknowledgement, and explicit device
-  reports. The entire display requires organizer login (2026-11-06 user decision).
-  Automatic-player API requests require a valid organizer session plus the report
-  token. `/visual` also requires organizer login. After login the display stays
-  connected across nights; no exclusive player lease, pairing/claim UI, linking, startup wait,
-  or app sound-enable button. Multiple tabs may play. No night shows “Night not
-  started”; Start/End night automatically starts/stops sound. Reloads resume near
-  the checkpoint. Always attempt native autoplay; Firefox's persistent site
-  permission is configured in the browser if blocked. See `docs/jukebox/PLAYER-CONNECTION-AUDIT.md`.
-- Keep the suspended master mix's audio asset pinned while requests play. Delete
-  unused assets with bounded cache/cleanup behavior, including failed jobs/crashes.
-- Use local source/auth/player fixtures and a test clock for routine verification.
-  Do not require production credentials or source traffic for automated tests.
-- Validate source URLs/providers and worker limits server-side. Never interpolate
-  submitted URLs into a shell command. Keep source-specific tooling replaceable.
-- Read related repos' own instructions before edits. DNS belongs to
-  `purduehackers/dns`. Changes to the existing dashboard are outside this scope.
-- New phase chats must bind to this repo/project with the appropriate committed
-  parent baseline. Use isolated worktrees and stable shared contracts for parallel
-  phases; assign one integration owner for shared schemas and migrations.
-
-The docs include research against the dashboard and related org repos. Paths
-such as `src/components/dash/dash.tsx` in those findings refer to the reference
-dashboard repository, not files that already exist in this one.
+- Keep scheduling, catalog matching, media preparation/cache, and browser
+  playback as separate responsibilities.
+- Validate source URLs and worker limits server-side in both `src/core/sources.ts`
+  and `jukebox/media.py`. Never interpolate submitted URLs into shell commands.
+- Keep suspended master assets pinned in the worker cache while requests play,
+  and clean up unused/failed assets within the cache budget.
+- Keep `.env.local` and `.local/` private. Do not silently enable fixture auth or
+  media in normal startup.
+- Use local fixtures and `FakeClock` for automated tests; do not require
+  production credentials or live upstream traffic in `bun run check`.

@@ -1,14 +1,13 @@
 // Pure view-model helpers for /admin. No React, no I/O: unit-tested against the real service.
 import type { ApiError, MasterEntryView, RequestEntryView, Snapshot } from '../contract/types.ts';
 import type { Intent } from './intents.ts';
-import { POLICY } from '../contract/types.ts';
 
 /** Server wall-clock "now", extrapolated from when the snapshot was received. */
 export function serverNowAt(snapshot: Snapshot, receivedAtLocal: number, localNow: number) {
   return snapshot.serverTime + Math.max(0, localNow - receivedAtLocal);
 }
 
-// ---------------------------------------------------------------- player
+// Player state
 
 export type PlayerState = 'no_display' | 'offline' | 'needs_activation' | 'loading' | 'buffering' | 'playing' | 'paused' | 'ended' | 'error';
 
@@ -33,14 +32,6 @@ export const PLAYER_LABEL: Record<PlayerState, string> = {
 };
 
 export type Confirmation = Snapshot['playback']['confirmation'];
-
-/** Plain-language distinction between accepted, acknowledged by the player, and unacknowledged. */
-export const CONFIRMATION_LABEL: Record<Confirmation, { label: string; detail: string }> = {
-  none: { label: '', detail: '' },
-  requested: { label: 'Sending to display…', detail: 'The display hasn’t confirmed it yet.' },
-  confirmed: { label: 'On the display', detail: 'The display confirmed it.' },
-  unconfirmed: { label: 'Display didn’t respond', detail: `No reply for ${POLICY.ackTimeoutMs / 1000} s, so the change may not have happened.` },
-};
 
 export interface PositionEstimate {
   positionSec: number | null;
@@ -73,7 +64,7 @@ export function estimatePosition(snapshot: Snapshot, serverNow: number): Positio
   return { positionSec: position, durationSec: duration, remainingSec: duration === null ? null : Math.max(0, duration - position), basis };
 }
 
-// ------------------------------------------------------------ request turn
+// Request turn
 
 export type TurnKind = 'paused_timer' | 'night_closed' | 'in_request' | 'not_started' | 'counting' | 'due' | 'elapsed_empty' | 'master_only' | 'requests_only' | 'requests_idle';
 
@@ -129,8 +120,8 @@ export function describeTurn(snapshot: Snapshot, serverNow: number): TurnView {
   }
   const remaining = schedule.periodStartedAt + schedule.periodMs - (schedule.periodPausedAt ?? serverNow);
   const where = [
-    schedule.intent === 'paused' ? 'Paused — the timer keeps running.' : null,
-    snapshot.playback.observed?.status === 'offline' ? 'Display offline — the server keeps time and catches up when it reconnects.' : null,
+    schedule.intent === 'paused' ? 'Paused (timer keeps running).' : null,
+    snapshot.playback.observed?.status === 'offline' ? 'Display offline (server keeps time and catches up on reconnect).' : null,
   ].filter(Boolean).join(' ');
   if (schedule.periodPausedAt != null) return { ...base, kind: 'paused_timer', headline: `Request timer paused · ${formatClock(Math.max(0, remaining))}`, detail: '' };
   if (schedule.turnDue) {
@@ -156,7 +147,7 @@ export function describeTurn(snapshot: Snapshot, serverNow: number): TurnView {
   };
 }
 
-// ----------------------------------------------------------------- queues
+// Queues
 
 export type Direction = 'up' | 'down';
 
@@ -175,7 +166,7 @@ export const masterList = (snapshot: Snapshot): MasterEntryView[] => snapshot.ma
 export const queueSignature = (snapshot: Snapshot) =>
   `${masterList(snapshot).map((m) => `${m.id}:${m.status}`).join(',')}|${snapshot.requests.filter((r) => r.status !== 'played' && r.status !== 'failed' && r.status !== 'removed' && r.status !== 'skipped' && r.status !== 'archived').map((r) => r.id).join(',')}`;
 
-// ----------------------------------------------------------------- errors
+// Errors
 
 export type ErrorTone = 'conflict' | 'auth' | 'rejected' | 'transient';
 
@@ -184,11 +175,11 @@ export function explainError(error: ApiError, type: string): { tone: ErrorTone; 
   switch (error.code) {
     case 'GUARD_MISMATCH':
       if (type === 'request.playNow') return { tone: 'conflict', message: 'Nothing changed: a request is already playing. Move this one to the top of the queue to play it next.' };
-      return { tone: 'conflict', message: 'Nothing changed: the item you targeted is no longer playing — another organizer or the schedule moved on. Review the current state and decide again.' };
+      return { tone: 'conflict', message: 'Nothing changed: that item is no longer playing.' };
     case 'NOT_FOUND':
-      return { tone: 'conflict', message: 'Nothing changed: that entry is already gone or no longer in this queue — someone else may have changed it.' };
+      return { tone: 'conflict', message: 'Nothing changed: that entry is no longer in this queue.' };
     case 'REVISION_CONFLICT':
-      return { tone: 'conflict', message: 'The state changed while you were deciding. Nothing was applied; review and confirm again.' };
+      return { tone: 'conflict', message: 'State changed before your action was applied; review and try again.' };
     case 'NIGHT_ALREADY_OPEN':
       return { tone: 'conflict', message: 'A night is already open (another organizer may have just opened it).' };
     case 'NIGHT_CLOSED':

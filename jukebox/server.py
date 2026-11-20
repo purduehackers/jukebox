@@ -1,4 +1,4 @@
-"""Loopback-only local proof HTTP API and range-capable media delivery."""
+"""Loopback-only audio worker HTTP API and range-capable media delivery."""
 import argparse
 import json
 import os
@@ -154,7 +154,7 @@ def make_server(store, port=8971):
                 raise ValueError('Loopback Host required')
             origin = self.headers.get('Origin')
             if origin and origin not in {'http://' + host for host in allowed}:
-                raise ValueError('Same-origin local proof requests only')
+                raise ValueError('Same-origin local worker requests only')
 
         def do_HEAD(self):
             self.do_GET()
@@ -296,7 +296,7 @@ def main():
     except BaseException:
         store.close()
         raise
-    print(f'Phase-1 proof: http://127.0.0.1:{server.server_port}/display', flush=True)
+    print(f'Audio worker: http://127.0.0.1:{server.server_port}/display', flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

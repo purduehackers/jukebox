@@ -123,7 +123,7 @@ def validate_selection(info, kind, provider='youtube'):
         if info.get('acodec') in (None, 'none'):
             raise ValueError('No verified audio-only source format; combined/video media is forbidden')
         if info.get('protocol') not in ('https', 'http'):
-            raise ValueError('This proof requires a direct audio-only HTTP file')
+            raise ValueError('Audio-only HTTP source required')
     if (info.get('filesize') or info.get('filesize_approx') or 0) > MAX_ASSET_BYTES:
         raise ValueError('Source exceeds per-job byte limit')
 

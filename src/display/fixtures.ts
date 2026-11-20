@@ -41,7 +41,7 @@ export function displayFixture(state: FixtureState, now = Date.now()): Snapshot 
     else snapshot.nowPlaying!.durationSec = 360;
   }
   if (state === 'long_titles') {
-    snapshot.nowPlaying!.title = 'An Unusually Long Master Mix Title — Extended Festival Recording From a Venue With an Extremely Long Name — Bonus Edition'.repeat(3);
+    snapshot.nowPlaying!.title = 'An Unusually Long Master Mix Title (Extended Festival Recording From a Venue With an Extremely Long Name) Bonus Edition'.repeat(3);
     snapshot.nowPlaying!.artist = 'A very long list of artists and collaborators '.repeat(8);
     snapshot.requests[0]!.title = snapshot.nowPlaying!.title;
     snapshot.requests[0]!.artist = snapshot.nowPlaying!.artist;

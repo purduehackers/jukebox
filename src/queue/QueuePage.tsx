@@ -188,7 +188,7 @@ function RequestForm({ flow, state, remaining }: { flow: RequestFlow; state: Flo
         </Field>
         <div className="flex flex-wrap gap-2">
           <Button className="q-touch" type="submit" disabled={busy || exhausted || state.url.trim() === ''}>
-            {state.phase === 'checking' ? <span className="q-searching-label">Searching for YouTube download…</span> : 'Search'}
+            {state.phase === 'checking' ? 'Searching…' : 'Search'}
           </Button>
           {(state.url || state.error || state.preview) && (
             <Button className="q-touch" variant="outline" disabled={state.phase === 'submitting'} onClick={() => flow.reset()}>Cancel</Button>
@@ -211,7 +211,7 @@ function RequestForm({ flow, state, remaining }: { flow: RequestFlow; state: Flo
           <strong>{copy.title}</strong>
           <p>{copy.body}</p>
           {disambiguation.requested && (
-            <p>You asked for: {disambiguation.requested.title} — {disambiguation.requested.artist} ({formatDuration(disambiguation.requested.durationSec)})</p>
+            <p>You asked for: {disambiguation.requested.title} by {disambiguation.requested.artist} ({formatDuration(disambiguation.requested.durationSec)})</p>
           )}
           {disambiguation.candidates.length > 0 && (
             <ul className="q-candidates">
@@ -237,7 +237,7 @@ function RequestForm({ flow, state, remaining }: { flow: RequestFlow; state: Flo
               ))}
             </ul>
           )}
-          <p>Choose one above, or paste the exact YouTube link you want.</p>
+          <p>Choose one above, or paste the exact YouTube or SoundCloud link you want.</p>
         </Notice>
       )}
 
@@ -255,11 +255,11 @@ function Preview({ flow, state }: { flow: RequestFlow; state: FlowState }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="q-match flex flex-col gap-1 p-3">
-        <p className="ph-subheadline text-[12px]">Found match:</p>
+        {match && <p className="ph-subheadline text-[12px]">Matched to YouTube</p>}
         <p className="q-text"><strong>{track.title}</strong></p>
         <p className="q-text">{track.artist ?? 'Unknown artist'} · {formatDuration(track.durationSec)}</p>
       </div>
-      <p>Not the version you meant? Paste an exact YouTube link instead.</p>
+      {match && <p>Not the version you meant? Paste an exact YouTube or SoundCloud link instead.</p>}
       {reject ? (
         <Notice tone={reject.tone} role="alert">
           <strong>{reject.title}</strong>

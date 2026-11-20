@@ -1,6 +1,5 @@
-// Pure presentation logic for the attendee page: wording for every contract error and
-// request state, plus honest queue-timing estimates. No React, no network, so it is
-// unit-tested directly and the page stays a thin view.
+// Pure presentation logic for the attendee page: wording for contract errors,
+// request states, and queue-timing estimates. No React, no network.
 import type { ApiError, ErrorCode, RequestEntryView, RequestStatus, Snapshot } from '../contract/types.ts';
 
 export function formatDuration(totalSec: number | null): string {
@@ -11,7 +10,7 @@ export function formatDuration(totalSec: number | null): string {
   return `${minutes}:${seconds}`;
 }
 
-// ---- Errors ----
+// Errors
 
 export type Tone = 'info' | 'warn' | 'error';
 
@@ -27,12 +26,12 @@ export interface ErrorCopy {
 
 /** Exhaustive: adding a contract ErrorCode without wording here fails the type check. */
 const ERROR_COPY: Record<ErrorCode, Omit<ErrorCopy, 'retry' | 'body'> & { body: string }> = {
-  BAD_REQUEST: { title: 'That didn’t look right', body: 'Paste a single track link, then check it again.', tone: 'error', blocksLink: false },
+  BAD_REQUEST: { title: 'Invalid link', body: 'Paste a single track link and try again.', tone: 'error', blocksLink: false },
   UNAUTHENTICATED: { title: 'Sign in first', body: 'Requests need your Purdue Hackers ID so the three-song limit is fair.', tone: 'warn', blocksLink: true },
   FORBIDDEN: { title: 'Not allowed', body: 'Your account can’t do that here.', tone: 'error', blocksLink: true },
   NOT_FOUND: { title: 'Not found', body: 'That item is gone. Refresh to see the current queue.', tone: 'warn', blocksLink: false },
   REVISION_CONFLICT: { title: 'The queue just changed', body: 'Check the link again and retry.', tone: 'warn', blocksLink: false },
-  IDEMPOTENCY_MISMATCH: { title: 'Please try again', body: 'That tap was already used for something else. Check the link once more.', tone: 'warn', blocksLink: false },
+  IDEMPOTENCY_MISMATCH: { title: 'Please try again', body: 'Check the link again and retry.', tone: 'warn', blocksLink: false },
   GUARD_MISMATCH: {
     title: 'That link changed',
     body: 'It now points to a different recording than the one you checked. Check it again to see what will play.',
@@ -61,7 +60,7 @@ const ERROR_COPY: Record<ErrorCode, Omit<ErrorCopy, 'retry' | 'body'> & { body: 
     blocksLink: false,
   },
   DURATION_REJECTED: { title: 'Too long for a request', body: 'Requests must be shorter than 6 minutes. Long mixes are added by organizers.', tone: 'error', blocksLink: false },
-  RATE_LIMITED: { title: 'Slow down a little', body: 'You’ve checked a lot of links in a minute. Try again in a few seconds.', tone: 'warn', blocksLink: false },
+  RATE_LIMITED: { title: 'Too many requests', body: 'Wait a few seconds and try again.', tone: 'warn', blocksLink: false },
   LEASE_HELD: { title: 'Not available here', body: 'That action isn’t for this page.', tone: 'error', blocksLink: true },
   STALE_LEASE: { title: 'Not available here', body: 'That action isn’t for this page.', tone: 'error', blocksLink: true },
   DEVICE_REVOKED: { title: 'Not available here', body: 'That action isn’t for this page.', tone: 'error', blocksLink: true },
@@ -129,7 +128,7 @@ export function describeError(error: ApiError): ErrorCopy {
   return { ...base, body, retry: error.retryable };
 }
 
-// ---- Request states ----
+// Request states
 
 export interface StatusCopy {
   label: string;
@@ -142,24 +141,24 @@ export interface StatusCopy {
 export const STATUS_COPY: Record<RequestStatus, StatusCopy> = {
   preparing: { label: 'Getting ready', detail: 'Fetching the audio. If it isn’t ready when a request turn arrives, it waits for the next one.', tone: 'wait', allowance: 'counts' },
   ready: { label: 'In line', detail: 'Ready to play on a request turn.', tone: 'wait', allowance: 'counts' },
-  playing: { label: 'Playing now', detail: 'It’s on the speakers.', tone: 'live', allowance: 'counts-final' },
-  played: { label: 'Played', detail: 'Thanks for the pick.', tone: 'done', allowance: 'counts-final' },
+  playing: { label: 'Playing now', detail: 'Currently playing.', tone: 'live', allowance: 'counts-final' },
+  played: { label: 'Played', detail: 'Finished playing.', tone: 'done', allowance: 'counts-final' },
   failed: { label: 'Couldn’t play', detail: 'A technical problem stopped it. This one was refunded to your allowance.', tone: 'problem', allowance: 'refunded' },
-  removed: { label: 'Removed by an organizer', detail: 'An organizer took it out of the queue. It still counts toward your three for tonight.', tone: 'problem', allowance: 'counts-final' },
-  skipped: { label: 'Skipped by an organizer', detail: 'An organizer skipped it while it was playing. It still counts toward your three for tonight.', tone: 'problem', allowance: 'counts-final' },
+  removed: { label: 'Removed by an organizer', detail: 'Removed by an organizer. It still counts toward your three for tonight.', tone: 'problem', allowance: 'counts-final' },
+  skipped: { label: 'Skipped by an organizer', detail: 'Skipped while playing. It still counts toward your three for tonight.', tone: 'problem', allowance: 'counts-final' },
   archived: { label: 'Night ended first', detail: 'The night ended before its turn. Allowances start fresh each night.', tone: 'problem', allowance: 'counts-final' },
 };
 
 export const WAITING: ReadonlySet<RequestStatus> = new Set<RequestStatus>(['preparing', 'ready']);
 
-// ---- Timing ----
+// Timing
 
 export type TurnEstimate =
   | { kind: 'closed' }
   | { kind: 'timer-paused' }
   | { kind: 'playing' }
   | { kind: 'not-waiting' }
-  /** Organizers switched off request turns; no estimate is honest. */
+  /** Organizers switched off request turns; no estimate is available. */
   | { kind: 'master-only' }
   /** Organizers are playing requests only, in queue order. */
   | { kind: 'requests-only'; ahead: number }

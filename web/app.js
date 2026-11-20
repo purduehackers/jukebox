@@ -206,7 +206,7 @@ async function refresh() {
   render();
 }
 function render(decision = '') {
-  $('playback').textContent = `${owned?'This tab owns local proof playback':'Activation required'} · ${state?.role || 'idle'} · ${audio.currentTime.toFixed(3)} / ${Number.isFinite(audio.duration)?audio.duration.toFixed(3):'?'}s · ${audio.paused?'paused':'playing'} ${decision}`;
+  $('playback').textContent = `${owned?'This tab owns local playback':'Activation required'} · ${state?.role || 'idle'} · ${audio.currentTime.toFixed(3)} / ${Number.isFinite(audio.duration)?audio.duration.toFixed(3):'?'}s · ${audio.paused?'paused':'playing'} ${decision}`;
   $('checkpoint').textContent = JSON.stringify({revision, remainingElapsedSeconds: state?.periodStarted === null ? null : Math.max(0,(PERIOD_MS-(now()-state?.periodStarted))/1000), state}, null, 2);
 }
 $('prepare').onclick = () => enqueue(async () => {

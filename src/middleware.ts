@@ -15,7 +15,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (!user || !runtime.service.isAdmin(user)) {
       // Server-side gate: no player component or script is served to a non-organizer.
       const login = `/auth/login?returnTo=${encodeURIComponent(path)}`;
-      return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Jukebox</title><body style="background:#000;color:#fff;font-family:monospace"><main data-testid="organizer-gate"><h1>JUKEBOX</h1><p>Organizer sign-in required</p><a style="color:inherit" href="${login}">Sign in with Purdue Hackers ID</a></main></body></html>`, { status: user ? 403 : 401, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', vary: 'Cookie' } });
+      return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Jukebox</title><body style="margin:0;min-height:100dvh;display:grid;place-items:center;background:#000;color:#fff;font-family:ui-monospace,monospace;text-align:center;padding:32px"><main data-testid="organizer-gate"><h1>JUKEBOX</h1><p>Organizer sign-in required</p><a style="color:#ffee00" href="${login}">Sign in with Purdue Hackers ID</a></main></body></html>`, { status: user ? 403 : 401, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', vary: 'Cookie' } });
     }
   }
   const response = await next().catch(error => {

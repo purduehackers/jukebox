@@ -15,7 +15,7 @@ test('elapsed countdown counts pause and buffering, ignores seeks, and resets on
     assert.equal(displayModel(snapshot, now + 12000).turn, 'in 15:00');
   }
 });
-test('status, progress, public queue and stale playback remain honest across fixture states', () => {
+test('status, progress, public queue and stale playback stay accurate across fixture states', () => {
   const now = 1_000_000;
   for (const state of fixtureStates) assert.ok(displayModel(displayFixture(state, now), now).turn);
   const snapshot = displayFixture('master', now);

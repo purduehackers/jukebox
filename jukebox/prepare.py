@@ -59,7 +59,7 @@ def prepare(source, kind, directory):
                   'aac': ('m4a', 'audio/mp4'), 'mp3': ('mp3', 'audio/mpeg'),
                   'flac': ('flac', 'audio/flac')}
     if codec not in containers:
-        raise ValueError('Codec not supported by this proof; no implicit transcode fallback')
+        raise ValueError('Codec not supported; no transcode fallback')
     ext, mime = containers[codec]
     output = directory / ('asset.' + ext)
     args = ['ffmpeg', '-nostdin', '-v', 'error', '-protocol_whitelist', 'file,crypto,data',

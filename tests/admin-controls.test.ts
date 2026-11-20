@@ -1,6 +1,4 @@
-// Phase 4A: what an organizer's UI depends on, exercised against the real HTTP service
-// (fake clock/adapters/display). The UI's own command runner and view-model code are the
-// system under test, so conflict handling and honesty rules here are the shipped rules.
+// Organizer console command runner and view-model behavior against the HTTP service.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CommandRunner, VolumeController } from '../src/admin/intents.ts';
@@ -146,7 +144,7 @@ test('permissions: public, attendee, and device credentials cannot control playb
   }
 });
 
-test('honest display state: no display, requested -> unconfirmed -> confirmed, then offline with a stale position', async () => {
+test('display state transitions: no display, requested -> unconfirmed -> confirmed, then offline', async () => {
   const app = await startApp();
   try {
     const admin = await organizer(app);
@@ -406,14 +404,14 @@ test('turn description follows the scheduler for pause, offline, empty and due t
     snap = await admin.snapshot();
     assert.match(describeTurn(snap, snap.serverTime).detail, /1 ready request will take this turn/);
 
-    // Pausing keeps the clock honest: still counting, and says so; due while paused waits for Play.
+    // Pausing keeps the timer running and says so; due while paused waits for Play.
     assert.ok((await admin.raw('playback.pause', {})).body.ok);
     await display.report('paused');
     app.clock.advance(30_000);
     snap = await admin.snapshot();
     turn = describeTurn(snap, snap.serverTime);
     assert.equal(turn.periodRemainingMs, 30_000);
-    assert.match(turn.detail, /Paused — the timer keeps running/);
+    assert.match(turn.detail, /Paused \(timer keeps running\)/);
     app.clock.advance(31_000);
     await app.service.reconcile();
     snap = await admin.snapshot();
@@ -467,7 +465,7 @@ test('an expired admin stream closes before another organizer change can expose 
   }
 });
 
-test('unsupported sources get specific, truthful explanations and nothing is added', async () => {
+test('unsupported sources get specific explanations and nothing is added', async () => {
   const app = await startApp();
   try {
     const admin = await organizer(app);

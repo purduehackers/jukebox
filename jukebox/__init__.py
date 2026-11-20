@@ -1,1 +1,1 @@
-"""Local Phase-1 proof, not the production queue service."""
+"""Local Python audio worker and media cache."""

@@ -80,11 +80,8 @@ function VisualLab({ silent }: { silent: boolean }) {
   return (
     <main className="visual-lab">
       <header>
-        <div>
-          <span className="visual-eyebrow">JUKEBOX / VISUAL LAB</span>
-          <h1>Soundbar</h1>
-        </div>
-        <a href="/admin">Admin ↗</a>
+        <h1>Soundbar</h1>
+        <a href="/admin">Admin</a>
       </header>
       <div className="visual-workspace">
         <section className="visual-stage" aria-label="Stationary mirrored audio spectrum">
@@ -178,7 +175,7 @@ function VisualLab({ silent }: { silent: boolean }) {
               {copied ? 'Copied' : 'Copy settings'}
             </button>
           </div>
-          <p>Left → right: bass → treble. Settings save in this browser. Use this page instead of the display tab while tuning audio.</p>
+          <p>Settings save in this browser.</p>
         </aside>
       </div>
       {!silent && <Player onSnapshot={setSnapshot} onError={setError} onState={setLocal} />}

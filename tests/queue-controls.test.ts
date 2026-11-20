@@ -32,7 +32,7 @@ async function idleFor(h: Harness, p: Player, ms: number, load: number, epoch: n
   }
 }
 
-// ------------------------------------------------------------------ contract
+// contract
 
 test('commands are admin-only and validated; defaults match the existing policy', async () => {
   const h = harness();
@@ -73,7 +73,7 @@ test('link bound is 2048 characters on exactly master.add, request.preview and r
   assert.throws(() => parseEnvelope(env('master.add', { url: '' })), ValidationError);
 });
 
-// ------------------------------------------------------------------ Play now
+// Play now
 
 test('Play now cuts in over a mix immediately, resumes at the actual paused position, then a fresh period; allowance untouched', async () => {
   const h = harness();
@@ -171,7 +171,7 @@ test('deliberate pause stays a pause through Play now and every mode change', as
   assert.equal(h.snap().schedule.intent, 'paused');
 });
 
-// ------------------------------------------------------------------ Master only
+// Master only
 
 test('Master only: no automatic turns however long; Play now still works; back to Auto starts a fresh interval', async () => {
   const h = harness();
@@ -220,7 +220,7 @@ test('Master only: an ordinary song ending moves to the next master item, never 
   assert.equal(status(h, 'Request One'), 'ready');
 });
 
-// ------------------------------------------------------------------ Requests only
+// Requests only
 
 test('Requests only with ready requests: cuts in now, plays back to back, then waits silently; new request starts at once', async () => {
   const h = harness();
@@ -373,7 +373,7 @@ test('Requests only needs an open night', async () => {
   await h.fails('NIGHT_CLOSED', h.admin, 'queue.mode', { mode: 'requests' });
 });
 
-// ------------------------------------------------------------------ night boundaries
+// night boundaries
 
 test('closing a night while Requests only is idle resets the mode, resumes master paused, keeps the interval', async () => {
   const h = harness();
@@ -435,7 +435,7 @@ test('opening a night resets a stale non-auto mode', async () => {
   assert.equal(h.snap().schedule.mode, 'auto');
 });
 
-// ------------------------------------------------------------------ interval
+// interval
 
 test('interval applies to the running countdown; shorter makes a turn due now, longer extends it', async () => {
   const h = harness();
@@ -521,7 +521,7 @@ test('interval persists across restart; requests-only/master modes persist too',
   assert.equal(s.schedule.mode, 'master');
 });
 
-// ------------------------------------------------------------------ retries and concurrency
+// retries and concurrency
 
 test('stable command IDs: replays do not re-execute; a different payload is a mismatch', async () => {
   const h = harness();
@@ -585,7 +585,7 @@ test('concurrent admins: two Play now commands start exactly one request; racing
   assert.equal(s.schedule.periodStartedAt, null);
 });
 
-// ------------------------------------------------------------------ migration
+// migration
 
 test('a v3 database upgrades in place to the current schema keeping queue, quota, lease, suspended mix and period anchor', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'jukebox-v3-'));

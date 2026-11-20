@@ -146,7 +146,7 @@ export function ConfirmButton(props: {
   );
 }
 
-// ------------------------------------------------------------------ access
+// access
 
 function GateShell({ busy, children }: { busy: boolean; children: ReactNode }) {
   return (
@@ -190,7 +190,7 @@ export function AccessGate({ access }: { access: Exclude<Access, { state: 'admin
   );
 }
 
-// --------------------------------------------------------- header + alerts
+// header + alerts
 
 export function HeaderMeta({
   name,
@@ -269,7 +269,7 @@ export function AlertsBand({
   );
 }
 
-// ------------------------------------------------------------------- night
+// night
 
 export function NightPanel({
   snapshot,
@@ -291,7 +291,7 @@ export function NightPanel({
           context={snapshot.revision}
           armed={armed}
           confirmId="night-close"
-          warning={`Stops the music, closes requests, and clears ${waiting} waiting request${waiting === 1 ? '' : 's'}${playing ? ` and “${playing.title}”` : ''}. Nobody gets requests back.`}
+          warning={`Stops the music, closes requests, and clears ${waiting} waiting request${waiting === 1 ? '' : 's'}${playing ? ` and “${playing.title}”` : ''}.`}
         />
       ) : (
         <DitherButton data-adm-night-open="true">Start night</DitherButton>
@@ -346,9 +346,9 @@ export function BanMenu({
         <div id="adm-ban-submenu">
           <Card className="adm-ban-submenu">
             <h2 className="ph-subheadline">Request bans</h2>
-            <p className="adm-small">Blocks new submissions by this PH ID username. Existing requests stay in the queue.</p>
+            <p className="adm-small">Blocks new requests from this PH ID username.</p>
             <form className="adm-ban-form" data-adm-ban-form>
-              <Field label="PH ID username" htmlFor="adm-ban-username" hint="Letters, numbers, dot, underscore or hyphen.">
+              <Field label="PH ID username" htmlFor="adm-ban-username">
                 <Input
                   id="adm-ban-username"
                   autoComplete="off"
@@ -371,7 +371,7 @@ export function BanMenu({
   );
 }
 
-// ------------------------------------------------------------- now playing
+// now playing
 
 const STATE_TONE: Record<PlayerState, Tone> = {
   playing: 'ok',
@@ -595,8 +595,8 @@ export function NowPlayingPanel({
               confirmId="skip-now"
               warning={
                 now.kind === 'request'
-                  ? 'Ends this request without giving it back; master music resumes.'
-                  : 'Jumps to the next master song. The request timer keeps going.'
+                  ? 'Skips this request without refunding it; master music resumes.'
+                  : 'Skips to the next master song. The request timer keeps going.'
               }
             />
           ) : (
@@ -639,7 +639,7 @@ export function NowPlayingPanel({
   );
 }
 
-// ------------------------------------------------------------- request turn
+// request turn
 
 export function TurnPanel({ snapshot, serverNow }: { snapshot: Snapshot; serverNow: number }) {
   const turn = describeTurn(snapshot, serverNow);
@@ -651,7 +651,7 @@ export function TurnPanel({ snapshot, serverNow }: { snapshot: Snapshot; serverN
   );
 }
 
-// ------------------------------------------------------------ queue control
+// queue control
 
 const MODES: { mode: QueueMode; label: string; help: string }[] = [
   { mode: 'auto', label: 'Auto', help: 'Master music, with one request every interval.' },
@@ -781,7 +781,7 @@ export function QueueControls({
   );
 }
 
-// ------------------------------------------------------------------ queues
+// queues
 
 function MoveButtons({
   queue,
@@ -905,8 +905,8 @@ export function RequestQueuePanel({
             confirmId={`request-remove:${r.id}`}
             warning={
               r.status === 'playing'
-                ? 'Stops this request now; master music resumes. They don’t get the request back.'
-                : 'They don’t get the request back.'
+                ? 'Stops this request now without refunding it; master music resumes.'
+                : 'Removes this request without refunding it.'
             }
           />
         </div>
@@ -1002,7 +1002,7 @@ export function MasterQueuePanel({
   );
 }
 
-// ------------------------------------------------------------------- add
+// add
 
 export function AddBarStatus({
   lastAdd,
@@ -1101,7 +1101,7 @@ export function AddBar({
   );
 }
 
-// ---------------------------------------------------------------- activity
+// activity
 
 export function ActivityPanel({
   intents,
@@ -1132,7 +1132,7 @@ export function ActivityPanel({
     .filter((i) => !logged.has(i.id) && (i.type !== 'playback.volume' || i.status === 'failed'))
     .map((intent) => ({
       ...intent,
-      label: actorName ? `${actorName} — ${intent.label}` : intent.label,
+      label: actorName ? `${actorName}: ${intent.label}` : intent.label,
     }));
   const visible = [...accepted, ...local].sort((a, b) => b.startedAt - a.startedAt).slice(0, 24);
 

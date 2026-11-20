@@ -1,9 +1,7 @@
-// Boundary between the phase-3 player (publishes) and the 4C visualizer (consumes).
-// The player owns the single HTMLAudioElement → MediaElementAudioSourceNode →
-// AnalyserNode → destination chain proven in phase 1 and publishes the analyser it
-// is currently playing through (null while inactive). The display never creates its
-// own audio element, microphone input, or AudioContext for playback.
-// Shared Web Audio AnalyserNode + gain state between the HTML5 audio player and visualizers.
+// Shared Web Audio AnalyserNode + gain state between the audio player and visualizers.
+// The player owns the single HTMLAudioElement -> MediaElementAudioSourceNode ->
+// AnalyserNode -> destination chain and publishes the active analyser (null while idle).
+// The display never creates its own audio element, mic input, or AudioContext.
 
 let current: AnalyserNode | null = null;
 const listeners = new Set<(analyser: AnalyserNode | null) => void>();

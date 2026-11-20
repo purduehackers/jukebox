@@ -5,7 +5,7 @@ Never hand-write tokens or components.
 Two flavors, each used where it belongs:
 
 - **Astro flavor** (default exports): `*.astro` in this directory, used by `.astro`
-  pages and components — e.g. `src/components/SignInGate.astro` renders the
+  pages and components, such as `src/components/SignInGate.astro` rendering the
   server-side sign-in gates on `/admin` and `/queue` with no client JavaScript.
 - **React flavor** (named exports): `*.tsx` in this directory, used only inside
   the React islands (`client:load`) in `src/{admin,queue}`.

@@ -1,4 +1,4 @@
-// Wording, timing honesty, and QR-origin rules for the attendee page.
+// Wording, timing estimates, and QR-origin rules for the attendee page.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
