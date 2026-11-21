@@ -238,3 +238,50 @@ export function describeEstimate(estimate: TurnEstimate): string {
 }
 
 const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
+
+export interface MasterRequestTimerView {
+  kind: 'counting' | 'paused' | 'due';
+  label: string;
+  value: string;
+  remainingMs: number;
+}
+
+export function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/**
+ * Live countdown for the next request turn on `/queue`. Shown only while playing from the
+ * master queue in `auto` mode with an active interval; hidden during request playback or other modes.
+ */
+export function masterRequestTimer(
+  snapshot: Pick<Snapshot, 'night' | 'schedule' | 'nowPlaying'>,
+  nowServer: number,
+): MasterRequestTimerView | null {
+  const { night, schedule, nowPlaying } = snapshot;
+  if (night?.status !== 'open') return null;
+  if (schedule.mode !== 'auto') return null;
+  if (schedule.phase !== 'master' || nowPlaying?.kind === 'request') return null;
+  if (schedule.periodStartedAt === null) return null;
+
+  const remainingMs = Math.max(
+    0,
+    schedule.periodStartedAt + schedule.periodMs - (schedule.periodPausedAt ?? nowServer),
+  );
+  if (schedule.periodPausedAt != null) {
+    return {
+      kind: 'paused',
+      label: 'Next request',
+      value: `Paused · ${formatCountdown(remainingMs)}`,
+      remainingMs,
+    };
+  }
+  if (schedule.turnDue) {
+    return { kind: 'due', label: 'Next request', value: 'Up next', remainingMs: 0 };
+  }
+  return { kind: 'counting', label: 'Next request', value: `in ${formatCountdown(remainingMs)}`, remainingMs };
+}

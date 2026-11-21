@@ -7,7 +7,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import * as rawViews from '../src/admin/views.tsx';
 import { describeTurn, explainError } from '../src/admin/derive.ts';
 import { displayModel } from '../src/display/model.ts';
-import { describeEstimate, estimateTurn } from '../src/queue/model.ts';
+import { describeEstimate, estimateTurn, masterRequestTimer } from '../src/queue/model.ts';
+import { NextRequestTimer } from '../src/queue/QueuePage.tsx';
 import { MIN, URLS, harness, submit } from './helpers.ts';
 
 const views = rawViews as unknown as Record<'QueueControls' | 'RequestQueuePanel' | 'NowPlayingPanel' | 'TurnPanel', (props: any) => unknown>;
@@ -125,4 +126,46 @@ test('display and attendee views stop promising a countdown outside Auto', async
   await h.ok(h.admin, 'queue.mode', { mode: 'requests' });
   const second = h.snap().requests[1]!.id;
   assert.deepEqual(estimateTurn(h.snap(), second, now), { kind: 'requests-only', ahead: 0 }, 'the first became the playing request');
+});
+
+test('public queue timer shows during master playback in auto mode and hides during request playback or other modes', async () => {
+  const { h, p } = await scene();
+  const renderTimer = (snapshot = h.snap(h.alice)) =>
+    html(createElement(NextRequestTimer, { snapshot, nowServer: snapshot.serverTime }));
+
+  // In scene(), 4 min have passed of a 15 min period on the master queue -> 11:00 left.
+  let snap = h.snap(h.alice);
+  assert.equal(masterRequestTimer(snap, snap.serverTime)?.value, 'in 11:00');
+  let out = renderTimer(snap);
+  assert.match(out, /data-testid="next-request-timer"/);
+  assert.match(out, /in 11:00/);
+
+  // Switch to Master only -> hidden; back to Auto -> visible again.
+  await h.ok(h.admin, 'queue.mode', { mode: 'master' });
+  assert.equal(masterRequestTimer(h.snap(h.alice), h.snap(h.alice).serverTime), null);
+  assert.equal(renderTimer(), '');
+  await h.ok(h.admin, 'queue.mode', { mode: 'auto' });
+  assert.equal(masterRequestTimer(h.snap(h.alice), h.snap(h.alice).serverTime)?.value, 'in 15:00');
+  assert.match(renderTimer(), /in 15:00/);
+
+  // Play a request now -> timer disappears immediately while request plays.
+  const firstId = h.snap().requests[0]!.id;
+  await h.ok(h.admin, 'request.playNow', { entryId: firstId });
+  snap = h.snap(h.alice);
+  assert.equal(snap.schedule.phase, 'request');
+  assert.equal(masterRequestTimer(snap, snap.serverTime), null);
+  assert.equal(renderTimer(snap), '');
+
+  // Finish the request -> returns to master queue with fresh interval, timer reappears.
+  await p.sync('ended', 180);
+  await h.svc.reconcile();
+  snap = h.snap(h.alice);
+  assert.equal(snap.schedule.phase, 'master');
+  assert.equal(masterRequestTimer(snap, snap.serverTime)?.value, 'in 15:00');
+  assert.match(renderTimer(snap), /in 15:00/);
+
+  // Requests only -> hidden.
+  await h.ok(h.admin, 'queue.mode', { mode: 'requests' });
+  assert.equal(masterRequestTimer(h.snap(h.alice), h.snap(h.alice).serverTime), null);
+  assert.equal(renderTimer(), '');
 });

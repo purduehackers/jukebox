@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import type { ErrorCode, RequestEntryView, RequestStatus, Snapshot } from '../src/contract/types.ts';
 import { OriginError, queueEntryUrl } from '../src/queue/origin.ts';
-import { STATUS_COPY, describeError, describeEstimate, estimateTurn, formatDuration, readDisambiguation } from '../src/queue/model.ts';
+import { STATUS_COPY, describeError, describeEstimate, estimateTurn, formatCountdown, formatDuration, masterRequestTimer, readDisambiguation } from '../src/queue/model.ts';
 import { checkReachable } from '../scripts/queue-qr.ts';
 
 const ALL_CODES: ErrorCode[] = [
@@ -134,4 +134,61 @@ test('reachability check requires the health endpoint and the /queue page to ans
 test('source configuration errors explain the missing worker without implying a removed track',()=>{
   const copy=describeError({code:'SOURCE_UNAVAILABLE',message:'Start the audio worker',retryable:true,details:{kind:'worker_unavailable'}});
   assert.equal(copy.title,'Audio service needs attention');assert.match(copy.body,/Start the audio worker/);assert.doesNotMatch(copy.body,/allowance/);assert.doesNotMatch(copy.body,/private|removed|region/);
+});
+
+test('formatCountdown and masterRequestTimer show live countdown on master queue and hide during requests or other modes', () => {
+  assert.equal(formatCountdown(0), '0:00');
+  assert.equal(formatCountdown(1), '0:01');
+  assert.equal(formatCountdown(65_000), '1:05');
+  assert.equal(formatCountdown(3_605_000), '1:00:05');
+
+  const MIN = 60_000;
+  const base = {
+    night: { id: 'n', status: 'open' as const, openedAt: 0, closedAt: null },
+    schedule: {
+      phase: 'master' as const,
+      intent: 'playing' as const,
+      periodStartedAt: 0,
+      periodPausedAt: null,
+      periodMs: 15 * MIN,
+      periodDefaultMs: 15 * MIN,
+      periodMinMs: MIN,
+      periodMaxMs: 120 * MIN,
+      mode: 'auto' as const,
+      requestsIdle: false,
+      turnDue: false,
+      dueReason: null,
+    },
+    nowPlaying: { kind: 'master' as const, entryId: 'm1', title: 'Master Mix', artist: null, durationSec: 3600 },
+  };
+
+  assert.deepEqual(masterRequestTimer(base, 6 * MIN), {
+    kind: 'counting',
+    label: 'Next request',
+    value: 'in 9:00',
+    remainingMs: 9 * MIN,
+  });
+  // Still counts down while audio playback is paused as long as periodPausedAt is null.
+  assert.deepEqual(
+    masterRequestTimer({ ...base, schedule: { ...base.schedule, intent: 'paused' } }, 6 * MIN + 15_000),
+    { kind: 'counting', label: 'Next request', value: 'in 8:45', remainingMs: 9 * MIN - 15_000 },
+  );
+  // Explicit organizer timer pause freezes remaining time regardless of nowServer.
+  assert.deepEqual(
+    masterRequestTimer({ ...base, schedule: { ...base.schedule, periodPausedAt: 5 * MIN } }, 12 * MIN),
+    { kind: 'paused', label: 'Next request', value: 'Paused · 10:00', remainingMs: 10 * MIN },
+  );
+  // Due turn shows Up next.
+  assert.deepEqual(
+    masterRequestTimer({ ...base, schedule: { ...base.schedule, turnDue: true, dueReason: 'song_end' } }, 15 * MIN),
+    { kind: 'due', label: 'Next request', value: 'Up next', remainingMs: 0 },
+  );
+
+  // Hidden on request queue, non-auto modes, closed night, or unstarted clock.
+  assert.equal(masterRequestTimer({ ...base, schedule: { ...base.schedule, phase: 'request' } }, 6 * MIN), null);
+  assert.equal(masterRequestTimer({ ...base, nowPlaying: { ...base.nowPlaying, kind: 'request' } }, 6 * MIN), null);
+  assert.equal(masterRequestTimer({ ...base, schedule: { ...base.schedule, mode: 'requests' } }, 6 * MIN), null);
+  assert.equal(masterRequestTimer({ ...base, schedule: { ...base.schedule, mode: 'master' } }, 6 * MIN), null);
+  assert.equal(masterRequestTimer({ ...base, night: { id: 'n', status: 'closed', openedAt: 0, closedAt: 10 } }, 6 * MIN), null);
+  assert.equal(masterRequestTimer({ ...base, schedule: { ...base.schedule, periodStartedAt: null } }, 6 * MIN), null);
 });

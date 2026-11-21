@@ -14,7 +14,7 @@ import { useSnapshot } from '../shared/hooks.ts';
 import { DitheredSoup } from '../shared/DitheredSoup.tsx';
 import { RequestFlow, sessionIntentStore } from './controller.ts';
 import type { FlowState } from './controller.ts';
-import { STATUS_COPY, WAITING, describeError, formatDuration, readDisambiguation } from './model.ts';
+import { STATUS_COPY, WAITING, describeError, formatDuration, masterRequestTimer, readDisambiguation } from './model.ts';
 import type { StatusCopy, Tone } from './model.ts';
 import './queue.css';
 
@@ -45,10 +45,39 @@ function Notice({ tone, role, children }: { tone: Tone; role?: 'alert' | 'status
   );
 }
 
+const clockNow = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
+function useServerNow(snapshot: Snapshot | null): number {
+  const anchor = useMemo(
+    () => ({ server: snapshot?.serverTime ?? 0, receipt: clockNow() }),
+    [snapshot],
+  );
+  const [, tick] = useState(0);
+  const active =
+    snapshot !== null &&
+    snapshot.night?.status === 'open' &&
+    snapshot.schedule.mode === 'auto' &&
+    snapshot.schedule.phase === 'master' &&
+    snapshot.nowPlaying?.kind !== 'request' &&
+    snapshot.schedule.periodStartedAt !== null &&
+    snapshot.schedule.periodPausedAt == null &&
+    !snapshot.schedule.turnDue;
+
+  useEffect(() => {
+    if (!active) return;
+    const timer = window.setInterval(() => tick((n) => n + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [active]);
+
+  if (!snapshot) return 0;
+  return anchor.server + Math.max(0, clockNow() - anchor.receipt);
+}
+
 export function QueuePage() {
   const { snapshot, error: streamError } = useSnapshot();
   const { flow, state } = useFlow();
   const [name, setName] = useState<string | null>(null);
+  const nowServer = useServerNow(snapshot);
 
   useEffect(() => {
     void fetchMe().then((me) => setName(me.identity?.displayName ?? null)).catch(() => undefined);
@@ -82,6 +111,7 @@ export function QueuePage() {
             {!open ? <Closed night={snapshot.night} /> : (
               <>
                 <Allowance quota={snapshot.quota} enabled={snapshot.quotaEnabled} />
+                <NextRequestTimer snapshot={snapshot} nowServer={nowServer} />
                 <RequestForm flow={flow} state={state} remaining={snapshot.quotaEnabled ? snapshot.quota?.remaining ?? 0 : Number.POSITIVE_INFINITY} />
               </>
             )}
@@ -141,6 +171,27 @@ function Allowance({ quota, enabled }: { quota: Snapshot['quota']; enabled: bool
       <p>
         <strong>{quota.remaining}</strong> of {quota.limit} requests left tonight
       </p>
+    </section>
+  );
+}
+
+export function NextRequestTimer({ snapshot, nowServer }: { snapshot: Snapshot; nowServer: number }) {
+  const timer = masterRequestTimer(snapshot, nowServer);
+  if (!timer) return null;
+  return (
+    <section
+      className="flex items-center justify-between gap-3 border border-border bg-card px-4 py-3"
+      aria-label="Next request timer"
+      data-testid="next-request-timer"
+      data-kind={timer.kind}
+    >
+      <span className="ph-subheadline text-[13px] text-muted-foreground">{timer.label}</span>
+      <strong
+        className={`font-mono text-base font-semibold tabular-nums ${timer.kind === 'due' ? 'text-primary' : 'text-ph-pink'}`}
+        data-testid="next-request-countdown"
+      >
+        {timer.value}
+      </strong>
     </section>
   );
 }
