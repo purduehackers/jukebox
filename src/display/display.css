@@ -14,7 +14,9 @@
 .display-kind[data-kind="request"] { border-color: var(--jb-yellow); color: var(--jb-yellow); }
 .display-status { color: #ffffffb3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .display-metadata h1 { font: 400 30px/1.1 PolySans, sans-serif; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
-.display-artist { font: italic 20px/1.2 PolySans, sans-serif; color: #ffffffb3; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.display-song-details { display: flex; align-items: baseline; gap: 16px; min-width: 0; }
+.display-requester { margin: 0; max-width: 50%; min-width: 0; color: var(--jb-yellow); font-size: 18px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.display-artist { flex: 1; min-width: 0; font: italic 20px/1.2 PolySans, sans-serif; color: #ffffffb3; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .display-progress { display: flex; gap: 16px; align-items: center; margin-top: 0; font-size: 18px; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .display-progress progress { appearance: none; flex: 1; min-width: 0; height: 9px; border: 1px solid var(--jb-purple); background: #000; color: var(--jb-purple); }
 .display-progress progress::-moz-progress-bar { background: var(--jb-purple); }
@@ -22,10 +24,6 @@
 .display-progress progress::-webkit-progress-value { background: var(--jb-purple); }
 .display-queue-panel { grid-column: 2; grid-row: 1; border: 1px solid var(--jb-purple); border-bottom: 0; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 .display-heading { font: 400 58px/1 PixelHackers, monospace; margin: 28px 32px 20px; }
-.display-turn { border: 1px solid var(--jb-yellow); margin: 0 32px 16px; padding: 14px 18px; color: var(--jb-yellow); }
-.display-turn > span { font-size: 22px; }
-.display-turn strong { font: 400 46px/1.1 PolySans, sans-serif; color: #fff; display: block; margin: 8px 0; font-variant-numeric: tabular-nums; }
-.display-turn p { margin: 0; font-size: 20px; }
 .display-warning { color: var(--jb-amber); margin: 0 32px 12px; font-size: 20px; }
 .display-queue { flex: 1; min-height: 0; overflow: hidden; padding: 0 32px; }
 .display-queue ol { list-style: none; margin: 0; padding: 0; }
@@ -50,9 +48,6 @@
   .display-artist { font-size: 20px; }
   .display-kicker { font-size: 16px; gap: 8px; }
   .display-heading { font-size: 44px; margin: 20px 24px 14px; }
-  .display-turn { margin: 0 24px 12px; padding: 10px 12px; }
-  .display-turn strong { font-size: 34px; }
-  .display-turn > span, .display-turn p { font-size: 18px; }
   .display-queue { padding: 0 24px; }
   .display-queue li { padding: 12px 0; font-size: 20px; gap: 10px; }
   .display-queue li strong { font-size: 21px; }
@@ -69,6 +64,8 @@
   .display-artwork { width: 80px; height: 80px; font-size: 14px; }
   .display-metadata h1 { font-size: 22px; }
   .display-artist { font-size: 16px; }
+  .display-song-details { flex-direction: column; gap: 4px; align-items: stretch; }
+  .display-requester { max-width: 100%; font-size: 14px; }
   .display-kicker { flex-wrap: wrap; font-size: 14px; }
   .display-queue-panel { border-top: 0; }
   .display-queue { min-height: 120px; }
@@ -82,5 +79,3 @@
 .display-player-notice { position: fixed; bottom: 8px; left: 32px; margin: 0; padding: 8px 12px; background: var(--jb-canvas); color: var(--jb-yellow); font: 18px Inconsolata, monospace; }
 
 .display-queue li[data-playing="true"] { border-left: 3px solid var(--jb-yellow); padding-left: 12px; color: var(--jb-yellow); }
-
-.display-turn > .display-requested-label { display: block; font-size: 16px; line-height: 1.2; }
