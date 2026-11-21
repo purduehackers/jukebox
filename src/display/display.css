@@ -24,6 +24,10 @@
 .display-progress progress::-webkit-progress-value { background: var(--jb-purple); }
 .display-queue-panel { grid-column: 2; grid-row: 1; border: 1px solid var(--jb-purple); border-bottom: 0; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 .display-heading { font: 400 58px/1 PixelHackers, monospace; margin: 28px 32px 20px; }
+.display-turn { border: 1px solid var(--jb-yellow); margin: 0 32px 16px; padding: 14px 18px; color: var(--jb-yellow); }
+.display-turn > span { font-size: 22px; }
+.display-turn strong { font: 400 46px/1.1 PolySans, sans-serif; color: #fff; display: block; margin: 8px 0; font-variant-numeric: tabular-nums; }
+.display-turn p { margin: 0; font-size: 20px; }
 .display-warning { color: var(--jb-amber); margin: 0 32px 12px; font-size: 20px; }
 .display-queue { flex: 1; min-height: 0; overflow: hidden; padding: 0 32px; }
 .display-queue ol { list-style: none; margin: 0; padding: 0; }
@@ -48,6 +52,9 @@
   .display-artist { font-size: 20px; }
   .display-kicker { font-size: 16px; gap: 8px; }
   .display-heading { font-size: 44px; margin: 20px 24px 14px; }
+  .display-turn { margin: 0 24px 12px; padding: 10px 12px; }
+  .display-turn strong { font-size: 34px; }
+  .display-turn > span, .display-turn p { font-size: 18px; }
   .display-queue { padding: 0 24px; }
   .display-queue li { padding: 12px 0; font-size: 20px; gap: 10px; }
   .display-queue li strong { font-size: 21px; }

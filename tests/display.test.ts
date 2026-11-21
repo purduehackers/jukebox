@@ -79,3 +79,36 @@ test('playing request remains first in the display queue without master interval
   assert.equal(model.detail, '');
   assert.equal(model.requests[0]?.status, 'playing');
 });
+
+test('display turn timer renders during master queue and disappears during request playback or requests-only mode', async () => {
+  const { createElement } = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { DisplayView } = await import('../src/display/DisplayPage.tsx');
+  const now = 1_000_000;
+  const render = (snapshot: ReturnType<typeof displayFixture>) =>
+    renderToStaticMarkup(createElement(DisplayView, { snapshot, error: null, now }));
+
+  const masterHtml = render(displayFixture('master', now));
+  assert.match(masterHtml, /class="display-turn"/);
+  assert.match(masterHtml, /NEXT REQUEST/);
+  assert.match(masterHtml, /in 06:12/);
+
+  const duePausedHtml = render(displayFixture('due_paused', now));
+  assert.match(duePausedHtml, /class="display-turn"/);
+  assert.match(duePausedHtml, /Turn due/);
+  assert.match(duePausedHtml, /Waiting for organizer to resume/);
+
+  const reqSnap = displayFixture('request', now);
+  reqSnap.requests[0] = { ...reqSnap.requests[0]!, requester: 'alice' };
+  const reqHtml = render(reqSnap);
+  assert.doesNotMatch(reqHtml, /class="display-turn"/);
+  assert.doesNotMatch(reqHtml, /NEXT REQUEST/);
+  assert.match(reqHtml, /class="display-requester"/);
+  assert.match(reqHtml, /Requested by alice/);
+
+  const reqOnlySnap = displayFixture('master', now);
+  reqOnlySnap.schedule = { ...reqOnlySnap.schedule, mode: 'requests', requestsIdle: true };
+  reqOnlySnap.nowPlaying = null;
+  const reqOnlyHtml = render(reqOnlySnap);
+  assert.doesNotMatch(reqOnlyHtml, /class="display-turn"/);
+});
