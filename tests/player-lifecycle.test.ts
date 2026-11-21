@@ -260,3 +260,33 @@ test('an ordinary song fades its due tail without ending early, and recovers if 
   await until(() => x.audio.volume === .8);
   assert.equal(x.audio.paused, false);
 });
+
+test('waits for canplay before calling audio.play and cancels cleanly if paused while buffering', async (t) => {
+  const x = await setup(t);
+  x.audio.readyState = 1;
+  await x.start();
+  await until(() => x.audio.loads > 0);
+  await delay(20);
+  assert.equal(x.audio.plays, 0, 'must not play before readyState >= 3 / canplay');
+
+  x.audio.readyState = 3;
+  x.audio.dispatchEvent(new Event('canplay'));
+  await until(() => x.player.state.status === 'playing' && !x.audio.paused);
+  assert.equal(x.audio.plays, 1);
+
+  // Next track starts with readyState = 1; pausing before canplay cancels playback start.
+  const request = await x.h.ok(x.h.alice, 'request.submit', { url: URLS.r1 });
+  await x.h.svc.reconcile();
+  x.audio.readyState = 1;
+  const loadsBefore = x.audio.loads;
+  await x.h.ok(x.h.admin, 'request.playNow', { entryId: request.entryId });
+  await until(() => x.audio.loads > loadsBefore);
+  const playsBeforePause = x.audio.plays;
+  await x.h.ok(x.h.admin, 'playback.pause', {});
+  await until(() => x.h.snap().playback.confirmation === 'confirmed');
+  x.audio.readyState = 3;
+  x.audio.dispatchEvent(new Event('canplay'));
+  await delay(20);
+  assert.equal(x.audio.paused, true);
+  assert.equal(x.audio.plays, playsBeforePause);
+});

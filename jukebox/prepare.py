@@ -7,7 +7,34 @@ from pathlib import Path
 from .media import (
     FIXTURES, MAX_ASSET_BYTES, duration_ok, format_for, probe,
     source_provider, validate_identity, validate_selection, validate_source,
+    verify_audio,
 )
+
+
+def _check_complete_download(directory, raw, info, transfers):
+    if len(transfers) != 1:
+        raise ValueError('Incomplete audio download: transfer did not finish')
+    if any(p.name.endswith(('.part', '.ytdl')) or '.part-Frag' in p.name for p in directory.iterdir()):
+        raise ValueError('Incomplete audio download: partial files remain')
+    if not raw.is_file():
+        raise ValueError('Incomplete audio download: output file missing')
+    raw_size = raw.stat().st_size
+    if raw_size <= 0:
+        raise ValueError('Incomplete audio download: empty file')
+    transfer = transfers[0]
+    dl_bytes = transfer.get('downloadedBytes')
+    total_bytes = transfer.get('totalBytes')
+    if isinstance(dl_bytes, int) and not isinstance(dl_bytes, bool) and dl_bytes != raw_size:
+        raise ValueError(f'Incomplete audio download: file size ({raw_size}) differs from transferred bytes ({dl_bytes})')
+    if (isinstance(total_bytes, int) and not isinstance(total_bytes, bool)
+            and isinstance(dl_bytes, int) and not isinstance(dl_bytes, bool)
+            and dl_bytes != total_bytes):
+        raise ValueError(f'Incomplete audio download: transferred {dl_bytes} of {total_bytes} bytes')
+    filesize = info.get('filesize')
+    if (info.get('protocol') in ('http', 'https')
+            and isinstance(filesize, int) and not isinstance(filesize, bool)
+            and filesize > 0 and raw_size != filesize):
+        raise ValueError(f'Incomplete audio download: file size ({raw_size}) differs from expected bytes ({filesize})')
 
 
 def prepare(source, kind, directory):
@@ -39,7 +66,8 @@ def prepare(source, kind, directory):
                                   'downloadedBytes': event.get('downloaded_bytes'),
                                   'totalBytes': event.get('total_bytes'), 'status': 'finished'})
         options = {'progress_hooks': [audit], 'format': format_for(provider), 'noplaylist': True, 'socket_timeout': 15,
-                   'retries': 1, 'fragment_retries': 1, 'extractor_retries': 1,
+                   'retries': 3, 'fragment_retries': 3, 'extractor_retries': 2,
+                   'skip_unavailable_fragments': False,
                    'max_filesize': MAX_ASSET_BYTES, 'concurrent_fragment_downloads': 1,
                    'js_runtimes': {'bun': {}}, 'remote_components': [],
                    'outtmpl': str(directory / 'input.%(ext)s'), 'quiet': True,
@@ -53,6 +81,7 @@ def prepare(source, kind, directory):
             (directory / 'selection.json').write_text(json.dumps(selection))
             ydl.process_info(info)  # use exactly the validated selection
             raw = Path(ydl.prepare_filename(info))
+        _check_complete_download(directory, raw, info, transfers)
     before = probe(raw, kind)  # reject video before any remux; never strip it as a workaround
     codec = before['codec']
     containers = {'opus': ('webm', 'audio/webm'), 'vorbis': ('webm', 'audio/webm'),
@@ -62,15 +91,29 @@ def prepare(source, kind, directory):
         raise ValueError('Codec not supported; no transcode fallback')
     ext, mime = containers[codec]
     output = directory / ('asset.' + ext)
-    args = ['ffmpeg', '-nostdin', '-v', 'error', '-protocol_whitelist', 'file,crypto,data',
+    args = ['ffmpeg', '-nostdin', '-v', 'error', '-xerror', '-err_detect', 'explode',
+            '-protocol_whitelist', 'file,crypto,data',
             '-i', str(raw), '-map', '0:a:0', '-vn', '-c:a', 'copy']
     if ext == 'm4a':
+        raw_formats = {f.strip() for f in str(before.get('format') or '').split(',') if f.strip()}
+        if raw_formats & {'mpegts', 'aac'}:
+            args += ['-bsf:a', 'aac_adtstoasc']
         args += ['-movflags', '+faststart']
-    subprocess.run(args + [str(output)], check=True, timeout=40)
+    remux = subprocess.run(args + [str(output)], capture_output=True, text=True, timeout=60)
+    remux_err = remux.stderr.strip()
+    if remux.returncode != 0 or remux_err:
+        detail = remux_err[-400:] if remux_err else f'exit code {remux.returncode}'
+        raise ValueError(f'Corrupt or incomplete audio input during remux: {detail}')
     final = probe(output, kind)
+    decoded = verify_audio(
+        output, kind,
+        container_duration=final['duration'],
+        expected_duration=selection.get('duration') if selection else None,
+    )
     raw.unlink()
     receipt = {**final, 'source': source, 'kind': kind, 'file': output.name,
                'bytes': output.stat().st_size, 'mime': mime, 'selection': selection,
+               'decodedSeconds': round(decoded, 3),
                'preparationSeconds': round(time.monotonic() - start, 3), 'transcoded': False, 'mediaTransfers': transfers}
     (directory / 'receipt.json').write_text(json.dumps(receipt))
     return receipt

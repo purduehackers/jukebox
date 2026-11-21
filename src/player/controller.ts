@@ -294,6 +294,25 @@ export class PlayerController {
     return this.bounded(event).finally(cleanup);
   }
 
+  private waitForCanPlay() {
+    if (this.audio.readyState >= 3) return Promise.resolve();
+    let cleanup = () => {};
+    const event = new Promise<void>((resolve, reject) => {
+      const ok = () => resolve();
+      const bad = () => reject(new Error(`Audio error ${this.audio.error?.code}: ${this.audio.error?.message || 'load failed'}`));
+      cleanup = () => {
+        this.audio.removeEventListener('canplay', ok);
+        this.audio.removeEventListener('canplaythrough', ok);
+        this.audio.removeEventListener('error', bad);
+      };
+      this.audio.addEventListener('canplay', ok, { once: true });
+      this.audio.addEventListener('canplaythrough', ok, { once: true });
+      this.audio.addEventListener('error', bad, { once: true });
+      if (this.audio.readyState >= 3) resolve();
+    });
+    return this.bounded(event).finally(cleanup);
+  }
+
   private updateSongTailVolume() {
     if (this.busy || !this.applied || this.applied.kind !== 'master' || this.desired?.loadId !== this.applied.loadId) return;
     const duration = this.audio.duration, remaining = duration - position(this.audio);
@@ -350,6 +369,9 @@ export class PlayerController {
         this.terminalSent = false;
         this.update({ loadId: desired.loadId, status: 'loading' });
         await this.mediaEvent('loadedmetadata', () => { this.audio.src = desired.asset.url; this.audio.load(); });
+        if (!Number.isFinite(this.audio.duration) || this.audio.duration <= 0) {
+          throw new Error('Audio metadata reported invalid duration');
+        }
       }
       if (seek) {
         this.terminalSent = false;
@@ -377,6 +399,7 @@ export class PlayerController {
           await this.volume.silenceSince(boundary.silentAt, operation);
           this.reportDuringTransition = false;
         }
+        await this.waitForCanPlay();
         if (!this.live() || operation.aborted) return;
         this.volume.setFactor(boundary?.direction === 'master' ? 0 : 1);
         // Always try native playback. A suspended analyser must not invent an

@@ -25,6 +25,17 @@ class Conflict(ValueError):
     pass
 
 
+def _tree_bytes(base):
+    total = 0
+    for p in base.rglob('*'):
+        try:
+            if p.is_file():
+                total += p.stat().st_size
+        except FileNotFoundError:
+            pass
+    return total
+
+
 class Store:
     def __init__(self, root, *, job_seconds=240, max_bytes=512*1024*1024, ttl=3600):
         self.root = Path(root).resolve()
@@ -201,7 +212,7 @@ class Store:
             return self.disk_bytes()
 
     def disk_bytes(self):
-        return sum(p.stat().st_size for base in (self.assets, self.work) for p in base.rglob('*') if p.is_file())
+        return _tree_bytes(self.assets) + _tree_bytes(self.work)
 
     def submit(self, source, kind):
         source = validate_source(source)
@@ -233,11 +244,22 @@ class Store:
                     raise ValueError('Cache full with pinned assets; no preparation started')
                 self.run_job([sys.executable, '-m', 'jukebox.prepare', source, kind, str(directory)], directory)
                 receipt = json.loads((directory / 'receipt.json').read_text())
-                if receipt['bytes'] > MAX_ASSET_BYTES:
+                if any(p.name.endswith(('.part', '.ytdl')) or '.part-Frag' in p.name for p in directory.iterdir()):
+                    raise ValueError('Incomplete audio download: partial files remain')
+                asset_name = receipt.get('file')
+                asset_bytes = receipt.get('bytes')
+                if not isinstance(asset_name, str) or '/' in asset_name or '\\' in asset_name or asset_name in ('', '.', '..'):
+                    raise ValueError('Invalid prepared asset file reference')
+                asset_path = directory / asset_name
+                if (not asset_path.is_file()
+                        or not isinstance(asset_bytes, int) or isinstance(asset_bytes, bool)
+                        or asset_bytes <= 0 or asset_path.stat().st_size != asset_bytes):
+                    raise ValueError('Prepared audio file missing or size mismatch')
+                if asset_bytes > MAX_ASSET_BYTES:
                     raise ValueError('Asset byte limit exceeded')
                 # Keep only playable bytes and safe audit receipt; no raw logs or upstream URLs.
                 for p in directory.iterdir():
-                    if p.name not in (receipt['file'], 'receipt.json'):
+                    if p.name not in (asset_name, 'receipt.json'):
                         p.unlink()
                 with self.lock:
                     directory.rename(self.assets / item)
@@ -261,10 +283,14 @@ class Store:
             deadline = time.monotonic() + self.job_seconds
             try:
                 while proc.poll() is None:
-                    size = sum(p.stat().st_size for p in directory.rglob('*') if p.is_file())
+                    size = _tree_bytes(directory)
+                    try:
+                        log_size = log.stat().st_size
+                    except FileNotFoundError:
+                        log_size = 0
                     if self.stop.is_set() or time.monotonic() >= deadline:
                         raise ValueError('Preparation stopped or timed out (bounded job deadline)')
-                    if size > MAX_ASSET_BYTES or log.stat().st_size > 1024*1024:
+                    if size > MAX_ASSET_BYTES or log_size > 1024*1024:
                         raise ValueError('Preparation byte/log limit exceeded')
                     time.sleep(.1)
                 if proc.returncode:

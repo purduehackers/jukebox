@@ -184,3 +184,41 @@ test('short simulated period via policy override (production policy unchanged)',
   await p.sync('ended', 180);
   assert.equal(h.snap().schedule.phase, 'master');
 });
+
+test('preparing requests and invalid ready jobs never play; invalid jobs retry then fail and refund', async () => {
+  const h = harness();
+  const p = await h.startNight([URLS.mix]);
+  h.media.autoReady = false;
+  const sub = await submit(h, h.alice, URLS.r1);
+  assert.ok(sub.ok);
+  const entryId = sub.result.entryId;
+  assert.equal(h.snap(h.alice).requests.find((r) => r.id === entryId)?.status, 'preparing');
+
+  // Due turn and playNow must not start a request that is still preparing.
+  await h.advance(15 * MIN, p);
+  assert.equal(h.snap().schedule.phase, 'master');
+  assert.equal(h.snap().nowPlaying?.title, 'Hour Mix');
+  await h.fails('NOT_READY', h.admin, 'request.playNow', { entryId });
+
+  // Inject an invalid zero-byte ready job response; first attempt retries, second fails & refunds.
+  const firstJobId = [...h.media.jobs.keys()][1]!;
+  h.media.jobs.get(firstJobId)!.state = {
+    status: 'ready',
+    asset: { assetId: '00000000-0000-4000-8000-000000000002', url: '/media/x', mime: 'audio/webm', codec: 'opus', durationSec: 180, byteLength: 0 },
+  };
+  await h.svc.reconcile();
+  assert.equal(h.snap(h.alice).requests.find((r) => r.id === entryId)?.status, 'preparing');
+  assert.equal(h.snap().schedule.phase, 'master');
+
+  await h.svc.reconcile();
+  const secondJobId = [...h.media.jobs.keys()][2]!;
+  h.media.jobs.get(secondJobId)!.state = {
+    status: 'ready',
+    asset: { assetId: '00000000-0000-4000-8000-000000000003', url: '/media/y', mime: 'audio/webm', codec: 'opus', durationSec: 180, byteLength: 0 },
+  };
+  await h.svc.reconcile();
+  const after = h.snap(h.alice);
+  assert.equal(after.requests.find((r) => r.id === entryId)?.status, 'failed');
+  assert.equal(after.quota?.used, 0);
+  assert.equal(h.snap().schedule.phase, 'master');
+});

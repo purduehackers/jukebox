@@ -1,4 +1,5 @@
 import copy
+import http.server
 import json
 from pathlib import Path
 import subprocess
@@ -12,6 +13,7 @@ import urllib.error
 import urllib.request
 import uuid
 from jukebox.media import validate_source, validate_selection, validate_identity, duration_ok, probe
+from jukebox.prepare import prepare
 from jukebox.server import byte_range, make_server
 from jukebox.store import Store, EMPTY, Conflict
 
@@ -290,6 +292,265 @@ class WorkerAPI(unittest.TestCase):
         child=unittest.mock.Mock(pid=123); child.communicate.side_effect=subprocess.TimeoutExpired('cmd',30); popen.return_value=child
         with self.assertRaises(ResolveUnavailable): resolve_source('https://youtu.be/BaW_jenozKc','master')
         child.communicate.assert_has_calls([unittest.mock.call(timeout=30),unittest.mock.call()]); killpg.assert_called()
+
+
+class PrepareCompletenessTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp = tempfile.TemporaryDirectory()
+        d = Path(cls.temp.name)
+
+        def synth(name, duration, args):
+            out = d / name
+            subprocess.run(
+                ['ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi', '-i',
+                 f'sine=frequency=440:sample_rate=48000:duration={duration}', *args, str(out)],
+                check=True,
+            )
+            return out.read_bytes()
+
+        cls.full_webm = synth('full.webm', 12, ['-c:a', 'libopus', '-b:a', '64k'])
+        cls.full_m4a = synth('full.m4a', 12, ['-c:a', 'aac', '-b:a', '64k', '-movflags', 'frag_keyframe+empty_moov+default_base_moof'])
+        cls.full_ogg = synth('full.ogg', 12, ['-c:a', 'libopus', '-b:a', '64k'])
+        cls.full_mp3 = synth('full.mp3', 12, ['-c:a', 'libmp3lame', '-b:a', '128k'])
+        cls.gapped_ogg = cls.full_ogg[:len(cls.full_ogg) // 3] + cls.full_ogg[2 * len(cls.full_ogg) // 3:]
+        cls.corrupt_mp3 = cls.full_mp3[:len(cls.full_mp3) // 3] + (b'\x00' * 128) + cls.full_mp3[len(cls.full_mp3) // 2:]
+
+        cls.hls_ts = [
+            synth(f'seg{i}.ts', 3, ['-c:a', 'aac', '-b:a', '64k', '-f', 'mpegts'])
+            for i in range(4)
+        ]
+        cls.hls_mp3 = [
+            synth(f'seg{i}.mp3', 3, ['-c:a', 'libmp3lame', '-b:a', '128k', '-write_id3v1', '0', '-id3v2_version', '0', '-write_xing', '0'])
+            for i in range(4)
+        ]
+
+        routes = {
+            '/full.webm': ('audio/webm', cls.full_webm, True),
+            '/trunc_nocl.webm': ('audio/webm', cls.full_webm[:len(cls.full_webm) // 3], False),
+            '/full.m4a': ('audio/mp4', cls.full_m4a, True),
+            '/trunc_nocl.m4a': ('audio/mp4', cls.full_m4a[:len(cls.full_m4a) // 3], False),
+            '/gapped.ogg': ('audio/ogg', cls.gapped_ogg, True),
+            '/corrupt.mp3': ('audio/mpeg', cls.corrupt_mp3, True),
+        }
+
+        def playlist(prefix, ext, count):
+            lines = ['#EXTM3U', '#EXT-X-VERSION:3', '#EXT-X-TARGETDURATION:3', '#EXT-X-MEDIA-SEQUENCE:0']
+            for i in range(count):
+                lines += ['#EXTINF:3.0,', f'{prefix}/{i}.{ext}']
+            lines.append('#EXT-X-ENDLIST')
+            return ('\n'.join(lines) + '\n').encode()
+
+        hls_ts = cls.hls_ts
+        hls_mp3 = cls.hls_mp3
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            protocol_version = 'HTTP/1.1'
+
+            def log_message(self, *_):
+                pass
+
+            def do_GET(self):
+                if self.path in routes:
+                    mime, payload, send_cl = routes[self.path]
+                    self.send_response(200)
+                    self.send_header('Content-Type', mime)
+                    if send_cl:
+                        self.send_header('Content-Length', str(len(payload)))
+                    self.end_headers()
+                    self.wfile.write(payload)
+                    self.close_connection = True
+                    return
+                if self.path in ('/ts.m3u8', '/ts_fail.m3u8', '/mp3.m3u8'):
+                    prefix = '/ts_fail' if self.path == '/ts_fail.m3u8' else ('/ts' if self.path == '/ts.m3u8' else '/mp3')
+                    ext = 'mp3' if self.path == '/mp3.m3u8' else 'ts'
+                    body = playlist(prefix, ext, 4)
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/vnd.apple.mpegurl')
+                    self.send_header('Content-Length', str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
+                if self.path.startswith('/ts/'):
+                    idx = int(self.path.split('/')[-1].split('.')[0])
+                    data = hls_ts[idx]
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'video/mp2t')
+                    self.send_header('Content-Length', str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+                if self.path.startswith('/ts_fail/'):
+                    idx = int(self.path.split('/')[-1].split('.')[0])
+                    if idx == 2:
+                        self.send_response(503)
+                        self.send_header('Content-Length', '0')
+                        self.end_headers()
+                        return
+                    data = hls_ts[idx]
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'video/mp2t')
+                    self.send_header('Content-Length', str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+                if self.path.startswith('/mp3/'):
+                    idx = int(self.path.split('/')[-1].split('.')[0])
+                    data = hls_mp3[idx]
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'audio/mpeg')
+                    self.send_header('Content-Length', str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
+                self.send_response(404)
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+
+        cls.server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+        cls.base = f'http://127.0.0.1:{cls.server.server_port}'
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.thread.join()
+        cls.temp.cleanup()
+
+    def _run_prepare(self, source, info_dict):
+        import yt_dlp
+        with tempfile.TemporaryDirectory() as work:
+            with patch.object(yt_dlp.YoutubeDL, 'extract_info', lambda _self, _src, download=False: dict(info_dict)):
+                return prepare(source, 'request', work)
+
+    def _yt_info(self, path, ext, acodec, duration=12):
+        return {
+            '_type': 'video', 'id': 'BaW_jenozKc', 'title': 'Test YT',
+            'duration': duration, 'vcodec': 'none', 'acodec': acodec,
+            'protocol': 'http', 'ext': ext, 'format_id': '251' if ext == 'webm' else '140',
+            'url': self.base + path,
+        }
+
+    def _sc_info(self, path, ext, acodec, protocol, duration=12):
+        return {
+            '_type': 'video', 'id': '123456', 'title': 'Test SC',
+            'duration': duration, 'vcodec': 'none', 'acodec': acodec,
+            'protocol': protocol, 'ext': ext, 'format_id': f'{protocol}_{ext}',
+            'extractor_key': 'Soundcloud', 'webpage_url': 'https://soundcloud.com/dj/track',
+            'url': self.base + path,
+        }
+
+    def test_rejects_truncated_gapped_and_corrupt_downloads(self):
+        yt = 'https://www.youtube.com/watch?v=BaW_jenozKc'
+        sc = 'https://soundcloud.com/dj/track'
+        cases = [
+            ('trunc_nocl_webm', yt, self._yt_info('/trunc_nocl.webm', 'webm', 'opus')),
+            ('trunc_nocl_m4a', yt, self._yt_info('/trunc_nocl.m4a', 'm4a', 'aac')),
+            ('hls_missing_frag', sc, self._sc_info('/ts_fail.m3u8', 'm4a', 'aac', 'm3u8_native')),
+            ('gapped_ogg_opus', sc, self._sc_info('/gapped.ogg', 'opus', 'opus', 'http')),
+            ('corrupt_mp3', sc, self._sc_info('/corrupt.mp3', 'mp3', 'mp3', 'http')),
+        ]
+        for label, source, info in cases:
+            with self.subTest(case=label):
+                with self.assertRaises(Exception) as ctx:
+                    self._run_prepare(source, info)
+                msg = str(ctx.exception).lower()
+                # Incomplete/corrupt errors must stay retryable in Store.worker (never hit permanent keywords).
+                for term in ('duration', 'six minutes', 'audio-only', 'combined/video', 'asset rejected',
+                             'exactly one audio', 'unsupported source', 'invalid youtube', 'invalid soundcloud',
+                             'only canonical', 'kind must', 'completed individual', 'live recording', 'preview'):
+                    self.assertNotIn(term, msg)
+
+    def test_accepts_complete_http_and_hls_assets(self):
+        yt = 'https://www.youtube.com/watch?v=BaW_jenozKc'
+        sc = 'https://soundcloud.com/dj/track'
+        cases = [
+            ('complete_webm', yt, self._yt_info('/full.webm', 'webm', 'opus'), 'audio/webm', 'opus'),
+            ('complete_m4a_dash', yt, self._yt_info('/full.m4a', 'm4a', 'aac'), 'audio/mp4', 'aac'),
+            ('hls_mpegts_aac', sc, self._sc_info('/ts.m3u8', 'm4a', 'aac', 'm3u8_native'), 'audio/mp4', 'aac'),
+            ('hls_mp3_frames', sc, self._sc_info('/mp3.m3u8', 'mp3', 'mp3', 'm3u8_native'), 'audio/mpeg', 'mp3'),
+        ]
+        for label, source, info, mime, codec in cases:
+            with self.subTest(case=label):
+                receipt = self._run_prepare(source, info)
+                self.assertEqual(receipt['mime'], mime)
+                self.assertEqual(receipt['codec'], codec)
+                self.assertGreater(receipt['bytes'], 0)
+                self.assertGreaterEqual(receipt['decodedSeconds'], 11.5)
+
+    def test_store_rejects_partial_or_mismatched_publication_and_server_checks_size(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Store(tmp)
+            try:
+                # 1) Leftover .part file alongside receipt.json is rejected as retryable failure.
+                def fake_partial(_args, directory):
+                    (directory / 'asset.webm').write_bytes(b'abc')
+                    (directory / 'input.webm.part').write_bytes(b'part')
+                    (directory / 'receipt.json').write_text(json.dumps({'file': 'asset.webm', 'bytes': 3, 'duration': 4}))
+
+                with patch.object(store, 'run_job', side_effect=fake_partial):
+                    job = store.submit('fixture:request', 'request')
+                    deadline = time.monotonic() + 5
+                    while time.monotonic() < deadline:
+                        res = store.job(job['id'])
+                        if res['status'] == 'failed':
+                            break
+                        time.sleep(.05)
+                    self.assertEqual(res['status'], 'failed')
+                    self.assertTrue(res['retryable'])
+                    self.assertEqual(store.listing()['assets'], [])
+
+                # 2) Mismatched receipt byte size is rejected as retryable failure.
+                def fake_mismatch(_args, directory):
+                    (directory / 'asset.webm').write_bytes(b'abc')
+                    (directory / 'receipt.json').write_text(json.dumps({'file': 'asset.webm', 'bytes': 999, 'duration': 4}))
+
+                with patch.object(store, 'run_job', side_effect=fake_mismatch):
+                    job = store.submit('fixture:request', 'request')
+                    deadline = time.monotonic() + 5
+                    while time.monotonic() < deadline:
+                        res = store.job(job['id'])
+                        if res['status'] == 'failed':
+                            break
+                        time.sleep(.05)
+                    self.assertEqual(res['status'], 'failed')
+                    self.assertTrue(res['retryable'])
+                    self.assertEqual(store.listing()['assets'], [])
+
+                # 3) Server verifies on-disk size matches receipt and sets private cache header.
+                ok_job = store.submit('fixture:request', 'request')
+                deadline = time.monotonic() + 20
+                while time.monotonic() < deadline:
+                    ok_res = store.job(ok_job['id'])
+                    if ok_res['status'] == 'ready':
+                        break
+                    time.sleep(.05)
+                self.assertEqual(ok_res['status'], 'ready')
+                server = make_server(store, 0)
+                thread = threading.Thread(target=server.serve_forever, daemon=True)
+                thread.start()
+                base = f'http://127.0.0.1:{server.server_port}'
+                try:
+                    with urllib.request.urlopen(base + ok_res['asset']['url']) as r:
+                        self.assertEqual(r.status, 200)
+                        self.assertEqual(r.headers.get('Cache-Control'), 'private, max-age=3600')
+                        data = r.read()
+                    self.assertEqual(len(data), ok_res['asset']['bytes'])
+                    # Truncate the on-disk asset to simulate corruption on disk.
+                    asset_file = store.assets / ok_job['id'] / 'asset.webm'
+                    asset_file.write_bytes(data[:10])
+                    with self.assertRaises(urllib.error.HTTPError) as cm:
+                        urllib.request.urlopen(base + ok_res['asset']['url'])
+                    self.assertEqual(cm.exception.code, 404)
+                    cm.exception.close()
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    thread.join()
+            finally:
+                store.close()
 
 
 if __name__ == '__main__': unittest.main()

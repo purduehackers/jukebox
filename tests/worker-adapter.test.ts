@@ -122,3 +122,27 @@ test('positive metadata cache preserves purpose and shares equivalent catalog se
     await a.search(track);await a.search({...track,title:'Song, Pt. 1',provider:'apple_music'});assert.equal(searches,1);
   } finally {await new Promise<void>(r=>w.server.close(()=>r()));}
 });
+
+test('job rejects ready responses with malformed, zero-byte, non-finite, or non-UUID assets as retryable failure', async () => {
+  const cases: Record<string, unknown> = {
+    zeroBytes: { status: 'ready', asset: { id, url: '/media/' + id, mime: 'audio/webm', codec: 'opus', duration: 4, bytes: 0 } },
+    negativeDuration: { status: 'ready', asset: { id, url: '/media/' + id, mime: 'audio/webm', codec: 'opus', duration: -1, bytes: 20 } },
+    nullDuration: { status: 'ready', asset: { id, url: '/media/' + id, mime: 'audio/webm', codec: 'opus', duration: null, bytes: 20 } },
+    badId: { status: 'ready', asset: { id: 'not-a-uuid', url: '/media/bad', mime: 'audio/webm', codec: 'opus', duration: 4, bytes: 20 } },
+    badMime: { status: 'ready', asset: { id, url: '/media/' + id, mime: 'video/mp4', codec: 'h264', duration: 4, bytes: 20 } },
+    missingAsset: { status: 'ready', asset: null },
+  };
+  const w = await worker((req, res) => {
+    const key = String(req.url).replace('/api/jobs/', '');
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(cases[key] ?? { status: 'preparing' }));
+  });
+  try {
+    const a = new WorkerAdapter({ baseUrl: w.base, requestTimeoutMs: 500 });
+    for (const key of Object.keys(cases)) {
+      const state = await a.job(key);
+      assert.equal(state.status, 'failed', key);
+      if (state.status === 'failed') assert.equal(state.retryable, true, key);
+    }
+  } finally { await new Promise<void>(r => w.server.close(() => r())); }
+});

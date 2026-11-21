@@ -152,7 +152,45 @@ def probe(path, kind):
     streams = data.get('streams', [])
     if len(streams) != 1 or streams[0].get('codec_type') != 'audio':
         raise ValueError('Asset rejected: exactly one audio stream and zero video/other streams required')
-    duration = float(data['format']['duration'])
+    fmt = data.get('format') or {}
+    duration = float(fmt['duration'])
     duration_ok(duration, kind)
     return {'duration': duration, 'codec': streams[0]['codec_name'],
+            'format': str(fmt.get('format_name') or ''),
             'streams': [{'type': s['codec_type'], 'codec': s['codec_name']} for s in streams]}
+
+
+def verify_audio(path, kind, *, container_duration, expected_duration=None):
+    """Decode the entire audio stream to ensure it is complete and uncorrupted."""
+    p = subprocess.run(
+        ['ffmpeg', '-nostdin', '-v', 'error', '-xerror', '-err_detect', 'explode',
+         '-protocol_whitelist', 'file,crypto,data', '-i', str(path), '-map', '0:a:0',
+         '-progress', 'pipe:1', '-f', 'null', '-'],
+        capture_output=True, text=True, timeout=120,
+    )
+    err = p.stderr.strip()
+    if p.returncode != 0 or err:
+        detail = err[-400:] if err else f'exit code {p.returncode}'
+        raise ValueError(f'Corrupt or incomplete audio stream: {detail}')
+    out_time_us = None
+    for line in p.stdout.splitlines():
+        if line.startswith('out_time_us='):
+            val = line.split('=', 1)[1].strip()
+            if val.isdigit():
+                out_time_us = int(val)
+    if out_time_us is None:
+        raise ValueError('Incomplete audio stream: decoded output length missing')
+    decoded = out_time_us / 1_000_000.0
+    if not math.isfinite(decoded) or decoded <= 0 or decoded > MAX_DURATION:
+        raise ValueError('Incomplete audio stream: decoded length is out of bounds')
+    if abs(container_duration - decoded) > max(2.0, container_duration * 0.02):
+        raise ValueError(
+            f'Incomplete audio stream: decoded length ({decoded:.2f}s) disagrees with container ({container_duration:.2f}s)'
+        )
+    if isinstance(expected_duration, (int, float)) and math.isfinite(expected_duration) and expected_duration > 0:
+        min_expected = expected_duration - max(3.0, min(15.0, expected_duration * 0.05))
+        if decoded < min_expected:
+            raise ValueError(
+                f'Incomplete audio stream: decoded length ({decoded:.2f}s) is shorter than expected ({expected_duration:.2f}s)'
+            )
+    return decoded

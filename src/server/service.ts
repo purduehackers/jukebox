@@ -456,7 +456,7 @@ export class JukeboxService {
   private nextReadyRequest(): RequestRow | undefined {
     const night = this.openNight();
     if (!night) return undefined;
-    return this.db.prepare("select * from requests where night_id = ? and status = 'ready' order by order_key limit 1")
+    return this.db.prepare("select * from requests where night_id = ? and status = 'ready' and asset is not null order by order_key limit 1")
       .get(night.id) as unknown as RequestRow | undefined;
   }
 
@@ -513,6 +513,9 @@ export class JukeboxService {
   }
 
   private startRequest(tx: Tx, request: RequestRow, suspend: Suspended | null) {
+    if (request.status !== 'ready' || !request.asset) {
+      throw new CommandError('NOT_READY', 'That request is still loading');
+    }
     tx.pb.phase = 'request';
     tx.pb.current_id = request.id;
     tx.pb.suspended = suspend ? JSON.stringify(suspend) : null;
@@ -914,7 +917,7 @@ export class JukeboxService {
     if (!row || row.night_id !== this.openNight()!.id || !['preparing', 'ready'].includes(row.status)) {
       throw new CommandError('NOT_FOUND', 'That request is no longer waiting');
     }
-    if (row.status !== 'ready') throw new CommandError('NOT_READY', 'That request is still loading');
+    if (row.status !== 'ready' || !row.asset) throw new CommandError('NOT_READY', 'That request is still loading');
     if (tx.pb.phase === 'request' && tx.pb.current_id !== null) {
       throw new CommandError('GUARD_MISMATCH', 'A request is already playing; move this one to the top of the queue instead');
     }
@@ -1273,8 +1276,21 @@ export class JukeboxService {
       if (state.status === 'ready') {
         // The prepared asset's validated duration is authoritative over metadata.
         const duration = state.asset.durationSec;
+        if (!Number.isFinite(duration) || duration <= 0 || !Number.isInteger(state.asset.byteLength) || state.asset.byteLength <= 0) {
+          if (current.prep_attempts < this.policy.preparationAttempts) {
+            this.db.prepare(`update ${table} set job_id = null where id = ?`).run(row.id);
+            this.emit(tx, 'media.retrying', { entryId: row.id });
+          } else {
+            this.preparationFailed(tx, table, row.id, 'Prepared audio asset is incomplete or invalid');
+          }
+          return;
+        }
         if (table === 'requests' && duration >= this.policy.requestMaxSec) {
           this.preparationFailed(tx, table, row.id, 'Prepared recording is six minutes or longer');
+          return;
+        }
+        if (table === 'master_items' && duration > this.policy.masterMaxSec) {
+          this.preparationFailed(tx, table, row.id, 'Prepared master recording exceeds four hours');
           return;
         }
         this.db.prepare(`update ${table} set status = 'ready', asset = ?, duration_sec = ?, error = null where id = ?`)

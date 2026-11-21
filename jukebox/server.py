@@ -191,6 +191,8 @@ def make_server(store, port=8971):
                 f = (store.assets / item / asset['file']).open('rb')
             with f:
                 size = asset['bytes']
+                if not isinstance(size, int) or isinstance(size, bool) or size <= 0 or os.fstat(f.fileno()).st_size != size:
+                    raise ValueError('Asset size mismatch')
                 etag = '"' + item + '"'
                 header = self.headers.get('Range')
                 if self.headers.get('If-Range') not in (None,etag):
@@ -207,7 +209,7 @@ def make_server(store, port=8971):
                 self.send_header('Content-Type', asset['mime'])
                 self.send_header('Accept-Ranges', 'bytes')
                 self.send_header('ETag', etag)
-                self.send_header('Cache-Control', 'private, max-age=0, must-revalidate')
+                self.send_header('Cache-Control', 'private, max-age=3600')
                 self.send_header('X-Content-Type-Options', 'nosniff')
                 self.send_header('Content-Length', str(end-start+1))
                 if partial:

@@ -115,8 +115,18 @@ export class WorkerAdapter implements SourcePort, MediaPort, CandidateSearchPort
       }
       if (body.status === 'queued' || body.status === 'preparing') return { status: 'preparing' };
       if (body.status === 'failed') return { status: 'failed', error: body.error ?? 'Media preparation failed', retryable: body.retryable === true };
-      if (body.status === 'ready' && body.asset) {
+      if (body.status === 'ready') {
         const a = body.asset;
+        if (
+          !a ||
+          typeof a.id !== 'string' || !UUID.test(a.id) ||
+          typeof a.mime !== 'string' || !a.mime.startsWith('audio/') ||
+          typeof a.codec !== 'string' || a.codec.length === 0 ||
+          typeof a.duration !== 'number' || !Number.isFinite(a.duration) || a.duration <= 0 ||
+          typeof a.bytes !== 'number' || !Number.isInteger(a.bytes) || a.bytes <= 0
+        ) {
+          return { status: 'failed', error: 'Worker returned an incomplete or invalid asset descriptor', retryable: true };
+        }
         // Same-origin path served by proxyMedia: Web Audio analysis needs same-origin media in Firefox.
         const asset: AssetDescriptor = { assetId: a.id, url: `/media/${a.id}`, mime: a.mime, codec: a.codec, durationSec: a.duration, byteLength: a.bytes };
         return { status: 'ready', asset };

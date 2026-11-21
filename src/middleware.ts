@@ -22,6 +22,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     captureError(error, { source: 'page', route: path, method: context.request.method });
     throw error;
   });
-  if (!path.startsWith('/_astro/')) response.headers.set('cache-control', 'no-store');
+  if (!path.startsWith('/_astro/') && !(path.startsWith('/media/') && response.headers.has('cache-control'))) {
+    response.headers.set('cache-control', 'no-store');
+  }
   return response;
 });

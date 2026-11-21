@@ -28,7 +28,7 @@ test('real Python worker fixture resolve → prepare → job → retain → prox
     await adapter.retain(1,[state.asset.assetId]);
     const proxy=createServer(bridge(req=>proxyMedia(base,state.asset.assetId,req)));await new Promise<void>(r=>proxy.listen(0,'127.0.0.1',r));
     const address=proxy.address();if(!address||typeof address==='string')throw Error('bad proxy address');
-    try {const head=await fetch(`http://127.0.0.1:${address.port}/media/${state.asset.assetId}`,{method:'HEAD'});assert.equal(head.status,200);assert.equal(head.headers.get('content-type'),'audio/webm');}
+    try {const head=await fetch(`http://127.0.0.1:${address.port}/media/${state.asset.assetId}`,{method:'HEAD'});assert.equal(head.status,200);assert.equal(head.headers.get('content-type'),'audio/webm');assert.equal(head.headers.get('cache-control'),'private, max-age=3600');}
     finally {proxy.close();}
   } finally {
     child.kill('SIGTERM');await new Promise<void>(resolve=>{if(child.exitCode!==null)resolve();else child.once('exit',()=>resolve());setTimeout(()=>{child.kill('SIGKILL');resolve();},1500);});
