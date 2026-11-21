@@ -14,6 +14,7 @@ import type {
   QueueMode,
   RequestEntryView,
   Snapshot,
+  VisualizerMode,
 } from '../contract/types.ts';
 import { Badge } from '../components/ph/badge.tsx';
 import { Button } from '../components/ph/button.tsx';
@@ -59,6 +60,8 @@ export interface Actions {
   setTimerPaused?(paused: boolean): Done;
   setInterval(periodMs: number | null): Done;
   setQuota(enabled: boolean): Done;
+  setVisualizerMode(mode: VisualizerMode): Done;
+  setVisualizerPreset(preset: string | null, next?: boolean): Done;
   playNow(entryId: string, title: string): Done;
   removeRequest(entryId: string, title: string): Done;
   moveRequest(entryId: string, afterEntryId: string | null, title: string): Done;
@@ -654,6 +657,80 @@ export function TurnPanel({ snapshot, serverNow }: { snapshot: Snapshot; serverN
   return (
     <div className="adm-turn" id="adm-turn" data-kind={turn.kind}>
       <strong data-testid="turn-headline">{turn.headline}</strong>
+    </div>
+  );
+}
+
+// display visualizer
+
+const VISUALIZER_MODES: { mode: VisualizerMode; label: string }[] = [
+  { mode: 'soundbar', label: 'Soundbar' },
+  { mode: 'milkdrop', label: 'MilkDrop' },
+];
+
+export function VisualizerControls({
+  snapshot,
+  intents = [],
+  presetNames = [],
+  onPresetChange,
+}: {
+  snapshot: Snapshot;
+  intents?: readonly Intent[];
+  presetNames?: readonly string[];
+  onPresetChange?: (preset: string | null) => void;
+}) {
+  const pendingMode = optimisticIntent(snapshot, intents, ['visualizer.mode'])?.payload as
+    | { mode: VisualizerMode }
+    | undefined;
+  const pendingPreset = optimisticIntent(snapshot, intents, ['visualizer.preset'])?.payload as
+    | { preset: string | null }
+    | undefined;
+  const mode = pendingMode?.mode ?? snapshot.visualizer?.mode ?? 'soundbar';
+  const selectedPreset = pendingPreset ? pendingPreset.preset : (snapshot.visualizer?.preset ?? null);
+  const hasSelectedOption = selectedPreset !== null && !presetNames.includes(selectedPreset);
+
+  return (
+    <div className="adm-visualizer" id="adm-visualizer">
+      <div className="adm-visualizer-row">
+        <span className="ph-subheadline adm-visualizer-label">Visualizer</span>
+        <div className="adm-seg" role="radiogroup" aria-label="Display visualizer">
+          {VISUALIZER_MODES.map((item) => (
+            <Button
+              key={item.mode}
+              variant="outline"
+              className={`adm-seg-btn${mode === item.mode ? ' adm-selected' : ''}`}
+              role="radio"
+              aria-checked={mode === item.mode}
+              data-adm-visualizer={item.mode}
+            >
+              {item.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+      {mode === 'milkdrop' && (
+        <div className="adm-visualizer-presets">
+          <select
+            id="adm-milkdrop-preset"
+            className="adm-select"
+            aria-label="MilkDrop preset"
+            data-adm-visualizer-preset="true"
+            value={selectedPreset ?? ''}
+            onChange={(event) => onPresetChange?.(event.target.value || null)}
+          >
+            <option value="">Auto-cycle presets</option>
+            {hasSelectedOption && <option value={selectedPreset}>{selectedPreset}</option>}
+            {presetNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <Button variant="outline" data-adm-visualizer-next="true">
+            Next preset
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

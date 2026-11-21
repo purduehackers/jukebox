@@ -45,7 +45,18 @@ export default defineConfig({
     // Astro 7 only pre-bundles the renderer's client entrypoint; the renderer's
     // own optimizeDeps.include (react-dom/client) is not applied, so the island's
     // renderer-url chain serves raw CJS react-dom/client.js to the browser.
-    optimizeDeps: { include: ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', 'react/jsx-dev-runtime'] },
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'react-dom/client',
+        'react/jsx-runtime',
+        'react/jsx-dev-runtime',
+        'butterchurn',
+        'butterchurn-presets/dist/base.min.js',
+        'butterchurn-presets/dist/presetPackMeta.min.js',
+      ],
+    },
     // @purduehackers/time ships a nested React 18; keep a single React copy.
     resolve: { dedupe: ['react', 'react-dom'] },
     ssr: { external: ['bun:sqlite'] },

@@ -7,7 +7,7 @@ import { Database } from 'bun:sqlite';
 import type {
   Alert, ApiError, MasterStatus, PreviewResult, AssetDescriptor, CommandEnvelope, CommandPayloads, CommandResponse, CommandType, DesiredPlayback,
   ErrorCode, EventRecord, RequestStatus, Identity, MediaPurpose, ObservedPlayback, Phase, PlayerReport, Policy, ResolvedSource,
-  QueueMode, Role, Snapshot,
+  QueueMode, Role, Snapshot, VisualizerMode,
 } from '../contract/types.ts';
 import { CONTRACT_VERSION, POLICY } from '../contract/types.ts';
 import { COMMAND_ROLES, ValidationError, parseEnvelope } from '../contract/validate.ts';
@@ -70,7 +70,7 @@ interface PlaybackRow {
   start_position: number; seek_seq: number; seek_epoch: number; volume: number; desired_at: number; generation: number;
   lease_device: string | null; lease_expires: number; observed: string | null; acked_epoch: number | null;
   unconfirmed_noted: number; no_master: number; autostart: number; mode: QueueMode; period_ms: number | null; period_paused_at: number | null;
-  quota_enabled: number;
+  quota_enabled: number; visualizer_mode: VisualizerMode; visualizer_preset: string | null; visualizer_preset_nonce: number;
 }
 interface Suspended { itemId: string; positionSec: number; loadId: number }
 interface NightRow { id: string; status: 'open' | 'closed'; opened_at: number; closed_at: number | null }
@@ -374,6 +374,8 @@ export class JukeboxService {
       case 'queue.timer': return this.setTimerPaused(tx, p.paused as boolean);
       case 'queue.interval': return this.setInterval(tx, p.periodMs as number | null);
       case 'quota.set': return this.setQuota(tx, p.enabled as boolean);
+      case 'visualizer.mode': return this.setVisualizerMode(tx, p.mode as VisualizerMode);
+      case 'visualizer.preset': return this.setVisualizerPreset(tx, p.preset as string | null, p.next === true);
       case 'request.playNow': return this.playNow(tx, p.entryId as string);
       case 'playback.volume': {
         tx.pb.volume = p.volume as number;
@@ -883,6 +885,29 @@ export class JukeboxService {
     return !!row.quota_enabled;
   }
 
+  /** Absolute, idempotent visualizer mode toggle; never touches audio playback epoch. */
+  private setVisualizerMode(tx: Tx, mode: VisualizerMode) {
+    const previous = tx.pb.visualizer_mode;
+    if (previous === mode) return {};
+    tx.pb.visualizer_mode = mode;
+    this.emit(tx, 'visualizer.mode', { mode, previous });
+    return {};
+  }
+
+  /** Set or advance the MilkDrop preset; never touches audio playback epoch. */
+  private setVisualizerPreset(tx: Tx, preset: string | null, next: boolean) {
+    if (next) {
+      tx.pb.visualizer_preset_nonce++;
+      tx.pb.visualizer_preset = preset;
+      this.emit(tx, 'visualizer.preset', { preset, next: true, nonce: tx.pb.visualizer_preset_nonce });
+      return {};
+    }
+    if (tx.pb.visualizer_preset === preset) return {};
+    tx.pb.visualizer_preset = preset;
+    this.emit(tx, 'visualizer.preset', { preset, next: false });
+    return {};
+  }
+
   private playNow(tx: Tx, entryId: string) {
     if (!this.openNight()) throw new CommandError('NIGHT_CLOSED', 'No night session is open');
     const row = this.request(entryId);
@@ -1357,6 +1382,11 @@ export class JukeboxService {
       role,
       night,
       quotaEnabled: !!pb.quota_enabled,
+      visualizer: {
+        mode: pb.visualizer_mode,
+        preset: pb.visualizer_preset,
+        presetNonce: pb.visualizer_preset_nonce,
+      },
       openDisplays,
       schedule: {
         phase: pb.phase,

@@ -7,6 +7,7 @@ import type { LocalPlayback } from "./model.ts";
 import { displayModel, duration, safeArtwork } from "./model.ts";
 import { RequestQr } from "./RequestQr.tsx";
 import { Soundbar } from "../visual/Soundbar.tsx";
+import { Milkdrop } from "../visual/Milkdrop.tsx";
 import { displaySettings } from "../visual/display-preset.ts";
 import {
   displayFixture,
@@ -97,6 +98,12 @@ export function DisplayView({
     track?.kind !== "request" &&
     snapshot.schedule.mode !== "requests";
   const status = model.status.replaceAll("_", " ");
+  const visualizer = snapshot.visualizer ?? {
+    mode: "soundbar" as const,
+    preset: null,
+    presetNonce: 0,
+  };
+  const playing = local ? local.status === "playing" : model.playing;
   return (
     <main
       className="jukebox-display"
@@ -106,12 +113,23 @@ export function DisplayView({
       <div className="display-left">
         <section
           className="display-visualizer"
-          aria-label="Audio-reactive soundbar"
+          aria-label={
+            visualizer.mode === "milkdrop"
+              ? "MilkDrop visualizer"
+              : "Audio-reactive soundbar"
+          }
+          data-visualizer={visualizer.mode}
         >
-          <Soundbar
-            settings={displaySettings}
-            playing={local ? local.status === "playing" : model.playing}
-          />
+          {visualizer.mode === "milkdrop" ? (
+            <Milkdrop
+              playing={playing}
+              preset={visualizer.preset}
+              presetNonce={visualizer.presetNonce}
+              trackKey={track?.entryId ?? null}
+            />
+          ) : (
+            <Soundbar settings={displaySettings} playing={playing} />
+          )}
         </section>
         <NowPlayingBox>
           <Artwork url={track?.artworkUrl} />

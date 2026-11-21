@@ -2,10 +2,11 @@
 // command identity in intents.ts, markup in views.tsx. Rendered as an Astro React island
 // (client:load): the gate/loading states are server-rendered, the console hydrates in place.
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import type { QueueMode, Snapshot } from '../contract/types.ts';
+import type { QueueMode, Snapshot, VisualizerMode } from '../contract/types.ts';
 import { Button } from '../components/ph/button.tsx';
 import { Card } from '../components/ph/card.tsx';
 import { DitheredSoup } from '../shared/DitheredSoup.tsx';
+import { extractBasePresetKeys, nextPinnedPreset } from '../visual/milkdrop.ts';
 import {
   createAdminControls,
   createLiveAdmin,
@@ -29,6 +30,7 @@ import {
   RequestQueuePanel,
   MasterQueuePanel,
   TurnPanel,
+  VisualizerControls,
 } from './views.tsx';
 import type { Actions } from './views.tsx';
 import './admin.css';
@@ -61,6 +63,7 @@ export function AdminPage() {
   const [qcDraft, setQcDraft] = useState<string | null>(null);
   const [armedConfirm, setArmedConfirm] = useState<{ id: string; context: number | undefined } | null>(null);
   const [displayDelayed, setDisplayDelayed] = useState(false);
+  const [presetNames, setPresetNames] = useState<string[]>([]);
   const [localNow, setLocalNow] = useState(() => Date.now());
   const [announcement, setAnnouncement] = useState('');
   const banMenuRef = useRef<HTMLDivElement>(null);
@@ -136,6 +139,22 @@ export function AdminPage() {
         ),
       setQuota: (enabled) =>
         runner.run(enabled ? 'Enable request quota' : 'Disable request quota', 'quota.set', { enabled }),
+      setVisualizerMode: (mode) =>
+        runner.run(
+          `Visualizer: ${mode === 'milkdrop' ? 'MilkDrop' : 'Soundbar'}`,
+          'visualizer.mode',
+          { mode },
+        ),
+      setVisualizerPreset: (preset, next) =>
+        runner.run(
+          next
+            ? 'Next MilkDrop preset'
+            : preset
+              ? `MilkDrop preset: ${preset}`
+              : 'MilkDrop: Auto-cycle presets',
+          'visualizer.preset',
+          next ? { preset, next: true } : { preset },
+        ),
       playNow: (entryId, title) => runner.run(`Play “${title}” now`, 'request.playNow', { entryId }),
       removeRequest: (entryId, title) => runner.run(`Remove request “${title}”`, 'request.remove', { entryId }),
       moveRequest: (entryId, afterEntryId, title) => runner.run(`Move request “${title}”`, 'request.move', { entryId, afterEntryId }),
@@ -225,6 +244,27 @@ export function AdminPage() {
   useEffect(() => {
     if (currentMinutes !== null) setQcDraft(String(currentMinutes));
   }, [currentMinutes]);
+
+  const pendingVisualizerMode = snapshot
+    ? (optimisticIntent(snapshot, intents, ['visualizer.mode'])?.payload as { mode: VisualizerMode } | undefined)?.mode
+    : undefined;
+  const effectiveVisualizerMode = pendingVisualizerMode ?? snapshot?.visualizer?.mode ?? 'soundbar';
+  useEffect(() => {
+    if (effectiveVisualizerMode !== 'milkdrop' || presetNames.length > 0) return;
+    let cancelled = false;
+    void import('butterchurn-presets/dist/presetPackMeta.min.js')
+      .then((mod) => {
+        if (cancelled) return;
+        const names = extractBasePresetKeys(mod);
+        if (names.length > 0) setPresetNames(names);
+      })
+      .catch(() => {
+        // Admin still works with auto-cycle and Next preset if preset metadata fails to load.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [effectiveVisualizerMode, presetNames.length]);
 
   // Close the ban submenu on Escape or an outside pointer press.
   useEffect(() => {
@@ -409,6 +449,25 @@ export function AdminPage() {
       void actions.setQuota(!snapshot.quotaEnabled);
       return;
     }
+    const visBtn = target.closest<HTMLElement>('[data-adm-visualizer]');
+    if (visBtn?.dataset.admVisualizer) {
+      const next = visBtn.dataset.admVisualizer as VisualizerMode;
+      const pendingVis = optimisticIntent(snapshot, intents, ['visualizer.mode'])?.payload as
+        | { mode: VisualizerMode }
+        | undefined;
+      const curVis = pendingVis?.mode ?? snapshot.visualizer?.mode ?? 'soundbar';
+      if (next !== curVis) void actions.setVisualizerMode(next);
+      return;
+    }
+    if (target.closest('[data-adm-visualizer-next]')) {
+      const pendingPreset = optimisticIntent(snapshot, intents, ['visualizer.preset'])?.payload as
+        | { preset: string | null }
+        | undefined;
+      const currentPreset = pendingPreset ? pendingPreset.preset : (snapshot.visualizer?.preset ?? null);
+      const nextPreset = nextPinnedPreset(presetNames, currentPreset);
+      void actions.setVisualizerPreset(nextPreset, true);
+      return;
+    }
 
     const moveBtn = target.closest<HTMLElement>('[data-adm-move-queue]');
     if (moveBtn?.dataset.admMoveQueue && moveBtn.dataset.admMoveId && moveBtn.dataset.admMoveDir) {
@@ -545,6 +604,12 @@ export function AdminPage() {
           onVolumeCommit={actions.commitVolume}
         >
           <TurnPanel snapshot={snapshot} serverNow={serverNow} />
+          <VisualizerControls
+            snapshot={snapshot}
+            intents={intents}
+            presetNames={presetNames}
+            onPresetChange={(preset) => void actions.setVisualizerPreset(preset)}
+          />
         </NowPlayingPanel>
         <AddBar
           lastAdd={lastAdd}

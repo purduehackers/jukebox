@@ -139,6 +139,10 @@ export const MIGRATIONS: string[] = [
   `alter table playback add column period_paused_at integer;`,
   // Admin request-quota toggle (1 = enforced, the policy default; 0 = unlimited).
   `alter table playback add column quota_enabled integer not null default 1;`,
+  // Display visualizer mode (soundbar default, or milkdrop) and MilkDrop preset state.
+  `alter table playback add column visualizer_mode text not null default 'soundbar' check(visualizer_mode in ('soundbar','milkdrop'));
+   alter table playback add column visualizer_preset text;
+   alter table playback add column visualizer_preset_nonce integer not null default 0;`,
 ];
 
 export function openDatabase(path: string): Database {

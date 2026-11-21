@@ -142,6 +142,15 @@ export type Phase = 'master' | 'request';
  * `master` never takes request turns; `requests` plays only requests, back to back.
  */
 export type QueueMode = 'auto' | 'master' | 'requests';
+export type VisualizerMode = 'soundbar' | 'milkdrop';
+
+export interface VisualizerState {
+  mode: VisualizerMode;
+  /** Pinned MilkDrop preset name, or null for automatic cycling. */
+  preset: string | null;
+  /** Monotonic counter bumped on explicit "Next preset" commands. */
+  presetNonce: number;
+}
 export type ObservedStatus =
   | 'loading'
   | 'playing'
@@ -237,6 +246,8 @@ export interface Snapshot {
   quota?: { used: number; limit: number; remaining: number };
   /** Whether the per-person request quota is enforced; admins can disable it (`quota.set`). */
   quotaEnabled: boolean;
+  /** Active display visualizer configuration (`visualizer.mode`, `visualizer.preset`). */
+  visualizer: VisualizerState;
   /** Number of currently connected display players (SSE displays + live legacy lease). */
   openDisplays?: number;
   /** Player only: automatic displays during an open night; legacy players also require a lease. */
@@ -295,6 +306,10 @@ export interface CommandPayloads {
   'queue.timer': { paused: boolean };
   /** Absolute, idempotent toggle: when off, the per-person request quota is not enforced. */
   'quota.set': { enabled: boolean };
+  /** Absolute, idempotent display visualizer mode toggle. */
+  'visualizer.mode': { mode: VisualizerMode };
+  /** Pin a MilkDrop preset (or clear to null for auto-cycle), optionally bumping next nonce. */
+  'visualizer.preset': { preset: string | null; next?: boolean };
   /** Start this ready request now, suspending the current master item at its position. */
   'request.playNow': { entryId: string };
   // Admin: devices

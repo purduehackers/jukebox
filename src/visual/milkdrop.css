@@ -1,0 +1,25 @@
+.milkdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 360px;
+}
+
+.milkdrop canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.milkdrop [role="alert"] {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: #efb9ff;
+  padding: 16px;
+  margin: 0;
+}

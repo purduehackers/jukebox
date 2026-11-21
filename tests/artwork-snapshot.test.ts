@@ -52,7 +52,7 @@ test('pre-artwork database upgrades without losing existing queue/checkpoint sta
   await submit(h, h.alice, URLS.r1);
   const before = h.snap({ kind: 'public' });
   // Recreate the previous schema with real existing queue rows, then reopen.
-  h.svc.db.run('alter table playback drop column quota_enabled; alter table playback drop column period_paused_at; drop table banned_usernames; alter table master_items drop column artwork_url; alter table requests drop column artwork_url; alter table devices drop column automatic; alter table playback drop column autostart; alter table playback drop column mode; alter table playback drop column period_ms; pragma user_version = 1');
+  h.svc.db.run('alter table playback drop column visualizer_mode; alter table playback drop column visualizer_preset; alter table playback drop column visualizer_preset_nonce; alter table playback drop column quota_enabled; alter table playback drop column period_paused_at; drop table banned_usernames; alter table master_items drop column artwork_url; alter table requests drop column artwork_url; alter table devices drop column automatic; alter table playback drop column autostart; alter table playback drop column mode; alter table playback drop column period_ms; pragma user_version = 1');
   h.restart();
   const after = h.snap({ kind: 'public' });
   assert.deepEqual(after.nowPlaying, before.nowPlaying);

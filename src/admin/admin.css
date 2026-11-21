@@ -104,7 +104,14 @@
 .adm-root .adm-qc { display: flex; flex-direction: column; gap: 0.4rem; border-top: 1px solid var(--rule); padding-top: 0.75rem; }
 .adm-root .adm-qc-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem 1.25rem; }
 .adm-root .adm-seg { display: inline-flex; flex-wrap: wrap; }
-.adm-root .adm-seg > .adm-tip + .adm-tip { margin-left: -1px; }
+.adm-root .adm-seg > .adm-tip + .adm-tip,
+.adm-root .adm-seg > button + button { margin-left: -1px; }
+.adm-root .adm-visualizer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1.25rem; border-top: 1px solid var(--rule); padding-top: 0.75rem; }
+.adm-root .adm-visualizer-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+.adm-root .adm-visualizer-label { color: var(--muted-foreground); }
+.adm-root .adm-visualizer-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; flex: 1 1 16rem; min-width: 0; }
+.adm-root .adm-select { flex: 1 1 14rem; min-width: 0; max-width: 100%; min-height: 40px; padding: 0.45rem 0.65rem; border: 1px solid var(--border); background: var(--background); color: var(--foreground); font-family: var(--ph-font-mono); font-size: 0.875rem; border-radius: 0; }
+.adm-root .adm-select:focus-visible { outline: 1px solid var(--ring); outline-offset: 2px; }
 .adm-root .adm-interval-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
 .adm-root .adm-interval input { width: 5rem; flex: none; }
 

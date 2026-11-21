@@ -26,3 +26,8 @@
 
 .visual-controls select { width: 100%; padding: 9px 10px; color: #efb9ff; background: #171717; border: 1px solid #7e3cff; font: inherit; border-radius: 0; }
 .visual-controls .visual-blend-hint { margin: -2px 0 18px; }
+.visual-seg { display: grid; grid-template-columns: 1fr 1fr; margin: 0 0 22px; }
+.visual-seg button { font: inherit; color: #efb9ff; background: #171717; border: 1px solid #7e3cff; padding: 9px 10px; cursor: pointer; }
+.visual-seg button + button { margin-left: -1px; }
+.visual-seg button[aria-checked="true"] { background: #7e3cff; color: white; }
+.visual-active-preset { overflow-wrap: anywhere; }

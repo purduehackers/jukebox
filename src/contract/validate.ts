@@ -1,5 +1,5 @@
 // Runtime validation of untrusted command envelopes against the v1 contract.
-import type { CommandEnvelope, CommandType, ObservedStatus, Role } from './types.ts';
+import type { CommandEnvelope, CommandType, ObservedStatus, Role, VisualizerMode } from './types.ts';
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -15,6 +15,7 @@ const optional = (check: (v: unknown) => boolean) => (v: unknown) => v === undef
 /** API character bound for submitted links (real navigation/share URLs are long); the source layer enforces its own byte bound. */
 export const MAX_URL = 2048;
 const MODES = ['auto', 'master', 'requests'];
+const VISUALIZER_MODES: VisualizerMode[] = ['soundbar', 'milkdrop'];
 const STATUSES: ObservedStatus[] = ['loading', 'playing', 'paused', 'buffering', 'ended', 'error', 'needs_activation'];
 
 const SHAPES: { [T in CommandType]: Shape } = {
@@ -34,6 +35,8 @@ const SHAPES: { [T in CommandType]: Shape } = {
   // Wide sanity range here; the service enforces the configured policy bounds.
   'queue.timer': { paused: (v) => typeof v === 'boolean' },
   'quota.set': { enabled: (v) => typeof v === 'boolean' },
+  'visualizer.mode': { mode: (v) => VISUALIZER_MODES.includes(v as VisualizerMode) },
+  'visualizer.preset': { preset: (v) => v === null || str(300)(v), next: optional((v) => typeof v === 'boolean') },
   'queue.interval': { periodMs: (v) => v === null || (Number.isSafeInteger(v) && (v as number) >= 1000 && (v as number) <= 24 * 3600_000) },
   'request.playNow': { entryId: id },
   'device.pairing.create': { name: str(60) },
@@ -79,6 +82,8 @@ export const COMMAND_ROLES: { [T in CommandType]: Role } = {
   'queue.interval': 'admin',
   'queue.timer': 'admin',
   'quota.set': 'admin',
+  'visualizer.mode': 'admin',
+  'visualizer.preset': 'admin',
   'request.playNow': 'admin',
   'device.pairing.create': 'admin',
   'device.revoke': 'admin',
