@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CommandRunner, VolumeController } from '../src/admin/intents.ts';
 import type { Timers } from '../src/admin/intents.ts';
-import { describeTurn, estimatePosition, explainError, moveAnchor, optimisticIntent, playerState, queueSignature, waitingRequests } from '../src/admin/derive.ts';
+import { applyMove, describeTurn, dropAnchor, estimatePosition, explainError, moveAnchor, optimisticIntent, orderedQueue, playerState, queueSignature, waitingRequests } from '../src/admin/derive.ts';
+import type { Intent } from '../src/admin/intents.ts';
 import { sendCommand } from '../src/shared/api.ts';
 import { URLS } from './helpers.ts';
 import { ORIGIN, ScriptedDisplay, organizer, startApp, startNight } from './admin-helpers.ts';
@@ -582,4 +583,111 @@ test('volume acknowledgements never rewind the running seek clock', async () => 
     const paused = await admin.snapshot();
     assert.equal(estimatePosition(paused, paused.serverTime).positionSec, 126, 'pause still stops extrapolation');
   } finally { await app.stop(); }
+});
+
+test('dropAnchor, applyMove, and orderedQueue handle arbitrary drops, no-ops, and optimistic rollback', () => {
+  assert.deepEqual(dropAnchor(['a', 'b', 'c'], 'c', 'a'), { afterEntryId: null });
+  assert.deepEqual(dropAnchor(['a', 'b', 'c', 'd'], 'd', 'b'), { afterEntryId: 'a' });
+  assert.deepEqual(dropAnchor(['a', 'b', 'c', 'd'], 'a', 'd'), { afterEntryId: 'c' });
+  assert.deepEqual(dropAnchor(['a', 'b', 'c'], 'a', null), { afterEntryId: 'c' });
+
+  // Own-slot no-ops and invalid targets return null.
+  assert.equal(dropAnchor(['a', 'b', 'c'], 'b', 'b'), null);
+  assert.equal(dropAnchor(['a', 'b', 'c'], 'b', 'c'), null);
+  assert.equal(dropAnchor(['a', 'b', 'c'], 'c', null), null);
+  assert.equal(dropAnchor(['a'], 'a', null), null);
+  assert.equal(dropAnchor(['a'], 'a', 'a'), null);
+  assert.equal(dropAnchor(['a', 'b'], 'missing', 'a'), null);
+  assert.equal(dropAnchor(['a', 'b'], 'a', 'missing'), null);
+
+  const items = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
+  assert.deepEqual(applyMove(items, 'd', null).map((x) => x.id), ['d', 'a', 'b', 'c']);
+  assert.deepEqual(applyMove(items, 'a', 'c').map((x) => x.id), ['b', 'c', 'a', 'd']);
+  assert.deepEqual(applyMove(items, 'a', 'd').map((x) => x.id), ['b', 'c', 'd', 'a']);
+  assert.deepEqual(applyMove(items, 'missing', null).map((x) => x.id), ['a', 'b', 'c', 'd']);
+  assert.deepEqual(applyMove(items, 'a', 'missing').map((x) => x.id), ['a', 'b', 'c', 'd']);
+
+  // Newest-first intent list: oldest pending/un-caught-up intents apply first; failed roll back.
+  const baseSnap = { revision: 10 } as never;
+  const intents: Intent[] = [
+    { id: '3', label: 'Failed', type: 'master.move', payload: { entryId: 'b', afterEntryId: 'd' }, status: 'failed', error: null, replayed: false, startedAt: 3, finishedAt: 3, attempts: 1 },
+    { id: '2', label: 'Pending', type: 'master.move', payload: { entryId: 'c', afterEntryId: null }, status: 'pending', error: null, replayed: false, startedAt: 2, finishedAt: null, attempts: 1 },
+    { id: '1', label: 'Settling', type: 'master.move', payload: { entryId: 'd', afterEntryId: null }, status: 'ok', error: null, replayed: false, startedAt: 1, finishedAt: 1, attempts: 1, revision: 11 },
+    { id: '0', label: 'Already in snapshot', type: 'master.move', payload: { entryId: 'a', afterEntryId: 'd' }, status: 'ok', error: null, replayed: false, startedAt: 0, finishedAt: 0, attempts: 1, revision: 10 },
+  ];
+  // Intent '1' moves d -> front: [d, a, b, c]; intent '2' moves c -> front: [c, d, a, b]. '3' failed, '0' caught up.
+  assert.deepEqual(orderedQueue(items, baseSnap, intents, 'master.move').map((x) => x.id), ['c', 'd', 'a', 'b']);
+  assert.deepEqual(orderedQueue(items, { revision: 11 } as never, intents, 'master.move').map((x) => x.id), ['c', 'a', 'b', 'd']);
+});
+
+test('CommandRunner serializes queue moves in user order without blocking playback commands', async () => {
+  const order: string[] = [];
+  let releaseFirstMove!: () => void;
+  const firstMoveGate = new Promise<void>((resolve) => { releaseFirstMove = resolve; });
+  let moveCount = 0;
+
+  const runner = new CommandRunner((async (type, payload, options) => {
+    order.push(`start:${type}:${(payload as { entryId?: string }).entryId ?? ''}`);
+    if (type === 'master.move' && ++moveCount === 1) {
+      await firstMoveGate;
+    }
+    order.push(`end:${type}:${(payload as { entryId?: string }).entryId ?? ''}`);
+    return { ok: true, commandId: options.commandId, revision: order.length, replayed: false, result: {} } as never;
+  }) as Send);
+
+  const m1 = runner.run('Move 1', 'master.move', { entryId: 'a', afterEntryId: null });
+  const m2 = runner.run('Move 2', 'master.move', { entryId: 'b', afterEntryId: 'c' });
+  const p = runner.run('Pause', 'playback.pause', {});
+  await p;
+  assert.deepEqual(order, ['start:master.move:a', 'start:playback.pause:', 'end:playback.pause:'], 'playback does not wait on queue move');
+  releaseFirstMove();
+  await Promise.all([m1, m2]);
+  assert.deepEqual(order, [
+    'start:master.move:a',
+    'start:playback.pause:',
+    'end:playback.pause:',
+    'end:master.move:a',
+    'start:master.move:b',
+    'end:master.move:b',
+  ]);
+});
+
+test('drag-and-drop anchors reorder master and waiting requests over multiple positions via HTTP', async () => {
+  const app = await startApp({ periodMs: 60_000 });
+  try {
+    const admin = await organizer(app);
+    await startNight(app, admin, [URLS.mix, URLS.mix2, URLS.song]);
+    assert.ok((await admin.raw('master.add', { url: URLS.r1 })).body.ok);
+    await app.service.reconcile();
+
+    let masterIds = (await admin.snapshot()).master!.map((m) => m.id);
+    const moveLastToTop = dropAnchor(masterIds, masterIds[3]!, masterIds[0]!)!;
+    assert.ok((await admin.raw('master.move', { entryId: masterIds[3]!, ...moveLastToTop })).body.ok);
+    assert.deepEqual((await admin.snapshot()).master!.map((m) => m.id), [masterIds[3], masterIds[0], masterIds[1], masterIds[2]]);
+
+    masterIds = (await admin.snapshot()).master!.map((m) => m.id);
+    const moveFirstToEnd = dropAnchor(masterIds, masterIds[0]!, null)!;
+    assert.ok((await admin.raw('master.move', { entryId: masterIds[0]!, ...moveFirstToEnd })).body.ok);
+    assert.deepEqual((await admin.snapshot()).master!.map((m) => m.id), [masterIds[1], masterIds[2], masterIds[3], masterIds[0]]);
+
+    const alice = await app.client().login('alice');
+    const bob = await app.client().login('bob');
+    const r1 = await submit(app, alice, URLS.r1);
+    const r2 = await submit(app, alice, URLS.r2);
+    const r3 = await submit(app, bob, URLS.r3);
+    const r4 = await submit(app, bob, URLS.song);
+
+    // Start playing r1 so only [r2, r3, r4] are sortable waiting requests.
+    assert.ok((await admin.raw('request.playNow', { entryId: r1 })).body.ok);
+    const waitingBefore = waitingRequests(await admin.snapshot()).map((r) => r.id);
+    assert.deepEqual(waitingBefore, [r2, r3, r4]);
+
+    const reqMove = dropAnchor(waitingBefore, r4, r2)!;
+    assert.ok((await admin.raw('request.move', { entryId: r4, ...reqMove })).body.ok);
+    const snap = await admin.snapshot();
+    assert.equal(snap.nowPlaying!.entryId, r1, 'playing request stays untouched');
+    assert.deepEqual(waitingRequests(snap).map((r) => r.id), [r4, r2, r3]);
+  } finally {
+    await app.stop();
+  }
 });

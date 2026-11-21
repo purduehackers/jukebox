@@ -116,14 +116,142 @@
 .adm-root .adm-panel { min-width: 0; }
 .adm-root .adm-panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
 .adm-root .adm-empty { color: var(--muted-foreground); padding: 1rem 0; }
-.adm-root .adm-list { display: flex; flex-direction: column; }
-.adm-root .adm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.6rem; padding: 0.4rem 0.25rem; border-top: 1px solid var(--border); }
+.adm-root .adm-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  --drop-marker-color: var(--ph-yellow);
+  --drop-marker-size: 2px;
+  --drop-marker-ring: 8px;
+  --drop-marker-gap: 4px;
+  --drag-item-opacity: 1;
+  --drag-item-shadow: 0 8px 24px color-mix(in oklab, var(--ph-black) 75%, transparent), 0 0 0 1px var(--ph-yellow);
+}
+.adm-root .adm-list[data-drop="true"]::before,
+.adm-root .adm-list[data-drop="true"]::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 40;
+}
+.adm-root .adm-list[data-drop="true"]::before {
+  left: var(--drop-x);
+  top: calc(var(--drop-y) + var(--drop-h) / 2 - var(--drop-marker-ring) / 2);
+  width: var(--drop-marker-ring);
+  height: var(--drop-marker-ring);
+  border: var(--drop-marker-size) solid var(--drop-marker-color);
+  background: var(--card);
+}
+.adm-root .adm-list[data-drop="true"]::after {
+  left: calc(var(--drop-x) + var(--drop-marker-ring) + var(--drop-marker-gap));
+  top: var(--drop-y);
+  width: calc(var(--drop-w) - var(--drop-marker-ring) - var(--drop-marker-gap));
+  height: var(--drop-h);
+  background: var(--drop-marker-color);
+}
+@media (forced-colors: active) {
+  .adm-root .adm-list {
+    --drop-marker-color: Highlight;
+    --drag-item-shadow: 0 0 0 2px Highlight;
+  }
+  .adm-root .adm-list[data-drop="true"]::before {
+    background: Canvas;
+    forced-color-adjust: none;
+  }
+  .adm-root .adm-list[data-drop="true"]::after {
+    forced-color-adjust: none;
+  }
+}
+.adm-root .adm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.6rem; padding: 0.4rem 0.25rem; border-top: 1px solid var(--border); scroll-margin: 1rem; }
 .adm-root .adm-row:hover { background: color-mix(in oklab, var(--foreground) 6%, transparent); }
 .adm-root .adm-row.adm-current { background: color-mix(in oklab, var(--ph-yellow) 10%, transparent); }
 .adm-root .adm-row.adm-current .adm-row-title, .adm-root .adm-row.adm-current .adm-num { color: var(--ph-yellow); }
+.adm-root .adm-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  color: var(--muted-foreground);
+  opacity: 0.55;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: opacity 120ms var(--ph-ease), background-color 120ms var(--ph-ease), color 120ms var(--ph-ease);
+}
+.adm-root .adm-row:hover .adm-drag-handle:not(:disabled) { opacity: 0.85; }
+.adm-root .adm-drag-handle:is(:hover, :focus-visible):not(:disabled) {
+  opacity: 1;
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--foreground) 12%, transparent);
+}
+.adm-root .adm-drag-handle:focus-visible { outline: none; }
+.adm-root .adm-drag-handle[aria-pressed="true"] {
+  opacity: 1;
+  background: var(--ph-yellow);
+  color: var(--ph-black);
+}
+.adm-root .adm-drag-handle:disabled { opacity: 0.25; cursor: not-allowed; }
+.adm-root .adm-drag-spacer { display: inline-block; flex: none; width: 2rem; height: 2rem; }
+.adm-root .adm-row:has(.adm-drag-handle:focus-visible) {
+  outline: 1px solid var(--ring);
+  outline-offset: 2px;
+}
+.adm-root .adm-drag-hint {
+  display: none;
+  flex-basis: 100%;
+  padding-left: calc(2rem + 1.75rem + 1.2rem);
+  font-family: var(--ph-font-mono);
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+.adm-root .adm-row:has(.adm-drag-handle:focus-visible) .adm-drag-hint,
+.adm-root .adm-row[data-grabbed="true"] .adm-drag-hint {
+  display: block;
+}
+.adm-root .adm-row[data-grabbed="true"] .adm-drag-hint {
+  color: var(--ph-yellow);
+}
+.adm-root .adm-row[data-dragging="true"],
+.adm-root .adm-row[data-grabbed="true"],
+.adm-root .adm-row[data-settling="true"] {
+  position: relative;
+  z-index: 30;
+  background: var(--card);
+  box-shadow: var(--drag-item-shadow);
+}
+.adm-root .adm-row[data-dragging="true"] {
+  opacity: var(--drag-item-opacity);
+  scale: 1.02;
+  pointer-events: none;
+}
+.adm-root .adm-row[data-grabbed="true"] {
+  scale: 1.01;
+}
+html.adm-dragging,
+html.adm-dragging *,
+.adm-root.adm-dragging,
+.adm-root.adm-dragging * {
+  cursor: grabbing !important;
+}
+.adm-root.adm-dragging .adm-row:not([data-dragging="true"]):hover {
+  background: transparent;
+}
+.adm-root.adm-dragging .adm-row.adm-current:not([data-dragging="true"]):hover {
+  background: color-mix(in oklab, var(--ph-yellow) 10%, transparent);
+}
+.adm-root.adm-dragging .adm-row .adm-row-actions {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .adm-root .adm-drag-handle { transition: none; }
+}
 .adm-root .adm-num { width: 1.75rem; flex: none; text-align: center; font-family: var(--ph-font-mono); font-weight: 600; font-variant-numeric: tabular-nums; font-size: 0.875rem; color: var(--muted-foreground); }
 .adm-root .adm-current .adm-num { color: var(--ph-yellow); }
-.adm-root .adm-row-main { display: flex; flex-direction: column; flex: 1 1 10rem; min-width: 0; }
+.adm-root .adm-row-main { display: flex; flex-direction: column; flex: 1 1 8rem; min-width: 0; }
 .adm-root .adm-row-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .adm-root .adm-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.1rem; }
 .adm-root .adm-row-actions:has(.adm-confirm) { flex-basis: 100%; justify-content: flex-end; }
@@ -151,6 +279,8 @@
 
 @media (max-width: 640px) {
   .adm-root button { min-height: 44px; }
+  .adm-root .adm-drag-handle, .adm-root .adm-drag-spacer { min-width: 44px; min-height: 44px; }
+  .adm-root .adm-drag-hint { padding-left: calc(44px + 1.75rem + 1.2rem); }
   .adm-root input:not([type='range']) { font-size: 16px; }
   .adm-root .adm-volume { margin-left: 0; flex-basis: 100%; }
   .adm-root .adm-art { width: 64px; height: 64px; }

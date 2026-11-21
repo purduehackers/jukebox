@@ -1,7 +1,7 @@
 // Organizer controls at /admin. Composition only: data in state.ts, rules in derive.ts,
 // command identity in intents.ts, markup in views.tsx. Rendered as an Astro React island
 // (client:load): the gate/loading states are server-rendered, the console hydrates in place.
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import type { QueueMode, Snapshot } from '../contract/types.ts';
 import { Button } from '../components/ph/button.tsx';
 import { Card } from '../components/ph/card.tsx';
@@ -13,7 +13,9 @@ import {
   type ControlsHandle,
   type LiveHandle,
 } from './state.ts';
-import { estimatePosition, moveAnchor, optimisticIntent, waitingRequests } from './derive.ts';
+import { estimatePosition, optimisticIntent, orderedQueue, waitingRequests } from './derive.ts';
+import type { Direction } from './derive.ts';
+import { useQueueReorder } from './reorder.ts';
 import {
   AccessGate,
   ActivityPanel,
@@ -60,7 +62,26 @@ export function AdminPage() {
   const [armedConfirm, setArmedConfirm] = useState<{ id: string; context: number | undefined } | null>(null);
   const [displayDelayed, setDisplayDelayed] = useState(false);
   const [localNow, setLocalNow] = useState(() => Date.now());
+  const [announcement, setAnnouncement] = useState('');
   const banMenuRef = useRef<HTMLDivElement>(null);
+  const masterListRef = useRef<HTMLUListElement | null>(null);
+  const requestListRef = useRef<HTMLUListElement | null>(null);
+  const announceTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (announceTimerRef.current !== null) window.clearTimeout(announceTimerRef.current);
+    };
+  }, []);
+
+  const announce = useCallback((message: string, delayMs = 100) => {
+    if (announceTimerRef.current !== null) window.clearTimeout(announceTimerRef.current);
+    setAnnouncement('');
+    announceTimerRef.current = window.setTimeout(() => {
+      announceTimerRef.current = null;
+      setAnnouncement(message);
+    }, delayMs);
+  }, []);
 
   const { runner, volume } = controls ?? { runner: null, volume: null };
   useEffect(() => {
@@ -127,6 +148,63 @@ export function AdminPage() {
   const snapshot = live?.snapshot ?? null;
   const serverNow = live ? getServerNow(live, localNow) : localNow;
   const intents = controls?.intents ?? [];
+
+  const masterItems = useMemo(
+    () => (snapshot ? orderedQueue(snapshot.master ?? [], snapshot, intents, 'master.move') : []),
+    [snapshot, intents],
+  );
+  const waitingItems = useMemo(
+    () => (snapshot ? orderedQueue(waitingRequests(snapshot), snapshot, intents, 'request.move') : []),
+    [snapshot, intents],
+  );
+
+  const masterCancelRef = useRef<() => void>(() => undefined);
+  const requestCancelRef = useRef<() => void>(() => undefined);
+
+  const onMasterInteract = useCallback(() => {
+    setArmedConfirm(null);
+    requestCancelRef.current();
+  }, []);
+
+  const onRequestInteract = useCallback(() => {
+    setArmedConfirm(null);
+    masterCancelRef.current();
+  }, []);
+
+  const commitMasterMove = useCallback(
+    (entryId: string, afterEntryId: string | null, title: string) => {
+      if (actions) void actions.moveMaster(entryId, afterEntryId, title);
+    },
+    [actions],
+  );
+
+  const commitRequestMove = useCallback(
+    (entryId: string, afterEntryId: string | null, title: string) => {
+      if (actions) void actions.moveRequest(entryId, afterEntryId, title);
+    },
+    [actions],
+  );
+
+  const masterReorder = useQueueReorder({
+    queue: 'master',
+    items: masterItems,
+    listRef: masterListRef,
+    onCommitMove: commitMasterMove,
+    onStartInteraction: onMasterInteract,
+    onAnnounce: announce,
+  });
+
+  const requestReorder = useQueueReorder({
+    queue: 'request',
+    items: waitingItems,
+    listRef: requestListRef,
+    onCommitMove: commitRequestMove,
+    onStartInteraction: onRequestInteract,
+    onAnnounce: announce,
+  });
+
+  masterCancelRef.current = () => masterReorder.cancelKeyboardGrab({ silent: true });
+  requestCancelRef.current = () => requestReorder.cancelKeyboardGrab({ silent: true });
 
   // 15-second DisplayWait delay timer keyed on playback.desiredEpoch while waiting.
   const confirmation = snapshot?.playback.confirmation;
@@ -336,20 +414,9 @@ export function AdminPage() {
     if (moveBtn?.dataset.admMoveQueue && moveBtn.dataset.admMoveId && moveBtn.dataset.admMoveDir) {
       const queue = moveBtn.dataset.admMoveQueue as 'master' | 'request';
       const entryId = moveBtn.dataset.admMoveId;
-      const dir = moveBtn.dataset.admMoveDir as 'up' | 'down';
-      if (queue === 'master') {
-        const list = snapshot.master ?? [];
-        const index = list.findIndex((m) => m.id === entryId);
-        const ids = list.map((m) => m.id);
-        const anchor = index >= 0 ? moveAnchor(ids, index, dir) : null;
-        if (anchor && list[index]) void actions.moveMaster(entryId, anchor.afterEntryId, list[index]!.title);
-      } else {
-        const list = waitingRequests(snapshot);
-        const index = list.findIndex((r) => r.id === entryId);
-        const ids = list.map((r) => r.id);
-        const anchor = index >= 0 ? moveAnchor(ids, index, dir) : null;
-        if (anchor && list[index]) void actions.moveRequest(entryId, anchor.afterEntryId, list[index]!.title);
-      }
+      const dir = moveBtn.dataset.admMoveDir as Direction;
+      if (queue === 'master') masterReorder.moveByButton(entryId, dir, moveBtn);
+      else requestReorder.moveByButton(entryId, dir, moveBtn);
       return;
     }
 
@@ -497,9 +564,34 @@ export function AdminPage() {
             onDraftChange={setQcDraft}
           />
         </AddBar>
+        <p className="adm-sr" role="status" aria-live="polite" aria-atomic="true" data-testid="reorder-status">
+          {announcement}
+        </p>
         <div className="adm-queues">
-          <MasterQueuePanel snapshot={snapshot} armedId={armedConfirm?.id ?? null} />
-          <RequestQueuePanel snapshot={snapshot} armedId={armedConfirm?.id ?? null} />
+          <MasterQueuePanel
+            snapshot={snapshot}
+            armedId={armedConfirm?.id ?? null}
+            items={masterReorder.displayItems}
+            listRef={masterListRef}
+            grabbedId={masterReorder.grabbedId}
+            onHandlePointerDown={masterReorder.handlePointerDown}
+            onHandleKeyDown={masterReorder.handleKeyDown}
+            onHandleBlur={masterReorder.handleBlur}
+            onHandleClick={masterReorder.handleClick}
+            onListFocus={masterReorder.handleListFocus}
+          />
+          <RequestQueuePanel
+            snapshot={snapshot}
+            armedId={armedConfirm?.id ?? null}
+            waitingItems={requestReorder.displayItems}
+            listRef={requestListRef}
+            grabbedId={requestReorder.grabbedId}
+            onHandlePointerDown={requestReorder.handlePointerDown}
+            onHandleKeyDown={requestReorder.handleKeyDown}
+            onHandleBlur={requestReorder.handleBlur}
+            onHandleClick={requestReorder.handleClick}
+            onListFocus={requestReorder.handleListFocus}
+          />
         </div>
         <ActivityPanel
           intents={intents}

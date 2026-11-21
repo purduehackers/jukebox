@@ -36,6 +36,7 @@ export class CommandRunner {
   private listeners = new Set<() => void>();
   private readonly send: Send;
   private playbackTail: Promise<unknown> = Promise.resolve();
+  private queueTail: Promise<unknown> = Promise.resolve();
   private readonly now: () => number;
   private readonly newId: () => string;
 
@@ -99,10 +100,17 @@ export class CommandRunner {
   }
 
   private enqueue(id: string, type: CommandType): Promise<Intent> {
-    if (!type.startsWith('playback.')) return this.dispatch(id);
-    const dispatched = this.playbackTail.then(() => this.dispatch(id));
-    this.playbackTail = dispatched.catch(() => undefined);
-    return dispatched;
+    if (type.startsWith('playback.')) {
+      const dispatched = this.playbackTail.then(() => this.dispatch(id));
+      this.playbackTail = dispatched.catch(() => undefined);
+      return dispatched;
+    }
+    if (type === 'master.move' || type === 'request.move') {
+      const dispatched = this.queueTail.then(() => this.dispatch(id));
+      this.queueTail = dispatched.catch(() => undefined);
+      return dispatched;
+    }
+    return this.dispatch(id);
   }
 
   private async dispatch(id: string): Promise<Intent> {

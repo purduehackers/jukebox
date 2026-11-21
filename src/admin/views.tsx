@@ -1,6 +1,13 @@
 // Presentational admin views as React components. Props in, elements out: no fetching or browser
 // globals required, so unit/SSR tests render live snapshots directly with renderToStaticMarkup.
-import type { ReactNode } from 'react';
+import type {
+  FocusEvent as ReactFocusEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+  RefObject,
+} from 'react';
 import type {
   MasterEntryView,
   QueueActivityEntry,
@@ -783,6 +790,57 @@ export function QueueControls({
 
 // queues
 
+export interface QueueReorderProps {
+  listRef?: RefObject<HTMLUListElement | null>;
+  grabbedId?: string | null;
+  onHandlePointerDown?: (event: ReactPointerEvent<HTMLButtonElement>, entryId: string) => void;
+  onHandleKeyDown?: (event: ReactKeyboardEvent<HTMLButtonElement>, entryId: string) => void;
+  onHandleBlur?: (event: ReactFocusEvent<HTMLButtonElement>, entryId: string) => void;
+  onHandleClick?: (event: ReactMouseEvent<HTMLButtonElement>, entryId: string) => void;
+  onListFocus?: (event: ReactFocusEvent<HTMLUListElement>) => void;
+}
+
+function DragHandle({
+  queue,
+  entryId,
+  title,
+  disabled,
+  grabbed,
+  onPointerDown,
+  onKeyDown,
+  onBlur,
+  onClick,
+}: {
+  queue: 'master' | 'request';
+  entryId: string;
+  title: string;
+  disabled: boolean;
+  grabbed: boolean;
+  onPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>, entryId: string) => void;
+  onKeyDown?: (event: ReactKeyboardEvent<HTMLButtonElement>, entryId: string) => void;
+  onBlur?: (event: ReactFocusEvent<HTMLButtonElement>, entryId: string) => void;
+  onClick?: (event: ReactMouseEvent<HTMLButtonElement>, entryId: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="adm-drag-handle"
+      disabled={disabled}
+      aria-label={`Reorder ${title}`}
+      aria-pressed={grabbed}
+      title={disabled ? undefined : 'Drag to reorder, or press Space to reorder with arrow keys'}
+      data-adm-drag-handle={queue}
+      data-adm-drag-id={entryId}
+      onPointerDown={onPointerDown ? (event) => onPointerDown(event, entryId) : undefined}
+      onKeyDown={onKeyDown ? (event) => onKeyDown(event, entryId) : undefined}
+      onBlur={onBlur ? (event) => onBlur(event, entryId) : undefined}
+      onClick={onClick ? (event) => onClick(event, entryId) : undefined}
+    >
+      <Icon name="bars" />
+    </button>
+  );
+}
+
 function MoveButtons({
   queue,
   entryId,
@@ -869,25 +927,58 @@ function PlayNowButton({
 export function RequestQueuePanel({
   snapshot,
   armedId = null,
+  waitingItems,
+  listRef,
+  grabbedId = null,
+  onHandlePointerDown,
+  onHandleKeyDown,
+  onHandleBlur,
+  onHandleClick,
+  onListFocus,
 }: {
   snapshot: Snapshot;
   actions?: Actions;
   armedId?: string | null;
-}) {
+  waitingItems?: readonly RequestEntryView[];
+} & QueueReorderProps) {
   const playing = playingRequest(snapshot);
-  const waiting = waitingRequests(snapshot);
+  const waiting = waitingItems ?? waitingRequests(snapshot);
   const row = (r: RequestEntryView, index: number) => {
+    const isPlaying = r.status === 'playing';
+    const sortable = !isPlaying;
+    const grabbed = sortable && grabbedId === r.id;
     const t = REQUEST_TAG[r.status];
-    const rowActions =
-      r.status !== 'playing'
-        ? [
-            <MoveButtons key="m" queue="request" entryId={r.id} index={index} length={waiting.length} />,
-            <PlayNowButton key="p" snapshot={snapshot} request={r} armed={armedId === `request-playNow:${r.id}`} />,
-          ]
-        : null;
+    const rowActions = sortable
+      ? [
+          <MoveButtons key="m" queue="request" entryId={r.id} index={index} length={waiting.length} />,
+          <PlayNowButton key="p" snapshot={snapshot} request={r} armed={armedId === `request-playNow:${r.id}`} />,
+        ]
+      : null;
     const sub = `${r.artist ?? 'Unknown artist'} · ${time(r.durationSec)} · from ${r.requester ?? 'unknown'}`;
     return (
-      <li key={r.id} className={`adm-row${r.status === 'playing' ? ' adm-current' : ''}`} data-entry={r.id} data-status={r.status}>
+      <li
+        key={r.id}
+        className={`adm-row${isPlaying ? ' adm-current' : ''}`}
+        data-entry={r.id}
+        data-status={r.status}
+        data-sortable={sortable ? 'true' : 'false'}
+        data-grabbed={grabbed ? 'true' : undefined}
+      >
+        {sortable ? (
+          <DragHandle
+            queue="request"
+            entryId={r.id}
+            title={r.title}
+            disabled={waiting.length <= 1}
+            grabbed={grabbed}
+            onPointerDown={onHandlePointerDown}
+            onKeyDown={onHandleKeyDown}
+            onBlur={onHandleBlur}
+            onClick={onHandleClick}
+          />
+        ) : (
+          <span className="adm-drag-spacer" aria-hidden="true" />
+        )}
         <span className="adm-num">{index < 0 ? '▶' : index + 1}</span>
         <div className="adm-row-main">
           <span className="adm-row-title">{r.title}</span>
@@ -904,12 +995,17 @@ export function RequestQueuePanel({
             armed={armedId === `request-remove:${r.id}`}
             confirmId={`request-remove:${r.id}`}
             warning={
-              r.status === 'playing'
+              isPlaying
                 ? 'Stops this request now without refunding it; master music resumes.'
                 : 'Removes this request without refunding it.'
             }
           />
         </div>
+        {sortable && waiting.length > 1 && (
+          <span className="adm-drag-hint" aria-hidden="true">
+            {grabbed ? 'Arrows to move · Space to drop · Esc to cancel' : 'Space to reorder'}
+          </span>
+        )}
       </li>
     );
   };
@@ -920,7 +1016,7 @@ export function RequestQueuePanel({
       aside={<span className="adm-dim adm-small">{waiting.length} waiting</span>}
     >
       {playing || waiting.length ? (
-        <ul className="adm-list" aria-label="Request items">
+        <ul ref={listRef} className="adm-list" aria-label="Request items" onFocus={onListFocus}>
           {playing && row(playing, -1)}
           {waiting.map(row)}
         </ul>
@@ -940,21 +1036,49 @@ const MASTER_TAG: Partial<Record<MasterEntryView['status'], [Tone, string]>> = {
 export function MasterQueuePanel({
   snapshot,
   armedId = null,
+  items,
+  listRef,
+  grabbedId = null,
+  onHandlePointerDown,
+  onHandleKeyDown,
+  onHandleBlur,
+  onHandleClick,
+  onListFocus,
 }: {
   snapshot: Snapshot;
   actions?: Actions;
   armedId?: string | null;
-}) {
-  const master = snapshot.master ?? [];
+  items?: readonly MasterEntryView[];
+} & QueueReorderProps) {
+  const master = items ?? snapshot.master ?? [];
   const currentId =
     snapshot.schedule.phase === 'master' ? snapshot.nowPlaying?.entryId : snapshot.suspendedMaster?.entryId;
   const row = (m: MasterEntryView, index: number) => {
     const isCurrent = m.id === currentId;
     const suspended = snapshot.suspendedMaster?.entryId === m.id;
+    const grabbed = grabbedId === m.id;
     const t = MASTER_TAG[m.status] ?? (m.status === 'ready' ? null : (['dim', m.status] as [Tone, string]));
     const sub = `${m.artist ?? 'Unknown artist'} · ${time(m.durationSec)}${m.isMix ? ' · mix' : ''}`;
     return (
-      <li key={m.id} className={`adm-row${isCurrent ? ' adm-current' : ''}`} data-entry={m.id} data-status={m.status}>
+      <li
+        key={m.id}
+        className={`adm-row${isCurrent ? ' adm-current' : ''}`}
+        data-entry={m.id}
+        data-status={m.status}
+        data-sortable="true"
+        data-grabbed={grabbed ? 'true' : undefined}
+      >
+        <DragHandle
+          queue="master"
+          entryId={m.id}
+          title={m.title}
+          disabled={master.length <= 1}
+          grabbed={grabbed}
+          onPointerDown={onHandlePointerDown}
+          onKeyDown={onHandleKeyDown}
+          onBlur={onHandleBlur}
+          onClick={onHandleClick}
+        />
         <span className="adm-num">{isCurrent ? (suspended ? '❚❚' : '▶') : index + 1}</span>
         <div className="adm-row-main">
           <span className="adm-row-title">{m.title}</span>
@@ -978,6 +1102,11 @@ export function MasterQueuePanel({
             }
           />
         </div>
+        {master.length > 1 && (
+          <span className="adm-drag-hint" aria-hidden="true">
+            {grabbed ? 'Arrows to move · Space to drop · Esc to cancel' : 'Space to reorder'}
+          </span>
+        )}
       </li>
     );
   };
@@ -992,7 +1121,7 @@ export function MasterQueuePanel({
       }
     >
       {master.length ? (
-        <ul className="adm-list" aria-label="Master items">
+        <ul ref={listRef} className="adm-list" aria-label="Master items" onFocus={onListFocus}>
           {master.map(row)}
         </ul>
       ) : (

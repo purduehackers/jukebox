@@ -205,3 +205,42 @@ test('routine volume changes do not clutter activity; failed volume changes rema
   assert.match(text(failed), /Connection lost/);
   assert.match(failed, />Retry</);
 });
+
+test('queue panels render drag handles for sortable items, spacer for playing request, and grabbed hints', async () => {
+  const app = await startApp({ periodMs: 60_000 });
+  try {
+    const admin = await organizer(app);
+    await startNight(app, admin, [URLS.mix, URLS.song]);
+    const alice = await app.client().login('alice');
+    const bob = await app.client().login('bob');
+    assert.ok((await alice.raw('request.submit', { url: URLS.r1 })).body.ok);
+    assert.ok((await bob.raw('request.submit', { url: URLS.r2 })).body.ok);
+    assert.ok((await alice.raw('request.submit', { url: URLS.r3 })).body.ok);
+    await app.service.reconcile();
+    const firstReq = (await admin.snapshot()).requests[0]!;
+    assert.ok((await admin.raw('request.playNow', { entryId: firstReq.id })).body.ok);
+    const snap = await admin.snapshot();
+
+    const master = html(createElement(views.MasterQueuePanel, { snapshot: snap, actions, grabbedId: snap.master![0]!.id }));
+    assert.equal((master.match(/data-adm-drag-handle="master"/g) ?? []).length, 2);
+    assert.match(master, /aria-label="Reorder Hour Mix"/);
+    assert.match(master, /aria-pressed="true"/);
+    assert.match(master, /data-grabbed="true"/);
+    assert.match(master, /Arrows to move · Space to drop · Esc to cancel/);
+    assert.match(master, /Space to reorder/);
+
+    const requests = html(createElement(views.RequestQueuePanel, { snapshot: snap, actions }));
+    assert.match(requests, /data-sortable="false"/);
+    assert.match(requests, /adm-drag-spacer/);
+    assert.equal((requests.match(/data-adm-drag-handle="request"/g) ?? []).length, 2);
+    assert.match(requests, /data-sortable="true"/);
+
+    // Single-item list disables the drag handle.
+    const singleSnap = { ...snap, master: [snap.master![0]!] };
+    const singleMaster = html(createElement(views.MasterQueuePanel, { snapshot: singleSnap, actions }));
+    assert.match(singleMaster, /class="adm-drag-handle"[^>]*disabled=""|disabled=""[^>]*class="adm-drag-handle"/);
+    assert.doesNotMatch(singleMaster, /adm-drag-hint/);
+  } finally {
+    await app.stop();
+  }
+});

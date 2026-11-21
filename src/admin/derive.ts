@@ -158,6 +158,64 @@ export function moveAnchor(ids: readonly string[], index: number, direction: Dir
   return index === ids.length - 1 ? null : { afterEntryId: ids[index + 1]! };
 }
 
+/** `afterEntryId` for `*.move` when placing `draggedId` immediately before `insertBeforeId` (or at the end when `null`). */
+export function dropAnchor(
+  ids: readonly string[],
+  draggedId: string,
+  insertBeforeId: string | null,
+): { afterEntryId: string | null } | null {
+  const from = ids.indexOf(draggedId);
+  if (from < 0 || insertBeforeId === draggedId) return null;
+  const currentNext = ids[from + 1] ?? null;
+  if (insertBeforeId === currentNext) return null;
+  const others = ids.filter((id) => id !== draggedId);
+  if (insertBeforeId === null) return { afterEntryId: others.at(-1) ?? null };
+  const targetIdx = others.indexOf(insertBeforeId);
+  if (targetIdx < 0) return null;
+  return { afterEntryId: targetIdx === 0 ? null : others[targetIdx - 1]! };
+}
+
+/** Purely reorder `items` by moving `entryId` after `afterEntryId` (or to the start when `null`). */
+export function applyMove<T extends { id: string }>(
+  items: readonly T[],
+  entryId: string,
+  afterEntryId: string | null,
+): T[] {
+  const idx = items.findIndex((item) => item.id === entryId);
+  if (idx < 0 || afterEntryId === entryId) return [...items];
+  const entry = items[idx]!;
+  const rest = items.filter((_, i) => i !== idx);
+  if (afterEntryId === null) return [entry, ...rest];
+  const afterIdx = rest.findIndex((item) => item.id === afterEntryId);
+  if (afterIdx < 0) return [...items];
+  return [...rest.slice(0, afterIdx + 1), entry, ...rest.slice(afterIdx + 1)];
+}
+
+/** Apply pending and un-caught-up move intents optimistically over the server list; failed intents roll back. */
+export function orderedQueue<T extends { id: string }>(
+  items: readonly T[],
+  snapshot: Snapshot,
+  intents: readonly Intent[],
+  type: 'master.move' | 'request.move',
+): T[] {
+  const active = intents
+    .filter(
+      (intent) =>
+        intent.type === type &&
+        (intent.status === 'pending' ||
+          (intent.status === 'ok' && intent.revision !== undefined && snapshot.revision < intent.revision)),
+    )
+    .reverse();
+  let result = [...items];
+  for (const intent of active) {
+    const payload = intent.payload as { entryId?: string; afterEntryId?: string | null } | undefined;
+    if (payload?.entryId !== undefined && payload.afterEntryId !== undefined) {
+      result = applyMove(result, payload.entryId, payload.afterEntryId);
+    }
+  }
+  return result;
+}
+
 export const waitingRequests = (snapshot: Snapshot): RequestEntryView[] => snapshot.requests.filter((r) => r.status === 'ready' || r.status === 'preparing');
 export const playingRequest = (snapshot: Snapshot): RequestEntryView | undefined => snapshot.requests.find((r) => r.status === 'playing');
 export const masterList = (snapshot: Snapshot): MasterEntryView[] => snapshot.master ?? [];
